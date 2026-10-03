@@ -12,13 +12,12 @@ export interface CompletedSetRecord {
   setIndex: number
   weight: number
   reps: number
-  rpe: number
+  rir: number
   weightUnit: 'lb'
   completedAt: string
   weekNumber: number
   repRange: RepRange
   targetRir: number
-  targetRpe: number
 }
 
 export interface SavedWorkoutState {

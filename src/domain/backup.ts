@@ -4,7 +4,7 @@ import type { CompletedSetRecord } from './storage'
 export interface CompletedWorkoutBackup { id: string; completedAt: string; schemaVersion: 1; sets: CompletedSetRecord[] }
 
 const completedSetSchema = z.object({
-  id: z.string().min(1), sessionId: z.string().uuid(), workoutId: z.string().min(1), exerciseId: z.string().min(1), exerciseName: z.string().min(1), setIndex: z.number().int().positive(), weight: z.number().nonnegative(), reps: z.number().int().positive(), rpe: z.number().min(1).max(10), weightUnit: z.literal('lb'), completedAt: z.string().datetime(), weekNumber: z.number().int().positive(), repRange: z.object({ min: z.number().int().positive(), max: z.number().int().positive() }), targetRir: z.number(), targetRpe: z.number().min(1).max(10),
+  id: z.string().min(1), sessionId: z.string().uuid(), workoutId: z.string().min(1), exerciseId: z.string().min(1), exerciseName: z.string().min(1), setIndex: z.number().int().positive(), weight: z.number().nonnegative(), reps: z.number().int().positive(), rir: z.number().min(1).max(10), weightUnit: z.literal('lb'), completedAt: z.string().datetime(), weekNumber: z.number().int().positive(), repRange: z.object({ min: z.number().int().positive(), max: z.number().int().positive() }), targetRir: z.number(),
 })
 const backupSchema = z.object({ id: z.string().uuid(), completedAt: z.string().datetime(), schemaVersion: z.literal(1), sets: z.array(completedSetSchema).min(1) })
 

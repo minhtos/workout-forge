@@ -10,7 +10,7 @@ describe('workout storage', () => {
       duration: 5 as const,
       completedIds: ['workout-1-1'],
       program,
-      history: [{ id: 'session-1-barbell-bench-press-1', sessionId: 'session-1', workoutId: 'workout-1-1', exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex: 1, weight: 135, reps: 8, rpe: 7, weightUnit: 'lb' as const, completedAt: '2026-10-05T12:00:00.000Z', weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3, targetRpe: 7 }],
+      history: [{ id: 'session-1-barbell-bench-press-1', sessionId: 'session-1', workoutId: 'workout-1-1', exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex: 1, weight: 135, reps: 8, rir: 7, weightUnit: 'lb' as const, completedAt: '2026-10-05T12:00:00.000Z', weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3}],
     }
 
     saveWorkoutState(state)

@@ -3,7 +3,7 @@ import { createCompletedWorkoutBackup, mergeBackupSets, parseRemoteBackups } fro
 import type { CompletedSetRecord } from './storage'
 
 const set: CompletedSetRecord = {
-  id: 'set-1', sessionId: '550e8400-e29b-41d4-a716-446655440000', workoutId: 'workout-1', exerciseId: 'bench', exerciseName: 'Bench Press', setIndex: 1, weight: 135, reps: 8, rpe: 7, weightUnit: 'lb', completedAt: '2026-10-03T12:00:00.000Z', weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3, targetRpe: 7,
+  id: 'set-1', sessionId: '550e8400-e29b-41d4-a716-446655440000', workoutId: 'workout-1', exerciseId: 'bench', exerciseName: 'Bench Press', setIndex: 1, weight: 135, reps: 8, rir: 7, weightUnit: 'lb', completedAt: '2026-10-03T12:00:00.000Z', weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3,
 }
 
 describe('cloud backup payloads', () => {
