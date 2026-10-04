@@ -18,7 +18,7 @@ export interface WorkoutSet {
 const slots = (...groups: [MuscleGroup, number][]): WorkoutSetSlot[] => groups.flatMap(([category, count]) => Array.from({ length: count }, () => ({ category })))
 const lift = (category: MuscleGroup, exerciseId: string, sets = 5, reps = 5): WorkoutSetSlot => ({ category, exerciseId, sets, reps })
 
-export const workoutSets: WorkoutSet[] = [
+const definitions: WorkoutSet[] = [
   {
     id: 'push-pull-legs', name: 'Push | Pull | Legs', recommendedDays: 3, progression: 'rir', rotation: false,
     summary: 'Chest and triceps, back and biceps, then legs. Pick an exercise for each muscle slot.',
@@ -55,6 +55,9 @@ export const workoutSets: WorkoutSet[] = [
     ],
   },
 ]
+
+/** Listed from fewest to most training days (ties keep the order above). */
+export const workoutSets: WorkoutSet[] = [...definitions].sort((a, b) => a.recommendedDays - b.recommendedDays)
 
 export const findWorkoutSet = (id: string | null): WorkoutSet | undefined => workoutSets.find((set) => set.id === id)
 

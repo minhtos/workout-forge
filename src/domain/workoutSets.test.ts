@@ -9,9 +9,9 @@ const set = (id: string) => findWorkoutSet(id)!
 const applied = (id: string, weeks: 4 | 6 = 4) => applyWorkoutSet(createBlock(3, weeks), set(id))
 
 describe('Workout Sets', () => {
-  it('offers the four sets with their recommended day counts', () => {
+  it('offers the four sets ordered from 2 to 4 days', () => {
     expect(workoutSets.map((entry) => [entry.name, entry.recommendedDays])).toEqual([
-      ['Push | Pull | Legs', 3], ['Push | Pull A/B Split', 4], ['Whole Body', 2], ['StrongLifts 5x5', 3],
+      ['Whole Body', 2], ['Push | Pull | Legs', 3], ['StrongLifts 5x5', 3], ['Push | Pull A/B Split', 4],
     ])
   })
 
