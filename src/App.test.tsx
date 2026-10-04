@@ -121,7 +121,7 @@ describe('Workout Forge gym flow', () => {
 
   it('starts the 5x5 set ready to go and alternates workouts', () => {
     openPlanner('3', '4')
-    fireEvent.click(screen.getByRole('button', { name: 'Use Starting Strength 5x5' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Use StrongLifts 5x5' }))
     fireEvent.click(screen.getByRole('button', { name: /start block/i }))
     expect(screen.getByRole('heading', { name: 'Workout A' })).toBeTruthy()
     expect(screen.getAllByText(/5 sets × 5 reps/).length).toBe(3)

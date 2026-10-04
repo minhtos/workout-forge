@@ -47,8 +47,8 @@ export const workoutSets: WorkoutSet[] = [
     ],
   },
   {
-    id: 'strength-5x5', name: 'Starting Strength 5x5', recommendedDays: 3, progression: 'linear', rotation: true,
-    summary: 'Classic novice strength: workouts A and B alternate (A/B/A, then B/A/B). 5 sets of 5, adding weight every session.',
+    id: 'strength-5x5', name: 'StrongLifts 5x5', recommendedDays: 3, progression: 'linear', rotation: true,
+    summary: 'Workouts A and B alternate (A/B/A, then B/A/B). 5 sets of 5, adding weight every session.',
     days: [
       { title: 'Workout A', slots: [lift('Quads', 'barbell-squat'), lift('Chest', 'barbell-bench-press'), lift('Back', 'barbell-row')] },
       { title: 'Workout B', slots: [lift('Quads', 'barbell-squat'), lift('Shoulders', 'barbell-overhead-press'), lift('Hamstrings', 'barbell-deadlift', 1, 5)] },
