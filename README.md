@@ -1,6 +1,6 @@
 # Workout Forge
 
-A local-first PWA for RIR-based hypertrophy training blocks. Built for the gym: you see only today's workout, and every set saves the moment you log it.
+**Live at https://workoutforge.app** — a local-first PWA for RIR-based hypertrophy training blocks. Built for the gym: you see only today's workout, and every set saves the moment you log it.
 
 ## How it works
 
@@ -28,7 +28,7 @@ npm install
 npm run dev
 ```
 
-Environment: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`. In Supabase Auth, set the Site URL and Redirect URLs to your deployed origin (magic links return to the site root). Apply `supabase/migrations/*.sql` in order.
+Environment: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`. In Supabase Auth, set the Site URL and Redirect URLs to your deployed origin, `https://workoutforge.app` (magic links return to the site root). Apply `supabase/migrations/*.sql` in order.
 
 ## Verification
 
