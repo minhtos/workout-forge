@@ -1,6 +1,8 @@
 import { useState } from 'react'
 
 interface Props {
+  restTimer: boolean
+  onRestTimer: (enabled: boolean) => void
   cloudEnabled: boolean
   accountEmail: string | null
   status: string
@@ -14,10 +16,13 @@ interface Props {
   onNewBlock: () => void
 }
 
-export function SettingsView({ cloudEnabled, accountEmail, status, pendingCount, onSendLink, onSignOut, onBackupAll, onRestore, onExport, onImport, onNewBlock }: Props) {
+export function SettingsView({ restTimer, onRestTimer, cloudEnabled, accountEmail, status, pendingCount, onSendLink, onSignOut, onBackupAll, onRestore, onExport, onImport, onNewBlock }: Props) {
   const [email, setEmail] = useState('')
   return <section className="workspace" aria-labelledby="settings-title">
-    <div className="workspace-heading"><div><div className="eyebrow">SETTINGS</div><h1 id="settings-title">Backup & data</h1><p>Workouts always save on this device first.</p></div></div>
+    <div className="workspace-heading"><div><div className="eyebrow">SETTINGS</div><h1 id="settings-title">Settings</h1><p>Workouts always save on this device first.</p></div></div>
+    <section className="preview-card"><div><span className="preview-label">WORKOUT</span><h2 id="rest-timer-label">Rest timer</h2><p>Counts down after each set you check off. Pick 60, 90, 120 or 180 seconds right on the timer. Off by default.</p></div>
+      <button type="button" role="switch" className="switch" aria-checked={restTimer} aria-labelledby="rest-timer-label" onClick={() => onRestTimer(!restTimer)}><span className="switch-thumb" /></button>
+    </section>
     {cloudEnabled && <section className="preview-card"><div><span className="preview-label">CLOUD BACKUP</span><h2>{accountEmail ? `Signed in: ${accountEmail}` : 'Protect your training history'}</h2><p>{status || (accountEmail ? (pendingCount ? `${pendingCount} session(s) waiting to back up.` : 'Every set backs up automatically. You stay signed in on this device.') : 'Sign in with a magic link to back up and use multiple devices.')}</p></div>
       {accountEmail
         ? <div className="button-row"><button className="secondary-button" onClick={onBackupAll}>Back up now</button><button className="secondary-button" onClick={onRestore}>Restore</button><button className="secondary-button" onClick={onSignOut}>Sign out</button></div>

@@ -5,6 +5,7 @@ import { totalWeeks, type ProgramDurationWeeks } from './domain/progression'
 import { addSetEntry, applyEntryPatch, buildInitialSets, parseEntry, removeLastSetEntry } from './domain/session'
 import { applyWorkoutSet, type WorkoutSet } from './domain/workoutSets'
 import { archiveWorkoutState, emptyState, exportWorkoutState, loadWorkoutState, parseImportedState, saveWorkoutState, type SavedWorkoutState, type SetEntry } from './domain/storage'
+import { loadRestTimerEnabled, saveRestTimerEnabled } from './domain/settings'
 import { backupSession, restoreSessions } from './domain/sync'
 import { supabase } from './lib/supabase'
 import { PlanView } from './views/PlanView'
@@ -35,6 +36,7 @@ function App() {
   const [cloudStatus, setCloudStatus] = useState('')
   const [entryError, setEntryError] = useState('')
   const [saveFailed, setSaveFailed] = useState(false)
+  const [restTimer, setRestTimer] = useState(loadRestTimerEnabled)
   const [online, setOnline] = useState(0)
   const stateRef = useRef(state)
   const flushing = useRef(false)
@@ -230,9 +232,9 @@ function App() {
     {view === 'setup' && <SetupView days={setupDays} weeks={setupWeeks} hasHistory={history.length > 0} onDays={setSetupDays} onWeeks={setSetupWeeks} onContinue={() => { setState({ ...state, block: createBlock(setupDays, setupWeeks) }); setView('plan') }} />}
     {view === 'plan' && block && <PlanView block={block} catalog={catalog} onApplySet={applySet} onChoose={(day, position, id) => editPlan((current) => setSlotExercise(current, day, position, id))} onRename={(day, title) => editPlan((current) => renameDay(current, day, title))} onAdd={(day, id) => editPlan((current) => addExerciseToDay(current, day, id))} onCreate={createExercise} onRemove={(day, position) => editPlan((current) => removeExerciseFromDay(current, day, position))} onMove={(day, position, delta) => editPlan((current) => moveExercise(current, day, position, delta))} onSets={(day, position, sets) => editPlan((current) => setExerciseSets(current, day, position, sets))} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
     {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onSkip={skipWorkout} onNewBlock={newBlock} />}
-    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
+    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
     {view === 'progress' && <ProgressView history={history} finished={finished} total={total} />}
-    {view === 'settings' && <SettingsView cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSendLink={(email) => void sendMagicLink(email)} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} onRestore={() => void restoreFromCloud(false)} onExport={exportData} onImport={importData} onNewBlock={newBlock} />}
+    {view === 'settings' && <SettingsView restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSendLink={(email) => void sendMagicLink(email)} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} onRestore={() => void restoreFromCloud(false)} onExport={exportData} onImport={importData} onNewBlock={newBlock} />}
   </main>
 }
 

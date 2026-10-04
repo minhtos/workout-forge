@@ -166,4 +166,37 @@ describe('Workout Forge gym flow', () => {
     expect(screen.queryByLabelText('Set 4 weight')).toBeNull()
     expect(savedState().history).toHaveLength(0)
   })
+
+  it('shows the rest timer only when it is switched on in Settings, and remembers the choice', () => {
+    planTwoDays()
+    fireEvent.click(screen.getByRole('button', { name: /start block/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    const logSet = (setNumber: number) => {
+      fireEvent.change(screen.getByLabelText(`Set ${setNumber} weight`), { target: { value: '135' } })
+      fireEvent.click(screen.getByRole('button', { name: `Complete set ${setNumber}` }))
+    }
+
+    logSet(1)
+    expect(screen.queryByRole('timer')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    const toggle = screen.getByRole('switch', { name: /rest timer/i })
+    expect(toggle.getAttribute('aria-checked')).toBe('false')
+    fireEvent.click(toggle)
+    expect(toggle.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(screen.getByRole('button', { name: 'Workout' }))
+    logSet(2)
+    expect(screen.getByRole('timer', { name: /rest timer/i })).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /dismiss rest timer/i }))
+    expect(screen.queryByRole('timer')).toBeNull()
+
+    cleanup()
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    expect(screen.getByRole('switch', { name: /rest timer/i }).getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(screen.getByRole('switch', { name: /rest timer/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Workout' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 3' }))
+    expect(screen.queryByRole('timer')).toBeNull()
+  })
 })

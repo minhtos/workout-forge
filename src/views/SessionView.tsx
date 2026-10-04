@@ -1,3 +1,4 @@
+import { RestTimer } from './RestTimer'
 import { describeLastSession, lastSessionSets, maxSetsPerExercise, suggestionText } from '../domain/session'
 import type { ExercisePrescription, ScheduledWorkout } from '../domain/program'
 import type { ActiveSession, CompletedSetRecord, SetEntry } from '../domain/storage'
@@ -10,6 +11,7 @@ interface Props {
   session: ActiveSession
   history: CompletedSetRecord[]
   syncLabel: string
+  restTimer: boolean
   error: string
   onBack: () => void
   onUpdate: (exerciseId: string, index: number, patch: Partial<SetEntry>) => void
@@ -20,7 +22,7 @@ interface Props {
   onDiscard: () => void
 }
 
-export function SessionView({ workout, session, history, syncLabel, error, onBack, onUpdate, onToggle, onAddSet, onRemoveSet, onFinish, onDiscard }: Props) {
+export function SessionView({ workout, session, history, syncLabel, restTimer, error, onBack, onUpdate, onToggle, onAddSet, onRemoveSet, onFinish, onDiscard }: Props) {
   const linear = workout.progression === 'linear'
   const entries = Object.values(session.sets).flat()
   const done = entries.filter((entry) => entry.complete).length
@@ -52,6 +54,7 @@ export function SessionView({ workout, session, history, syncLabel, error, onBac
         </div>
       </article>
     })}
+    {restTimer && <RestTimer completed={done} />}
     {error && <p className="form-error" role="alert">{error}</p>}
     <div className="session-footer"><span>{done} / {entries.length} sets saved · {syncLabel}</span><div className="button-row"><button className="secondary-button" onClick={onDiscard}>Discard session</button><button className="primary-button" disabled={!done} onClick={onFinish}>Finish workout <span>→</span></button></div></div>
   </section>
