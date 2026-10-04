@@ -53,6 +53,20 @@ export function suggestionText(exercise: ExercisePrescription, workout: Schedule
   return `Aim for ${next.weight} lb × ${next.reps}. ${next.reason}`
 }
 
+/**
+ * Applies an edit to one set. Changing set 1's weight carries it down to the later sets that are
+ * not yet complete and still had the same weight (blank on a first session), so a weight you set
+ * on purpose for a later set is never overwritten.
+ */
+export function applyEntryPatch(entries: SetEntry[], index: number, patch: Partial<SetEntry>): SetEntry[] {
+  const previousWeight = entries[index]?.weight
+  return entries.map((entry, position) => {
+    if (position === index) return { ...entry, ...patch }
+    const follows = index === 0 && patch.weight !== undefined && position > 0 && !entry.complete && entry.weight === previousWeight
+    return follows ? { ...entry, weight: patch.weight as string } : entry
+  })
+}
+
 export type ParsedEntry = { weight: number; reps: number; rir: number } | { error: string }
 
 export function parseEntry(entry: SetEntry): ParsedEntry {

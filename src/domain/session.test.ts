@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addExerciseToDay, createBlock, findWorkout, mergeCatalog, resolveWorkout } from './program'
-import { buildInitialSets, lastSessionSets, parseEntry } from './session'
+import { applyEntryPatch, buildInitialSets, lastSessionSets, parseEntry } from './session'
 import type { CompletedSetRecord } from './storage'
 
 const catalog = mergeCatalog([])
@@ -39,5 +39,26 @@ describe('session helpers', () => {
     expect(parseEntry({ weight: '', reps: '8', rir: '2', complete: false })).toHaveProperty('error')
     expect(parseEntry({ weight: '0', reps: '8', rir: '0', complete: false })).toEqual({ weight: 0, reps: 8, rir: 0 })
     expect(parseEntry({ weight: '135', reps: '8', rir: '11', complete: false })).toHaveProperty('error')
+  })
+
+  it('copies set 1 weight to the later sets as you type, until a set is customized or completed', () => {
+    const blank = { weight: '', reps: '6', rir: '3', complete: false }
+    let entries = [blank, blank, blank]
+    for (const typed of ['1', '13', '135']) entries = applyEntryPatch(entries, 0, { weight: typed })
+    expect(entries.map((entry) => entry.weight)).toEqual(['135', '135', '135'])
+
+    entries = applyEntryPatch(entries, 1, { weight: '145' })
+    expect(entries.map((entry) => entry.weight)).toEqual(['135', '145', '135'])
+    entries = applyEntryPatch(entries, 0, { weight: '140' })
+    expect(entries.map((entry) => entry.weight)).toEqual(['140', '145', '140'])
+
+    entries = [{ ...blank, weight: '140' }, { ...blank, weight: '140', complete: true }, { ...blank, weight: '140' }]
+    expect(applyEntryPatch(entries, 0, { weight: '150' }).map((entry) => entry.weight)).toEqual(['150', '140', '150'])
+  })
+
+  it('only set 1 weight edits spread; reps and RIR stay per set', () => {
+    const blank = { weight: '100', reps: '6', rir: '3', complete: false }
+    expect(applyEntryPatch([blank, blank], 0, { reps: '8' }).map((entry) => entry.reps)).toEqual(['8', '6'])
+    expect(applyEntryPatch([blank, blank], 1, { weight: '110' }).map((entry) => entry.weight)).toEqual(['100', '110'])
   })
 })

@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mergeSets } from './domain/backup'
 import { addExerciseToDay, createBlock, findWorkout, listWorkouts, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, setSlotExercise, slugify, type Block, type ExercisePrescription, type MuscleGroup, type TrainingDaysPerWeek } from './domain/program'
 import { totalWeeks, type ProgramDurationWeeks } from './domain/progression'
-import { buildInitialSets, parseEntry } from './domain/session'
+import { applyEntryPatch, buildInitialSets, parseEntry } from './domain/session'
 import { applyWorkoutSet, type WorkoutSet } from './domain/workoutSets'
 import { archiveWorkoutState, emptyState, exportWorkoutState, loadWorkoutState, parseImportedState, saveWorkoutState, type SavedWorkoutState, type SetEntry } from './domain/storage'
 import { backupSession, restoreSessions } from './domain/sync'
@@ -141,7 +141,7 @@ function App() {
     setView('session')
   }
   function updateEntry(exerciseId: string, index: number, patch: Partial<SetEntry>) {
-    setState((current) => current.activeSession ? { ...current, activeSession: { ...current.activeSession, sets: { ...current.activeSession.sets, [exerciseId]: current.activeSession.sets[exerciseId].map((entry, position) => position === index ? { ...entry, ...patch } : entry) } } } : current)
+    setState((current) => current.activeSession ? { ...current, activeSession: { ...current.activeSession, sets: { ...current.activeSession.sets, [exerciseId]: applyEntryPatch(current.activeSession.sets[exerciseId], index, patch) } } } : current)
   }
   function toggleSet(exercise: ExercisePrescription, index: number) {
     if (!activeSession || !activeWorkout) return

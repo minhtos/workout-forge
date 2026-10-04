@@ -132,4 +132,17 @@ describe('Workout Forge gym flow', () => {
     fireEvent.click(screen.getByRole('button', { name: /finish workout/i }))
     expect(screen.getByRole('heading', { name: 'Workout B' })).toBeTruthy()
   })
+
+  it('fills the weight for the remaining sets when you enter set 1', () => {
+    planTwoDays()
+    fireEvent.click(screen.getByRole('button', { name: /start block/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '185' } })
+    expect((screen.getByLabelText('Set 2 weight') as HTMLInputElement).value).toBe('185')
+    expect((screen.getByLabelText('Set 3 weight') as HTMLInputElement).value).toBe('185')
+    fireEvent.change(screen.getByLabelText('Set 2 weight'), { target: { value: '175' } })
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '190' } })
+    expect((screen.getByLabelText('Set 2 weight') as HTMLInputElement).value).toBe('175')
+    expect((screen.getByLabelText('Set 3 weight') as HTMLInputElement).value).toBe('190')
+  })
 })
