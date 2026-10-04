@@ -1,26 +1,35 @@
-# Workout Forge
+﻿# Workout Forge
 
-A local-first, web-based PWA for building focused workout blocks and logging training sessions.
+A local-first PWA for RIR-based hypertrophy training blocks. Built for the gym: you see only today's workout, and every set saves the moment you log it.
 
-## Current MVP
+## How it works
 
-- Choose **3, 4, or 5 training days per week**.
-- Choose a **4-week or 6-week** training block.
-- Generate a deterministic weekly split:
-  - 3 days: Full Body A/B/C
-  - 4 days: Upper/Lower A/B
-  - 5 days: Upper/Lower/Push/Pull/Legs
-- Start a planned workout and log sets, reps, and weight.
-- Track completed sessions, adherence, and latest-session volume.
-- Persist program selection and completed-session history in the browser.
-- Install as a PWA with an offline-cached application shell.
+1. **Pick a block** — 3 days (Push / Pull / Legs) or 4 days (Push / Pull A·B), for 4, 5 or 6 weeks:
+   - 4 weeks: RIR 3, 2, 1, 0 (no deload)
+   - 5 weeks: RIR 3, 2, 1, 0, then a deload week (50% load)
+   - 6 weeks: RIR 3, 3, 2, 2, 1, 0 (no deload)
+2. **Plan exercises** — each day only defines muscle groups. You choose the exercise (and 2–5 sets) for each slot, or add your own exercise.
+3. **Start the block** — exercises lock until the block is complete.
+4. **Train** — the Workout tab shows only the next workout. Each set auto-saves on this device and, when signed in, to Supabase. Progress is suggested from last session's matching set.
 
-## Local development
+Unfinished sessions resume after a reload. Skip, undo-a-set and discard-session are supported.
+
+## Data and backup
+
+- Primary store: browser localStorage (`workout-forge:v3`). Older v2 history is carried forward and the v2 data is left untouched; unreadable data is stashed, never discarded.
+- Optional Supabase magic-link sign-in backs up every set (upsert per session, retried when offline) and restores on sign-in. Sessions stay signed in on a device.
+- A different account signing in on the same device gets a clean slate; the previous data is archived locally.
+- Settings has JSON export/import.
+- Not yet backed up to the cloud: the plan/block itself (only logged sets).
+
+## Setup
 
 ```bash
 npm install
 npm run dev
 ```
+
+Environment: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`. In Supabase Auth, set the Site URL and Redirect URLs to your deployed origin (magic links return to the site root). Apply `supabase/migrations/*.sql` in order.
 
 ## Verification
 
@@ -30,10 +39,6 @@ npm run build
 npm run lint
 ```
 
-## Current limits
-
-This is an MVP vertical slice. It does not yet include account sync, cloud backups, an editable exercise library, persisted per-set history across completed sessions, wearables, or coaching logic.
-
 ## Stack
 
-React, TypeScript, Vite, Vitest, and vite-plugin-pwa.
+React, TypeScript, Vite, Vitest, vite-plugin-pwa, Supabase.
