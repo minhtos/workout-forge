@@ -52,7 +52,7 @@ links at 14px+; it is not a body-text color.
 
 ## Typography
 
-Inter for everything, with `ui-monospace` for the small uppercase labels only. Display sizes use negative
+Inter for everything (bundled in `src/assets/fonts`, no external font requests), with `ui-monospace` for the small uppercase labels only. Display sizes use negative
 tracking; body uses none. Minimum text size is 12px. Weights and reps are `numeral-lg` (24px, 600, `tnum`).
 
 ## Layout

@@ -1,0 +1,11 @@
+{
+  "redirects": [
+    {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "workout-forge-iota.vercel.app" }],
+      "missing": [{ "type": "query", "key": "keep" }],
+      "destination": "https://workoutforge.app/$1",
+      "permanent": true
+    }
+  ]
+}

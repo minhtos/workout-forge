@@ -38,6 +38,11 @@ npm run build
 npm run lint
 ```
 
+## Hosting notes
+
+- Production is https://workoutforge.app (Vercel, auto-deploys from `main`). `vercel.json` forwards the old `workout-forge-iota.vercel.app` address to it; add `?keep=1` to the old address to reach the old site (for example to export data saved there).
+- Inter is bundled in `src/assets/fonts` (SIL OFL) and precached by the service worker, so the app needs no third-party font requests.
+
 ## Stack
 
 React, TypeScript, Vite, Vitest, vite-plugin-pwa, Supabase.

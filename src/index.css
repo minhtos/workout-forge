@@ -1,3 +1,11 @@
+/* Inter is bundled with the app (SIL Open Font License, see src/assets/fonts/Inter-LICENSE.txt), so it works offline and needs no third-party request. */
+@font-face {
+  font-family: 'Inter';
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url('./assets/fonts/inter-latin-wght-normal.woff2') format('woff2-variations'), url('./assets/fonts/inter-latin-wght-normal.woff2') format('woff2');
+}
 :root {
   /* Workout Forge design tokens. See DESIGN.md. Never hardcode colors outside this block. */
   --canvas: #010102;
