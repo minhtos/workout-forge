@@ -221,9 +221,9 @@ function App() {
   return <main className="app-shell">
     <header className="topbar"><button className="brand" onClick={navigate(home())} aria-label="Workout Forge home"><span className="brand-mark">WF</span><span>WORKOUT FORGE</span></button>
       <nav aria-label="Primary navigation">
-        {block?.locked && <button className={view === 'today' || view === 'session' ? 'nav-active' : ''} onClick={navigate('today')}>Workout</button>}
-        <button className={view === 'progress' ? 'nav-active' : ''} onClick={navigate('progress')}>Progress</button>
-        <button className={view === 'settings' ? 'nav-active' : ''} onClick={navigate('settings')}>Settings</button>
+        {block?.locked && <button aria-current={view === 'today' || view === 'session' ? 'page' : undefined} className={view === 'today' || view === 'session' ? 'nav-active' : ''} onClick={navigate('today')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg>Workout</button>}
+        <button aria-current={view === 'progress' ? 'page' : undefined} className={view === 'progress' ? 'nav-active' : ''} onClick={navigate('progress')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>Progress</button>
+        <button aria-current={view === 'settings' ? 'page' : undefined} className={view === 'settings' ? 'nav-active' : ''} onClick={navigate('settings')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Settings</button>
       </nav>
       <span className="local-badge"><i /> {owned ? (state.pendingSessionIds.length ? 'Syncing' : 'Backed up') : 'Local-first'}</span></header>
     {saveFailed && <p className="form-error banner" role="alert">This device could not save your data (storage full or blocked). Export your data from Settings now.</p>}
