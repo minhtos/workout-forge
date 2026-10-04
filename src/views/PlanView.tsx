@@ -12,7 +12,7 @@ interface Props {
   onRename: (dayIndex: number, title: string) => void
   onAdd: (dayIndex: number, exerciseId: string) => void
   onChoose: (dayIndex: number, position: number, exerciseId: string | null) => void
-  onCreate: (dayIndex: number, name: string, category: MuscleGroup) => void
+  onCreate: (dayIndex: number, name: string, category: MuscleGroup) => string | null
   onRemove: (dayIndex: number, position: number) => void
   onMove: (dayIndex: number, position: number, delta: -1 | 1) => void
   onSets: (dayIndex: number, position: number, sets: number) => void
@@ -26,6 +26,7 @@ export function PlanView({ block, catalog, hiddenIds, onApplySet, onRename, onAd
   const [pickerDay, setPickerDay] = useState<number | null>(null)
   const [filter, setFilter] = useState<Filter>('All')
   const [newName, setNewName] = useState('')
+  const [createError, setCreateError] = useState('')
   const [newCategory, setNewCategory] = useState<MuscleGroup>('Chest')
   const problem = planProblem(block, catalog)
   const byId = new Map(catalog.map((item) => [item.id, item]))
@@ -81,11 +82,11 @@ export function PlanView({ block, catalog, hiddenIds, onApplySet, onRename, onAd
           <div className="filter-row">{(['All', ...muscleGroups] as Filter[]).map((group) => <button key={group} className={filter === group ? 'chip selected' : 'chip'} aria-pressed={filter === group} onClick={() => setFilter(group)}>{group}</button>)}</div>
           <div className="picker-list">{options.map((item) => <button key={item.id} className="picker-item" disabled={chosen.has(item.id) || full} onClick={() => onAdd(dayIndex, item.id)}><span>{item.name}</span><em>{chosen.has(item.id) ? 'Added' : item.category}</em></button>)}</div>
           {options.length === 0 && <p className="hint">Nothing is turned on here. Turn exercises on in Settings → Exercise library.</p>}
-          <form className="add-exercise-form" onSubmit={(event) => { event.preventDefault(); if (!newName.trim()) return; onCreate(dayIndex, newName.trim(), newCategory); setNewName('') }}>
+          <form className="add-exercise-form" onSubmit={(event) => { event.preventDefault(); if (!newName.trim()) return; const problem = onCreate(dayIndex, newName.trim(), newCategory); setCreateError(problem ?? ''); if (!problem) setNewName('') }}>
             <input aria-label="New exercise name" value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Not listed? Name a new exercise" />
             <select aria-label="New exercise muscle group" value={newCategory} onChange={(event) => setNewCategory(event.target.value as MuscleGroup)}>{muscleGroups.map((group) => <option key={group}>{group}</option>)}</select>
             <button className="secondary-button" type="submit">Create & add</button>
-          </form>
+          </form>{createError && <p className="form-error" role="alert">{createError}</p>}
         </div>}
       </article>
     })}</div>

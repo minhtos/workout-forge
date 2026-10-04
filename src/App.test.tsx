@@ -245,4 +245,30 @@ describe('Workout Forge gym flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Delete Ring Dips' }))
     expect(screen.queryByText('Ring Dips')).toBeNull()
   })
+
+  it('stops at 12 exercises in a muscle group, in the library and in the planner', () => {
+    openPlanner()
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    fireEvent.click(screen.getByRole('button', { name: /open library/i }))
+    for (let n = 1; n <= 7; n += 1) {
+      fireEvent.change(screen.getByLabelText('Exercise name'), { target: { value: `Triceps move ${n}` } })
+      fireEvent.change(screen.getByLabelText('Muscle group'), { target: { value: 'Triceps' } })
+      fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    }
+    const triceps = within(screen.getByRole('region', { name: 'Triceps exercises' }))
+    expect(triceps.getByText('Triceps move 7')).toBeTruthy()
+    expect(triceps.getByText(/12\/12 · full/)).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('Exercise name'), { target: { value: 'One more' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    expect(screen.getByRole('alert').textContent).toMatch(/already has 12 exercises/i)
+    expect(screen.queryByText('One more')).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Workout Forge home' }))
+    fireEvent.click(screen.getAllByRole('button', { name: /add exercise/i })[0])
+    fireEvent.change(screen.getByLabelText('New exercise name'), { target: { value: 'Overflow' } })
+    fireEvent.change(screen.getByLabelText('New exercise muscle group'), { target: { value: 'Triceps' } })
+    fireEvent.click(screen.getByRole('button', { name: /create & add/i }))
+    expect(screen.getByRole('alert').textContent).toMatch(/already has 12 exercises/i)
+  })
 })

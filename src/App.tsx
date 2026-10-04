@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mergeSets } from './domain/backup'
-import { addExerciseToDay, createBlock, findWorkout, listWorkouts, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, setSlotExercise, slugify, type Block, type ExercisePrescription, type MuscleGroup, type TrainingDaysPerWeek } from './domain/program'
-import { addCustomExercise, deleteCustomExercise, enabledCatalog, exerciseInUse, setExerciseEnabled, setGroupEnabled, updateCustomExercise } from './domain/exercises'
+import { addExerciseToDay, createBlock, findWorkout, listWorkouts, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, setSlotExercise, type Block, type ExercisePrescription, type MuscleGroup, type TrainingDaysPerWeek } from './domain/program'
+import { applyProgramSnapshot, runProgramSync } from './domain/programSync'
+import { addCustomExercise, deleteCustomExercise, enabledCatalog, exerciseInUse, mergeCustomExercises, setExerciseEnabled, setGroupEnabled, updateCustomExercise } from './domain/exercises'
 import { totalWeeks, type ProgramDurationWeeks } from './domain/progression'
 import { addSetEntry, applyEntryPatch, buildInitialSets, parseEntry, removeLastSetEntry } from './domain/session'
 import { applyWorkoutSet, type WorkoutSet } from './domain/workoutSets'
@@ -28,6 +29,16 @@ function initialView(state: SavedWorkoutState): View {
 
 const addUnique = (ids: string[], id: string) => (ids.includes(id) ? ids : [...ids, id])
 
+/** What counts as "the program" for syncing; changes to it stamp programUpdatedAt. */
+const signatureOf = (state: Pick<SavedWorkoutState, 'block' | 'customExercises' | 'hiddenExerciseIds'>) => JSON.stringify([state.block, state.customExercises, state.hiddenExerciseIds])
+
+/** After a program arrives from the cloud, move off a screen that no longer fits it. */
+function settleView(view: View, block: Block | null): View {
+  if (view !== 'setup' && view !== 'plan' && view !== 'today') return view
+  if (!block) return 'setup'
+  return block.locked ? 'today' : 'plan'
+}
+
 function App() {
   const [state, setState] = useState(loadWorkoutState)
   const [view, setView] = useState<View>(() => initialView(state))
@@ -40,6 +51,8 @@ function App() {
   const [saveFailed, setSaveFailed] = useState(false)
   const [restTimer, setRestTimer] = useState(loadRestTimerEnabled)
   const [online, setOnline] = useState(0)
+  const [planStatus, setPlanStatus] = useState('')
+  const adoptingRemote = useRef(false)
   const stateRef = useRef(state)
   const flushing = useRef(false)
 
@@ -71,6 +84,7 @@ function App() {
     if (current.ownerId === userId) return
     if (current.ownerId === null) { setState({ ...current, ownerId: userId }); return }
     archiveWorkoutState(current)
+    if (signatureOf(emptyState()) !== signatureOf(current)) adoptingRemote.current = true
     setState({ ...emptyState(), ownerId: userId })
     setView('setup')
   }, [userId])
@@ -113,6 +127,39 @@ function App() {
     return () => window.removeEventListener('online', retry)
   }, [])
 
+  // Program sync: any change to the block, own exercises or library switches stamps a timestamp;
+  // the newest copy (this device or the cloud) wins. A snapshot adopted from the cloud is not re-stamped.
+  const programSignature = signatureOf(state)
+  const lastSignature = useRef(programSignature)
+  useEffect(() => {
+    if (programSignature === lastSignature.current) return
+    lastSignature.current = programSignature
+    if (adoptingRemote.current) { adoptingRemote.current = false; return }
+    setState((current) => ({ ...current, programUpdatedAt: new Date().toISOString() }))
+  }, [programSignature])
+
+  const syncProgram = useCallback(async () => {
+    if (!supabase || !userId) return
+    const outcome = await runProgramSync(supabase, userId, stateRef.current, new Date().toISOString())
+    if (outcome.kind === 'pushed') {
+      setState((current) => current.programUpdatedAt ? current : { ...current, programUpdatedAt: outcome.updatedAt })
+      setPlanStatus('')
+    } else if (outcome.kind === 'adopted') {
+      const next = applyProgramSnapshot(stateRef.current, outcome.snapshot)
+      if (signatureOf(next) !== signatureOf(stateRef.current)) adoptingRemote.current = true
+      setState((current) => applyProgramSnapshot(current, outcome.snapshot))
+      setView((current) => settleView(current, outcome.snapshot.block))
+      setPlanStatus('')
+    } else if (outcome.kind === 'deferred') setPlanStatus('A newer plan from another device will load after this workout.')
+    else if (outcome.kind === 'error') setPlanStatus(`Plan backup pending: ${outcome.message}`)
+    else setPlanStatus('')
+  }, [userId])
+  useEffect(() => {
+    if (!owned) return
+    const timer = window.setTimeout(() => void syncProgram(), 1200)
+    return () => window.clearTimeout(timer)
+  }, [owned, state.programUpdatedAt, online, syncProgram])
+
   function editPlan(edit: (block: Block) => Block) {
     setState((current) => current.block && !current.block.locked ? { ...current, block: edit(current.block) } : current)
   }
@@ -122,13 +169,17 @@ function App() {
     editPlan((current) => applyWorkoutSet(current, set))
   }
   /** Adds a custom exercise to the catalog (or reuses an existing one with the same name) and puts it on the day. */
-  function createExercise(dayIndex: number, name: string, category: MuscleGroup) {
-    setState((current) => {
-      if (!current.block || current.block.locked) return current
-      const existing = mergeCatalog(current.customExercises).find((item) => item.name.toLowerCase() === name.toLowerCase())
-      const item = existing ?? { id: `custom-${slugify(name)}`, name, category }
-      return { ...current, customExercises: existing ? current.customExercises : [...current.customExercises, item], block: addExerciseToDay(current.block, dayIndex, item.id) }
-    })
+  function createExercise(dayIndex: number, name: string, category: MuscleGroup): string | null {
+    if (!state.block || state.block.locked) return null
+    const existing = catalog.find((item) => item.name.toLowerCase() === name.toLowerCase())
+    if (existing) {
+      setState({ ...state, block: addExerciseToDay(state.block, dayIndex, existing.id) })
+      return null
+    }
+    const result = addCustomExercise(state.customExercises, name, category)
+    if ('error' in result) return result.error
+    setState({ ...state, customExercises: result.custom, block: addExerciseToDay(state.block, dayIndex, result.id) })
+    return null
   }
   function toggleExercise(id: string, enabled: boolean) {
     setState((current) => ({ ...current, hiddenExerciseIds: setExerciseEnabled(current.hiddenExerciseIds, id, enabled) }))
@@ -239,7 +290,7 @@ function App() {
     const imported = parseImportedState(text)
     if (!imported) { setCloudStatus('That file is not a Workout Forge export.'); return }
     const merged = mergeSets(state.history, imported.history)
-    setState({ ...state, history: merged, block: state.block ?? imported.block, customExercises: [...state.customExercises, ...imported.customExercises.filter((item) => !state.customExercises.some((own) => own.id === item.id))], pendingSessionIds: [...new Set([...state.pendingSessionIds, ...merged.map((set) => set.sessionId)])] })
+    setState({ ...state, history: merged, block: state.block ?? imported.block, customExercises: mergeCustomExercises(state.customExercises, imported.customExercises), pendingSessionIds: [...new Set([...state.pendingSessionIds, ...merged.map((set) => set.sessionId)])] })
     setCloudStatus(`Imported ${merged.length - state.history.length} sets.`)
   }
 
@@ -262,7 +313,7 @@ function App() {
     {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
     {view === 'progress' && <ProgressView history={history} finished={finished} total={total} />}
     {view === 'library' && <LibraryView catalog={catalog} custom={state.customExercises} hidden={state.hiddenExerciseIds} inUse={(id) => exerciseInUse(block, id)} onToggle={toggleExercise} onToggleGroup={toggleGroup} onAdd={addToLibrary} onUpdate={updateInLibrary} onDelete={deleteFromLibrary} onBack={() => setView('settings')} />}
-    {view === 'settings' && <SettingsView librarySummary={`${enabledCatalog(catalog, state.hiddenExerciseIds).length} of ${catalog.length} exercises on`} onOpenLibrary={() => setView('library')} restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSendLink={(email) => void sendMagicLink(email)} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} onRestore={() => void restoreFromCloud(false)} onExport={exportData} onImport={importData} onNewBlock={newBlock} />}
+    {view === 'settings' && <SettingsView librarySummary={`${enabledCatalog(catalog, state.hiddenExerciseIds).length} of ${catalog.length} exercises on`} onOpenLibrary={() => setView('library')} restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSendLink={(email) => void sendMagicLink(email)} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} planStatus={planStatus} onRestore={() => { void restoreFromCloud(false); setOnline((value) => value + 1) }} onExport={exportData} onImport={importData} onNewBlock={newBlock} />}
   </main>
 }
 

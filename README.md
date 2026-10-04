@@ -18,8 +18,8 @@ Unfinished sessions resume after a reload. Skip, undo-a-set and discard-session 
 - Primary store: browser localStorage (`workout-forge:v3`). Older v2 history is carried forward and the v2 data is left untouched; unreadable data is stashed, never discarded.
 - Optional Supabase magic-link sign-in backs up every set (upsert per session, retried when offline) and restores on sign-in. Sessions stay signed in on a device.
 - A different account signing in on the same device gets a clean slate; the previous data is archived locally.
-- Settings has JSON export/import.
-- Not yet backed up to the cloud: the plan/block itself (only logged sets).
+- Settings has JSON export/import. Each muscle group holds at most 12 exercises (built-in plus your own).
+- Your program also backs up to Supabase (`user_programs`, one row per user): the current block with its progress, your own exercises, and the exercise-library on/off switches. The newest copy wins by timestamp, so a new device that signs in picks it up; a newer cloud copy waits until a workout in progress is finished. The rest-timer setting stays per device.
 
 ## Setup
 

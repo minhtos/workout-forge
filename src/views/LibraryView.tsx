@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { isEnabled } from '../domain/exercises'
+import { maxExercisesPerGroup } from '../domain/exercises'
 import { muscleGroups, type ExerciseCatalogItem, type MuscleGroup } from '../domain/program'
 
 interface Props {
@@ -46,7 +47,7 @@ export function LibraryView({ catalog, custom, hidden, inUse, onToggle, onToggle
       const items = catalog.filter((item) => item.category === group)
       const on = items.filter((item) => isEnabled(hidden, item.id)).length
       return <section className="library-group" key={group} aria-label={`${group} exercises`}>
-        <div className="library-group-head"><h2>{group}</h2><span className="library-count">{on} of {items.length} on</span>
+        <div className="library-group-head"><h2>{group}</h2><span className="library-count">{on} of {items.length} on · {items.length}/{maxExercisesPerGroup}{items.length >= maxExercisesPerGroup ? ' · full' : ''}</span>
           <span className="library-bulk"><button className="chip" disabled={on === items.length} onClick={() => onToggleGroup(group, true)} aria-label={`Turn all ${group} exercises on`}>All on</button><button className="chip" disabled={on === 0} onClick={() => onToggleGroup(group, false)} aria-label={`Turn all ${group} exercises off`}>All off</button></span></div>
         {items.length === 0 && <p className="hint">No exercises yet. Add one above.</p>}
         {items.map((item) => {

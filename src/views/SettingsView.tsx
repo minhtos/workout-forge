@@ -2,6 +2,7 @@ import { useState } from 'react'
 
 interface Props {
   librarySummary: string
+  planStatus: string
   onOpenLibrary: () => void
   restTimer: boolean
   onRestTimer: (enabled: boolean) => void
@@ -18,7 +19,7 @@ interface Props {
   onNewBlock: () => void
 }
 
-export function SettingsView({ librarySummary, onOpenLibrary, restTimer, onRestTimer, cloudEnabled, accountEmail, status, pendingCount, onSendLink, onSignOut, onBackupAll, onRestore, onExport, onImport, onNewBlock }: Props) {
+export function SettingsView({ planStatus, librarySummary, onOpenLibrary, restTimer, onRestTimer, cloudEnabled, accountEmail, status, pendingCount, onSendLink, onSignOut, onBackupAll, onRestore, onExport, onImport, onNewBlock }: Props) {
   const [email, setEmail] = useState('')
   return <section className="workspace" aria-labelledby="settings-title">
     <div className="workspace-heading"><div><div className="eyebrow">SETTINGS</div><h1 id="settings-title">Settings</h1><p>Workouts always save on this device first.</p></div></div>
@@ -26,7 +27,7 @@ export function SettingsView({ librarySummary, onOpenLibrary, restTimer, onRestT
       <button type="button" role="switch" className="switch" aria-checked={restTimer} aria-labelledby="rest-timer-label" onClick={() => onRestTimer(!restTimer)}><span className="switch-thumb" /></button>
     </section>
     <section className="preview-card"><div><span className="preview-label">LIBRARY</span><h2>Exercise library</h2><p>{librarySummary}. Turn exercises on or off, and add your own.</p></div><button className="secondary-button" onClick={onOpenLibrary}>Open library</button></section>
-    {cloudEnabled && <section className="preview-card"><div><span className="preview-label">CLOUD BACKUP</span><h2>{accountEmail ? `Signed in: ${accountEmail}` : 'Protect your training history'}</h2><p>{status || (accountEmail ? (pendingCount ? `${pendingCount} session(s) waiting to back up.` : 'Every set backs up automatically. You stay signed in on this device.') : 'Sign in with a magic link to back up and use multiple devices.')}</p></div>
+    {cloudEnabled && <section className="preview-card"><div><span className="preview-label">CLOUD BACKUP</span><h2>{accountEmail ? `Signed in: ${accountEmail}` : 'Protect your training history'}</h2><p>{status || (accountEmail ? (pendingCount ? `${pendingCount} session(s) waiting to back up.` : 'Your sets, plan and exercises back up automatically. You stay signed in on this device.') : 'Sign in with a magic link to back up and use multiple devices.')}</p>{planStatus && <p className="hint">{planStatus}</p>}</div>
       {accountEmail
         ? <div className="button-row"><button className="secondary-button" onClick={onBackupAll}>Back up now</button><button className="secondary-button" onClick={onRestore}>Restore</button><button className="secondary-button" onClick={onSignOut}>Sign out</button></div>
         : <form className="button-row" onSubmit={(event) => { event.preventDefault(); if (email.trim()) onSendLink(email.trim()) }}><input aria-label="Backup email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /><button className="secondary-button" type="submit">Send magic link</button></form>}
