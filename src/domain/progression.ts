@@ -1,6 +1,7 @@
 export interface RepRange { min: number; max: number }
-export type ProgramDurationWeeks = 4 | 5 | 6
-export const durationOptions: ProgramDurationWeeks[] = [4, 5, 6]
+/** Training weeks in a block. A deload week always follows them. */
+export type ProgramDurationWeeks = 4 | 6
+export const durationOptions: ProgramDurationWeeks[] = [4, 6]
 export interface WorkWeekTarget { kind: 'work'; targetRir: number }
 export interface DeloadWeekTarget { kind: 'deload'; loadMultiplier: number; targetRir: number }
 export type WeekTarget = WorkWeekTarget | DeloadWeekTarget
@@ -8,10 +9,11 @@ export interface ProgressionInput { weight: number; reps: number; rir: number; t
 export interface SetSuggestion { weight: number; reps: number; reason: string }
 
 const weekSchedules: Record<ProgramDurationWeeks, (number | 'deload')[]> = {
-  4: [3, 2, 1, 0],
-  5: [3, 2, 1, 0, 'deload'],
-  6: [3, 3, 2, 2, 1, 0],
+  4: [3, 2, 1, 0, 'deload'],
+  6: [3, 3, 2, 2, 1, 0, 'deload'],
 }
+
+export const totalWeeks = (durationWeeks: ProgramDurationWeeks): number => weekSchedules[durationWeeks].length
 
 export function getWeekTarget(durationWeeks: ProgramDurationWeeks, weekNumber: number): WeekTarget {
   const entry = weekSchedules[durationWeeks][weekNumber - 1]

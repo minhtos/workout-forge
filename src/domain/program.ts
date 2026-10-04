@@ -1,16 +1,17 @@
-import { getWeekTarget, type ProgramDurationWeeks, type RepRange, type WeekTarget } from './progression'
+import { getWeekTarget, totalWeeks, type ProgramDurationWeeks, type RepRange, type WeekTarget } from './progression'
 
 export type { ProgramDurationWeeks }
-export type TrainingDaysPerWeek = 3 | 4
+export type TrainingDaysPerWeek = 2 | 3 | 4
 export type MuscleGroup = 'Chest' | 'Back' | 'Triceps' | 'Biceps' | 'Quads' | 'Hamstrings'
 export interface ExerciseCatalogItem { id: string; name: string; category: MuscleGroup }
 export interface ExercisePrescription { id: string; name: string; category: MuscleGroup; sets: number; repRange: RepRange }
 
-/** One slot in a day template. The muscle group is fixed by the template; the exercise is chosen before the block starts. */
-export interface PlanSlot { category: MuscleGroup; exerciseId: string | null; sets: number }
-export interface DayTemplate { title: string; slots: PlanSlot[] }
+export interface PlanExercise { exerciseId: string; sets: number }
+/** A training day. The user names it and picks its exercises; nothing is predefined. */
+export interface DayTemplate { title: string; exercises: PlanExercise[] }
 export interface Block {
   trainingDays: TrainingDaysPerWeek
+  /** Training weeks; a deload week is added after them. */
   durationWeeks: ProgramDurationWeeks
   templates: DayTemplate[]
   /** Once locked, exercises cannot change until the block is complete. */
@@ -22,9 +23,11 @@ export interface Block {
 export interface WorkoutRef { id: string; weekNumber: number; dayIndex: number; title: string; target: WeekTarget }
 export interface ScheduledWorkout extends WorkoutRef { exercises: ExercisePrescription[] }
 
+export const dayOptions: TrainingDaysPerWeek[] = [2, 3, 4]
 export const muscleGroups: MuscleGroup[] = ['Chest', 'Back', 'Triceps', 'Biceps', 'Quads', 'Hamstrings']
 export const defaultSetCount = 3
 export const setCountOptions = [2, 3, 4, 5]
+export const maxExercisesPerDay = 12
 
 const names: Record<MuscleGroup, string[]> = {
   Chest: ['Barbell Bench Press', 'Barbell Incline Bench Press', 'Dumbbell Incline Bench Press', 'Machine Incline Press', 'Machine Chest Press', 'Machine Fly', 'Dumbbell Fly'],
@@ -38,19 +41,6 @@ const ranges: Record<MuscleGroup, RepRange> = {
   Chest: { min: 6, max: 10 }, Back: { min: 6, max: 10 }, Triceps: { min: 10, max: 15 },
   Biceps: { min: 10, max: 15 }, Quads: { min: 6, max: 10 }, Hamstrings: { min: 8, max: 12 },
 }
-const templates: Record<TrainingDaysPerWeek, { title: string; categories: MuscleGroup[] }[]> = {
-  3: [
-    { title: 'Push', categories: ['Chest', 'Chest', 'Chest', 'Chest', 'Triceps', 'Triceps'] },
-    { title: 'Pull', categories: ['Back', 'Back', 'Back', 'Back', 'Biceps', 'Biceps'] },
-    { title: 'Legs', categories: ['Quads', 'Quads', 'Quads', 'Hamstrings', 'Hamstrings', 'Hamstrings'] },
-  ],
-  4: [
-    { title: 'Push A', categories: ['Quads', 'Quads', 'Chest', 'Chest', 'Triceps', 'Triceps'] },
-    { title: 'Pull A', categories: ['Hamstrings', 'Hamstrings', 'Back', 'Back', 'Biceps', 'Biceps'] },
-    { title: 'Push B', categories: ['Chest', 'Chest', 'Chest', 'Triceps', 'Triceps', 'Triceps'] },
-    { title: 'Pull B', categories: ['Back', 'Back', 'Back', 'Biceps', 'Biceps', 'Biceps'] },
-  ],
-}
 
 export const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 export const baseExercises: ExerciseCatalogItem[] = muscleGroups.flatMap((category) => names[category].map((name) => ({ id: slugify(name), name, category })))
@@ -60,19 +50,46 @@ export function mergeCatalog(custom: ExerciseCatalogItem[]): ExerciseCatalogItem
   return [...baseExercises, ...custom.filter((item) => !seen.has(item.id))]
 }
 
+/** An empty block: the user decides what to train on each day. */
 export function createBlock(trainingDays: TrainingDaysPerWeek, durationWeeks: ProgramDurationWeeks): Block {
   return {
     trainingDays, durationWeeks, locked: false, startedAt: null, completedIds: [], skippedIds: [],
-    templates: templates[trainingDays].map(({ title, categories }) => ({ title, slots: categories.map((category) => ({ category, exerciseId: null, sets: defaultSetCount })) })),
+    templates: Array.from({ length: trainingDays }, (_, index) => ({ title: `Day ${index + 1}`, exercises: [] })),
   }
 }
+
+function editDay(block: Block, dayIndex: number, edit: (day: DayTemplate) => DayTemplate): Block {
+  return { ...block, templates: block.templates.map((day, index) => (index === dayIndex ? edit(day) : day)) }
+}
+
+export const renameDay = (block: Block, dayIndex: number, title: string): Block => editDay(block, dayIndex, (day) => ({ ...day, title }))
+
+export function addExerciseToDay(block: Block, dayIndex: number, exerciseId: string): Block {
+  return editDay(block, dayIndex, (day) => day.exercises.length >= maxExercisesPerDay || day.exercises.some((entry) => entry.exerciseId === exerciseId) ? day : { ...day, exercises: [...day.exercises, { exerciseId, sets: defaultSetCount }] })
+}
+
+export const removeExerciseFromDay = (block: Block, dayIndex: number, position: number): Block =>
+  editDay(block, dayIndex, (day) => ({ ...day, exercises: day.exercises.filter((_, index) => index !== position) }))
+
+export function moveExercise(block: Block, dayIndex: number, position: number, delta: -1 | 1): Block {
+  return editDay(block, dayIndex, (day) => {
+    const target = position + delta
+    if (target < 0 || target >= day.exercises.length) return day
+    const exercises = [...day.exercises]
+    ;[exercises[position], exercises[target]] = [exercises[target], exercises[position]]
+    return { ...day, exercises }
+  })
+}
+
+export const setExerciseSets = (block: Block, dayIndex: number, position: number, sets: number): Block =>
+  editDay(block, dayIndex, (day) => ({ ...day, exercises: day.exercises.map((entry, index) => (index === position ? { ...entry, sets } : entry)) }))
 
 export const workoutIdFor = (weekNumber: number, dayIndex: number) => `w${weekNumber}-d${dayIndex + 1}`
 
 export function listWorkouts(block: Block): WorkoutRef[] {
   const workouts: WorkoutRef[] = []
-  for (let week = 1; week <= block.durationWeeks; week += 1) {
-    block.templates.forEach((template, dayIndex) => workouts.push({ id: workoutIdFor(week, dayIndex), weekNumber: week, dayIndex, title: template.title, target: getWeekTarget(block.durationWeeks, week) }))
+  for (let week = 1; week <= totalWeeks(block.durationWeeks); week += 1) {
+    block.templates.forEach((template, dayIndex) => workouts.push({ id: workoutIdFor(week, dayIndex), weekNumber: week, dayIndex, title: template.title.trim() || `Day ${dayIndex + 1}`, target: getWeekTarget(block.durationWeeks, week) }))
   }
   return workouts
 }
@@ -86,41 +103,21 @@ export function nextWorkout(block: Block): WorkoutRef | null {
   return listWorkouts(block).find((workout) => !block.completedIds.includes(workout.id) && !block.skippedIds.includes(workout.id)) ?? null
 }
 
-/** Returns a human-readable problem with the plan, or null when every slot has a distinct exercise. */
+/** Returns a human-readable problem with the plan, or null when every day has at least one valid exercise. */
 export function planProblem(block: Block, catalog: ExerciseCatalogItem[]): string | null {
-  for (const template of block.templates) {
-    const chosen = template.slots.map((slot) => slot.exerciseId)
-    if (chosen.some((id) => !id || !catalog.some((item) => item.id === id))) return `Choose an exercise for every slot on ${template.title}.`
-    if (new Set(chosen).size !== chosen.length) return `${template.title} uses the same exercise twice.`
+  for (const [index, day] of block.templates.entries()) {
+    const name = day.title.trim() || `Day ${index + 1}`
+    if (!day.exercises.length) return `Add at least one exercise to ${name}.`
+    if (day.exercises.some((entry) => !catalog.some((item) => item.id === entry.exerciseId))) return `${name} has an exercise that no longer exists.`
+    if (new Set(day.exercises.map((entry) => entry.exerciseId)).size !== day.exercises.length) return `${name} uses the same exercise twice.`
   }
   return null
 }
 
-/** Fills empty slots with the first catalog exercise per muscle group that is not already used that day. */
-export function autoFillPlan(block: Block, catalog: ExerciseCatalogItem[]): Block {
-  return {
-    ...block,
-    templates: block.templates.map((template) => {
-      const used = new Set(template.slots.map((slot) => slot.exerciseId).filter(Boolean))
-      return {
-        ...template,
-        slots: template.slots.map((slot) => {
-          if (slot.exerciseId) return slot
-          const choice = catalog.find((item) => item.category === slot.category && !used.has(item.id))
-          if (!choice) return slot
-          used.add(choice.id)
-          return { ...slot, exerciseId: choice.id }
-        }),
-      }
-    }),
-  }
-}
-
 export function resolveWorkout(block: Block, ref: WorkoutRef, catalog: ExerciseCatalogItem[]): ScheduledWorkout {
-  const template = block.templates[ref.dayIndex]
-  const exercises = template.slots.flatMap((slot) => {
-    const item = catalog.find((entry) => entry.id === slot.exerciseId)
-    return item ? [{ ...item, sets: slot.sets, repRange: { ...ranges[item.category] } }] : []
+  const exercises = block.templates[ref.dayIndex].exercises.flatMap((entry) => {
+    const item = catalog.find((candidate) => candidate.id === entry.exerciseId)
+    return item ? [{ ...item, sets: entry.sets, repRange: { ...ranges[item.category] } }] : []
   })
   return { ...ref, exercises }
 }

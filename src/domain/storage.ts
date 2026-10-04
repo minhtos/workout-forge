@@ -1,5 +1,5 @@
 import { completedSetSchema } from './backup'
-import type { Block, ExerciseCatalogItem } from './program'
+import type { Block, DayTemplate, ExerciseCatalogItem, PlanExercise } from './program'
 import type { RepRange } from './progression'
 
 const storageKey = 'workout-forge:v3'
@@ -49,6 +49,28 @@ function isStateShape(candidate: unknown): candidate is SavedWorkoutState {
     && (value.block === null || (typeof value.block === 'object' && Array.isArray(value.block.templates)))
 }
 
+interface StoredDay { title?: string; exercises?: PlanExercise[]; slots?: { exerciseId: string | null; sets: number }[] }
+
+/**
+ * Brings blocks saved by earlier versions up to the current shape without losing progress:
+ * muscle-group slots become plain exercise lists, and old 5-week blocks (3-2-1-0 + deload) map onto the 4-week block.
+ * Workout ids and completed/skipped lists are unchanged, so an in-progress block continues where it was.
+ */
+function normalizeBlock(raw: SavedWorkoutState['block']): Block | null {
+  if (!raw) return null
+  const stored = raw as unknown as Omit<Block, 'templates' | 'durationWeeks' | 'trainingDays'> & { templates: StoredDay[]; durationWeeks: number; trainingDays: number }
+  const templates = stored.templates.map((day, index): DayTemplate => ({
+    title: day.title ?? `Day ${index + 1}`,
+    exercises: day.exercises ?? (day.slots ?? []).flatMap((slot) => (slot.exerciseId ? [{ exerciseId: slot.exerciseId, sets: slot.sets }] : [])),
+  }))
+  const trainingDays = [2, 3, 4].includes(stored.trainingDays) ? (stored.trainingDays as Block['trainingDays']) : (Math.min(4, Math.max(2, templates.length)) as Block['trainingDays'])
+  return { ...stored, templates, trainingDays, durationWeeks: stored.durationWeeks === 6 ? 6 : 4 }
+}
+
+function normalizeState(state: SavedWorkoutState): SavedWorkoutState {
+  return { ...state, block: normalizeBlock(state.block) }
+}
+
 /** Keeps a copy of data we are about to stop using, so nothing is ever silently discarded. */
 function stash(label: string, raw: string): void {
   try { window.localStorage.setItem(`workout-forge:${label}:${Date.now()}`, raw) } catch { /* storage full or unavailable */ }
@@ -64,7 +86,7 @@ export function loadWorkoutState(): SavedWorkoutState {
     if (raw) {
       try {
         const candidate: unknown = JSON.parse(raw)
-        if (isStateShape(candidate)) return candidate
+        if (isStateShape(candidate)) return normalizeState(candidate)
       } catch { /* fall through to stash */ }
       stash('unreadable', raw)
       return emptyState()
@@ -98,7 +120,7 @@ export function parseImportedState(text: string): SavedWorkoutState | null {
     const candidate: unknown = JSON.parse(text)
     if (!isStateShape(candidate)) return null
     const history = candidate.history.filter((set) => completedSetSchema.safeParse(set).success)
-    return { ...candidate, history }
+    return normalizeState({ ...candidate, history })
   } catch {
     return null
   }
