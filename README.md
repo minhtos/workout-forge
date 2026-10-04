@@ -38,6 +38,15 @@ npm run build
 npm run lint
 ```
 
+## How progression works (RIR blocks)
+
+The weekly target RIR steps down through the block (4 weeks: 3, 2, 1, 0; 6 weeks: 3, 3, 2, 2, 1, 0) and the last week is a deload (50% of the last working weight, same reps, planned sets). Three quick questions then steer each muscle group, and every answer can be skipped:
+
+- **Recovery** (after the first exercise of a muscle group, only if you trained it before): *still sore* takes a set off every exercise for that muscle group, *just on time* changes nothing, *recovered early* adds a set. It applies to the unstarted exercises today and carries through the rest of the block (2 to 6 sets per exercise, at most 3 up or down in total). Sets are the only thing this changes.
+- **Effort** (after the last exercise of a muscle group): *easy* adds 5% to the weight next time (10% if you logged 2+ reps in reserve beyond the target), *just right* adds 2.5%, *too hard* keeps the weight. Weights move in 2.5 lb steps. Weight is the only thing this changes.
+- **Muscle pump** (same prompt): *low* adds a rep next time (two if the previous check was also low), *high* keeps reps. Past the top of the rep range it adds weight and goes back to the bottom of the range. Reps are the only thing this changes.
+
+If you skip a question the standard RIR rule is used instead. The deload week and StrongLifts 5x5 never ask. Answers are stored with the session and back up with the program.
 ## Hosting notes
 
 - Production is https://workoutforge.app (Vercel, auto-deploys from `main`). `vercel.json` forwards the old `workout-forge-iota.vercel.app` address to it; add `?keep=1` to the old address to reach the old site (for example to export data saved there).

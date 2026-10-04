@@ -1,6 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
 import { muscleGroups, type Block, type ExerciseCatalogItem } from './program'
+import { mergeFeedback, type SessionFeedback } from './autoregulation'
 import type { SavedWorkoutState } from './storage'
 
 type DataClient = Pick<SupabaseClient, 'from'>
@@ -11,6 +12,7 @@ export interface ProgramSnapshot {
   block: Block | null
   customExercises: ExerciseCatalogItem[]
   hiddenExerciseIds: string[]
+  feedback: SessionFeedback[]
   updatedAt: string
 }
 
@@ -28,12 +30,17 @@ const blockSchema = z.object({
   completedIds: z.array(z.string()).max(100),
   skippedIds: z.array(z.string()).max(100),
 })
+const feedbackSchema = z.object({
+  sessionId: z.string().min(1), blockId: z.string().min(1), group, at: z.string().datetime(),
+  soreness: z.enum(['sore', 'ontime', 'early']).optional(), effort: z.enum(['easy', 'right', 'hard']).optional(), pump: z.enum(['low', 'high']).optional(), summaryDone: z.boolean().optional(),
+})
 const snapshotSchema = z.object({
   version: z.literal(1),
   updatedAt: z.string().datetime(),
   block: blockSchema.nullable(),
   customExercises: z.array(z.object({ id: z.string().min(1), name: z.string().min(1).max(60), category: group })).max(500),
   hiddenExerciseIds: z.array(z.string()).max(1000),
+  feedback: z.array(feedbackSchema).max(2000).default([]),
 })
 
 export const hasProgramContent = (state: Pick<SavedWorkoutState, 'block' | 'customExercises' | 'hiddenExerciseIds'>): boolean =>
@@ -85,10 +92,10 @@ export async function runProgramSync(client: DataClient, userId: string, local: 
   if (decision === 'none') return { kind: 'none' }
   if (decision === 'adopt' && pulled.snapshot) return local.activeSession ? { kind: 'deferred' } : { kind: 'adopted', snapshot: pulled.snapshot }
   const updatedAt = local.programUpdatedAt ?? nowIso
-  const pushed = await pushProgram(client, userId, { block: local.block, customExercises: local.customExercises, hiddenExerciseIds: local.hiddenExerciseIds, updatedAt })
+  const pushed = await pushProgram(client, userId, { block: local.block, customExercises: local.customExercises, hiddenExerciseIds: local.hiddenExerciseIds, feedback: local.feedback, updatedAt })
   return pushed.ok ? { kind: 'pushed', updatedAt } : { kind: 'error', message: pushed.message }
 }
 
 export function applyProgramSnapshot(state: SavedWorkoutState, snapshot: ProgramSnapshot): SavedWorkoutState {
-  return { ...state, block: snapshot.block, customExercises: snapshot.customExercises, hiddenExerciseIds: snapshot.hiddenExerciseIds, programUpdatedAt: snapshot.updatedAt }
+  return { ...state, block: snapshot.block, customExercises: snapshot.customExercises, hiddenExerciseIds: snapshot.hiddenExerciseIds, feedback: mergeFeedback(state.feedback, snapshot.feedback), programUpdatedAt: snapshot.updatedAt }
 }

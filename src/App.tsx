@@ -4,12 +4,14 @@ import { addExerciseToDay, createBlock, findWorkout, listWorkouts, mergeCatalog,
 import { applyProgramSnapshot, runProgramSync } from './domain/programSync'
 import { addCustomExercise, deleteCustomExercise, enabledCatalog, exerciseInUse, mergeCustomExercises, setExerciseEnabled, setGroupEnabled, updateCustomExercise } from './domain/exercises'
 import { totalWeeks, type ProgramDurationWeeks } from './domain/progression'
-import { addSetEntry, applyEntryPatch, buildInitialSets, parseEntry, removeLastSetEntry } from './domain/session'
+import { mergeFeedback, nextPrompt, resizeEntries, setOffset, tuneWorkoutSets, tunedSets, upsertFeedback, type Effort, type Pump, type SessionFeedback, type Soreness } from './domain/autoregulation'
+import { addSetEntry, applyEntryPatch, buildInitialSets, maxSetsPerExercise, parseEntry, removeLastSetEntry, type TuneContext } from './domain/session'
 import { applyWorkoutSet, type WorkoutSet } from './domain/workoutSets'
 import { archiveWorkoutState, emptyState, exportWorkoutState, loadWorkoutState, parseImportedState, saveWorkoutState, type SavedWorkoutState, type SetEntry } from './domain/storage'
 import { loadRestTimerEnabled, saveRestTimerEnabled } from './domain/settings'
 import { backupSession, restoreSessions } from './domain/sync'
 import { supabase } from './lib/supabase'
+import { FeedbackSheet } from './views/FeedbackSheet'
 import { LibraryView } from './views/LibraryView'
 import { PlanView } from './views/PlanView'
 import { ProgressView } from './views/ProgressView'
@@ -30,7 +32,7 @@ function initialView(state: SavedWorkoutState): View {
 const addUnique = (ids: string[], id: string) => (ids.includes(id) ? ids : [...ids, id])
 
 /** What counts as "the program" for syncing; changes to it stamp programUpdatedAt. */
-const signatureOf = (state: Pick<SavedWorkoutState, 'block' | 'customExercises' | 'hiddenExerciseIds'>) => JSON.stringify([state.block, state.customExercises, state.hiddenExerciseIds])
+const signatureOf = (state: Pick<SavedWorkoutState, 'block' | 'customExercises' | 'hiddenExerciseIds' | 'feedback'>) => JSON.stringify([state.block, state.customExercises, state.hiddenExerciseIds, state.feedback])
 
 /** After a program arrives from the cloud, move off a screen that no longer fits it. */
 function settleView(view: View, block: Block | null): View {
@@ -52,6 +54,7 @@ function App() {
   const [restTimer, setRestTimer] = useState(loadRestTimerEnabled)
   const [online, setOnline] = useState(0)
   const [planStatus, setPlanStatus] = useState('')
+  const [finishing, setFinishing] = useState(false)
   const adoptingRemote = useRef(false)
   const stateRef = useRef(state)
   const flushing = useRef(false)
@@ -59,9 +62,15 @@ function App() {
   const { block, history, activeSession } = state
   const catalog = useMemo(() => mergeCatalog(state.customExercises), [state.customExercises])
   const upcoming = block?.locked ? nextWorkout(block) : null
-  const todayWorkout = block && upcoming ? resolveWorkout(block, upcoming, catalog) : null
+  const blockId = block?.startedAt ?? null
+  const tune = useMemo<TuneContext>(() => ({ feedback: state.feedback, blockId }), [state.feedback, blockId])
+  const plannedWorkout = block && upcoming ? resolveWorkout(block, upcoming, catalog) : null
+  const todayWorkout = plannedWorkout ? tuneWorkoutSets(plannedWorkout, state.feedback, blockId) : null
   const activeRef = block && activeSession ? findWorkout(block, activeSession.workoutId) : undefined
   const activeWorkout = block && activeRef ? resolveWorkout(block, activeRef, catalog) : null
+  const sessionEntries = activeSession ? state.feedback.filter((entry) => entry.sessionId === activeSession.sessionId) : []
+  const trainedBefore = (group: MuscleGroup) => !!activeSession && history.some((set) => set.sessionId !== activeSession.sessionId && catalog.find((item) => item.id === set.exerciseId)?.category === group)
+  const prompt = view === 'session' && activeWorkout && activeSession ? nextPrompt({ workout: activeWorkout, sets: activeSession.sets, entries: sessionEntries, trainedBefore, finishing }) : null
   const total = block ? listWorkouts(block).length : 0
   const finished = block ? block.completedIds.length + block.skippedIds.length : 0
 
@@ -212,10 +221,10 @@ function App() {
     setView('today')
   }
   function startWorkout() {
-    if (!block || !todayWorkout) return
-    if (!activeSession || activeSession.workoutId !== todayWorkout.id) {
+    if (!block || !plannedWorkout) return
+    if (!activeSession || activeSession.workoutId !== plannedWorkout.id) {
       const sessionId = crypto.randomUUID()
-      setState({ ...state, activeSession: { workoutId: todayWorkout.id, sessionId, sets: buildInitialSets(todayWorkout, history, sessionId) } })
+      setState({ ...state, activeSession: { workoutId: plannedWorkout.id, sessionId, sets: buildInitialSets(plannedWorkout, history, sessionId, tune) } })
     }
     setEntryError('')
     setView('session')
@@ -247,16 +256,50 @@ function App() {
       activeSession: { ...current.activeSession, sets: { ...current.activeSession.sets, [exercise.id]: current.activeSession.sets[exercise.id].map((item, position) => position === index ? { ...item, complete: true } : item) } },
     } : current)
   }
-  function finishWorkout() {
+  function completeWorkout(feedback: SessionFeedback[]) {
     if (!block || !activeSession) return
-    setState({ ...state, activeSession: null, block: { ...block, completedIds: addUnique(block.completedIds, activeSession.workoutId) } })
+    setState({ ...state, feedback, activeSession: null, block: { ...block, completedIds: addUnique(block.completedIds, activeSession.workoutId) } })
+    setFinishing(false)
     setView('today')
+  }
+  /** Finishing asks any unanswered effort and pump questions first (each can be skipped). */
+  function finishWorkout() {
+    if (!block || !activeSession || !activeWorkout) return
+    const pending = nextPrompt({ workout: activeWorkout, sets: activeSession.sets, entries: sessionEntries, trainedBefore, finishing: true })
+    if (pending) setFinishing(true)
+    else completeWorkout(state.feedback)
   }
   function discardSession() {
     if (!activeSession || !window.confirm('Discard this session and every set logged in it?')) return
     const { sessionId } = activeSession
-    setState((current) => ({ ...current, activeSession: null, history: current.history.filter((set) => set.sessionId !== sessionId), pendingSessionIds: addUnique(current.pendingSessionIds, sessionId) }))
+    setState((current) => ({ ...current, activeSession: null, history: current.history.filter((set) => set.sessionId !== sessionId), feedback: current.feedback.filter((entry) => entry.sessionId !== sessionId), pendingSessionIds: addUnique(current.pendingSessionIds, sessionId) }))
+    setFinishing(false)
     setView('today')
+  }
+
+  /** Soreness changes today's unstarted exercises for that muscle group right away, and carries forward through the block. */
+  function answerSoreness(group: MuscleGroup, value: Soreness) {
+    if (!activeSession || !activeWorkout || !block?.startedAt) return
+    const feedback = upsertFeedback(state.feedback, { sessionId: activeSession.sessionId, blockId: block.startedAt, group }, { soreness: value }, new Date().toISOString())
+    const offset = setOffset(feedback, block.startedAt, group)
+    const sets = { ...activeSession.sets }
+    for (const exercise of activeWorkout.exercises) {
+      if (exercise.category !== group || sets[exercise.id].some((entry) => entry.complete)) continue
+      sets[exercise.id] = resizeEntries(sets[exercise.id], tunedSets(exercise.sets, offset), maxSetsPerExercise)
+    }
+    setState({ ...state, feedback, activeSession: { ...activeSession, sets } })
+  }
+  function answerSummary(group: MuscleGroup, patch: { effort?: Effort; pump?: Pump }) {
+    if (!activeSession || !activeWorkout || !block?.startedAt) return
+    const feedback = upsertFeedback(state.feedback, { sessionId: activeSession.sessionId, blockId: block.startedAt, group }, { ...patch, summaryDone: true }, new Date().toISOString())
+    const more = finishing && nextPrompt({ workout: activeWorkout, sets: activeSession.sets, entries: feedback.filter((entry) => entry.sessionId === activeSession.sessionId), trainedBefore, finishing: true })
+    if (finishing && !more) completeWorkout(feedback)
+    else setState({ ...state, feedback })
+  }
+  function skipPrompt() {
+    if (!prompt) return
+    if (prompt.kind === 'soreness') answerSoreness(prompt.group, 'ontime')
+    else answerSummary(prompt.group, {})
   }
   function skipWorkout() {
     if (!block || !upcoming || !window.confirm('Skip this workout? It will count as done for the block.')) return
@@ -290,7 +333,7 @@ function App() {
     const imported = parseImportedState(text)
     if (!imported) { setCloudStatus('That file is not a Workout Forge export.'); return }
     const merged = mergeSets(state.history, imported.history)
-    setState({ ...state, history: merged, block: state.block ?? imported.block, customExercises: mergeCustomExercises(state.customExercises, imported.customExercises), pendingSessionIds: [...new Set([...state.pendingSessionIds, ...merged.map((set) => set.sessionId)])] })
+    setState({ ...state, history: merged, block: state.block ?? imported.block, customExercises: mergeCustomExercises(state.customExercises, imported.customExercises), feedback: mergeFeedback(state.feedback, imported.feedback), pendingSessionIds: [...new Set([...state.pendingSessionIds, ...merged.map((set) => set.sessionId)])] })
     setCloudStatus(`Imported ${merged.length - state.history.length} sets.`)
   }
 
@@ -310,7 +353,8 @@ function App() {
     {view === 'setup' && <SetupView days={setupDays} weeks={setupWeeks} hasHistory={history.length > 0} onDays={setSetupDays} onWeeks={setSetupWeeks} onContinue={() => { setState({ ...state, block: createBlock(setupDays, setupWeeks) }); setView('plan') }} />}
     {view === 'plan' && block && <PlanView block={block} catalog={catalog} hiddenIds={state.hiddenExerciseIds} onApplySet={applySet} onChoose={(day, position, id) => editPlan((current) => setSlotExercise(current, day, position, id))} onRename={(day, title) => editPlan((current) => renameDay(current, day, title))} onAdd={(day, id) => editPlan((current) => addExerciseToDay(current, day, id))} onCreate={createExercise} onRemove={(day, position) => editPlan((current) => removeExerciseFromDay(current, day, position))} onMove={(day, position, delta) => editPlan((current) => moveExercise(current, day, position, delta))} onSets={(day, position, sets) => editPlan((current) => setExerciseSets(current, day, position, sets))} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
     {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onSkip={skipWorkout} onNewBlock={newBlock} />}
-    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
+    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
+    {prompt && <FeedbackSheet key={`${prompt.kind}-${prompt.group}`} prompt={prompt} onSoreness={(value) => answerSoreness(prompt.group, value)} onSummary={(effort, pump) => answerSummary(prompt.group, { effort, pump })} onSkip={skipPrompt} />}
     {view === 'progress' && <ProgressView history={history} finished={finished} total={total} />}
     {view === 'library' && <LibraryView catalog={catalog} custom={state.customExercises} hidden={state.hiddenExerciseIds} inUse={(id) => exerciseInUse(block, id)} onToggle={toggleExercise} onToggleGroup={toggleGroup} onAdd={addToLibrary} onUpdate={updateInLibrary} onDelete={deleteFromLibrary} onBack={() => setView('settings')} />}
     {view === 'settings' && <SettingsView librarySummary={`${enabledCatalog(catalog, state.hiddenExerciseIds).length} of ${catalog.length} exercises on`} onOpenLibrary={() => setView('library')} restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSendLink={(email) => void sendMagicLink(email)} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} planStatus={planStatus} onRestore={() => { void restoreFromCloud(false); setOnline((value) => value + 1) }} onExport={exportData} onImport={importData} onNewBlock={newBlock} />}

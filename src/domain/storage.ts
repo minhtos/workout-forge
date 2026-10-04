@@ -1,3 +1,4 @@
+import type { SessionFeedback } from './autoregulation'
 import { completedSetSchema } from './backup'
 import type { Block, DayTemplate, ExerciseCatalogItem, PlanExercise } from './program'
 import type { RepRange } from './progression'
@@ -36,6 +37,8 @@ export interface SavedWorkoutState {
   hiddenExerciseIds: string[]
   /** When this device last changed the program (block, own exercises, library switches). Used to sync with the cloud. */
   programUpdatedAt: string | null
+  /** Soreness, effort and pump answers per session and muscle group; they drive the next sessions in RIR blocks. */
+  feedback: SessionFeedback[]
   history: CompletedSetRecord[]
   activeSession: ActiveSession | null
   /** Sessions whose latest sets have not yet been confirmed in the cloud. */
@@ -43,7 +46,7 @@ export interface SavedWorkoutState {
 }
 
 export function emptyState(): SavedWorkoutState {
-  return { version: 3, ownerId: null, block: null, customExercises: [], hiddenExerciseIds: [], programUpdatedAt: null, history: [], activeSession: null, pendingSessionIds: [] }
+  return { version: 3, ownerId: null, block: null, customExercises: [], hiddenExerciseIds: [], programUpdatedAt: null, feedback: [], history: [], activeSession: null, pendingSessionIds: [] }
 }
 
 function isStateShape(candidate: unknown): candidate is SavedWorkoutState {
@@ -72,7 +75,7 @@ function normalizeBlock(raw: SavedWorkoutState['block']): Block | null {
 }
 
 function normalizeState(state: SavedWorkoutState): SavedWorkoutState {
-  return { ...state, block: normalizeBlock(state.block), hiddenExerciseIds: Array.isArray(state.hiddenExerciseIds) ? state.hiddenExerciseIds : [], programUpdatedAt: typeof state.programUpdatedAt === 'string' ? state.programUpdatedAt : null }
+  return { ...state, block: normalizeBlock(state.block), hiddenExerciseIds: Array.isArray(state.hiddenExerciseIds) ? state.hiddenExerciseIds : [], programUpdatedAt: typeof state.programUpdatedAt === 'string' ? state.programUpdatedAt : null, feedback: Array.isArray(state.feedback) ? state.feedback : [] }
 }
 
 /** Keeps a copy of data we are about to stop using, so nothing is ever silently discarded. */

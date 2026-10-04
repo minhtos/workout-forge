@@ -1,4 +1,5 @@
 import type { ExercisePrescription, ScheduledWorkout } from './program'
+import { feedbackFor, setOffset, tunedPrefill, tunedSets, usesFeedback, type SessionFeedback } from './autoregulation'
 import { deloadLoad, getNextSetSuggestion, linearIncrement } from './progression'
 import type { CompletedSetRecord, SetEntry } from './storage'
 
@@ -18,11 +19,17 @@ export function linearNext(exercise: ExercisePrescription, last: CompletedSetRec
   return { weight: added ? weight + linearIncrement(exercise.id) : weight, reps: target, added }
 }
 
-export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSetRecord[], sessionId: string): Record<string, SetEntry[]> {
+/** Feedback the engine uses to tune a session: what was answered after earlier sessions, and which block it belongs to. */
+export interface TuneContext { feedback: SessionFeedback[]; blockId: string | null }
+
+export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSetRecord[], sessionId: string, tune?: TuneContext): Record<string, SetEntry[]> {
   const targetRir = String(workout.target.targetRir)
+  const tuning = tune && usesFeedback(workout) ? tune : undefined
   return Object.fromEntries(workout.exercises.map((exercise) => {
     const last = lastSessionSets(history, exercise.id, sessionId)
-    const entries = Array.from({ length: exercise.sets }, (_, index): SetEntry => {
+    const count = tuning ? tunedSets(exercise.sets, setOffset(tuning.feedback, tuning.blockId, exercise.category)) : exercise.sets
+    const fb = tuning && last.length ? feedbackFor(tuning.feedback, last[0].sessionId, exercise.category) : undefined
+    const entries = Array.from({ length: count }, (_, index): SetEntry => {
       const base = last[index] ?? last[last.length - 1]
       if (!base) return { weight: '', reps: String(exercise.repRange.min), rir: targetRir, complete: false }
       if (workout.target.kind === 'deload') return { weight: String(deloadLoad(Math.max(...last.map((set) => set.weight)), workout.target.loadMultiplier)), reps: String(base.reps), rir: targetRir, complete: false }
@@ -31,6 +38,10 @@ export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSe
         return { weight: String(next.weight), reps: String(next.reps), rir: targetRir, complete: false }
       }
       const next = getNextSetSuggestion({ weight: base.weight, reps: base.reps, rir: base.rir, targetRir: workout.target.targetRir, repRange: exercise.repRange })
+      if (fb && tuning) {
+        const tuned = tunedPrefill({ exercise, base, last, fb, all: tuning.feedback, fallbackWeight: next.weight })
+        return { weight: String(tuned.weight), reps: String(tuned.reps), rir: targetRir, complete: false }
+      }
       return { weight: String(next.weight), reps: String(next.reps), rir: targetRir, complete: false }
     })
     return [exercise.id, entries]
@@ -41,7 +52,7 @@ export function describeLastSession(sets: CompletedSetRecord[]): string {
   return sets.map((set) => `${set.weight}×${set.reps} @${set.rir}`).join(' · ')
 }
 
-export function suggestionText(exercise: ExercisePrescription, workout: ScheduledWorkout, last: CompletedSetRecord[]): string {
+export function suggestionText(exercise: ExercisePrescription, workout: ScheduledWorkout, last: CompletedSetRecord[], tune?: TuneContext): string {
   const base = last[last.length - 1]
   if (!base) return workout.progression === 'linear' ? 'First time: start light and add weight each session.' : `First time: pick a controlled load and stop at ${workout.target.targetRir} RIR.`
   if (workout.target.kind === 'deload') return `Deload: ${deloadLoad(Math.max(...last.map((set) => set.weight)), workout.target.loadMultiplier)} lb for ${base.reps} reps (half your last load).`
@@ -50,6 +61,11 @@ export function suggestionText(exercise: ExercisePrescription, workout: Schedule
     return next.added ? `Hit every rep last time. Add weight: ${next.weight} lb × ${next.reps}.` : `Missed reps last time. Repeat ${next.weight} lb × ${next.reps}.`
   }
   const next = getNextSetSuggestion({ weight: base.weight, reps: base.reps, rir: base.rir, targetRir: workout.target.targetRir, repRange: exercise.repRange })
+  const fb = tune && usesFeedback(workout) ? feedbackFor(tune.feedback, base.sessionId, exercise.category) : undefined
+  if (fb && tune) {
+    const tuned = tunedPrefill({ exercise, base, last, fb, all: tune.feedback, fallbackWeight: next.weight })
+    return `Aim for ${tuned.weight} lb × ${tuned.reps}. ${tuned.note || 'Same as last time.'}`.trim()
+  }
   return `Aim for ${next.weight} lb × ${next.reps}. ${next.reason}`
 }
 

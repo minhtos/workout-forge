@@ -7,7 +7,7 @@ const T1 = '2026-10-05T10:00:00.000Z'
 const T2 = '2026-10-05T11:00:00.000Z'
 
 const block = { ...addExerciseToDay(createBlock(2, 4), 0, 'barbell-bench-press'), completedIds: ['w1-d1'] }
-const snapshot = (updatedAt: string, overrides: Partial<ProgramSnapshot> = {}): ProgramSnapshot => ({ block, customExercises: [{ id: 'custom-dips', name: 'Dips', category: 'Chest' }], hiddenExerciseIds: ['pull-ups'], updatedAt, ...overrides })
+const snapshot = (updatedAt: string, overrides: Partial<ProgramSnapshot> = {}): ProgramSnapshot => ({ block, customExercises: [{ id: 'custom-dips', name: 'Dips', category: 'Chest' }], hiddenExerciseIds: ['pull-ups'], feedback: [], updatedAt, ...overrides })
 const local = (overrides: Partial<SavedWorkoutState> = {}): SavedWorkoutState => ({ ...emptyState(), block, programUpdatedAt: T1, ...overrides })
 
 /** A tiny stand-in for the Supabase client: one stored row, plus spies for what was written. */

@@ -69,6 +69,7 @@ tracking; body uses none. Minimum text size is 12px. Weights and reps are `numer
 - **Rest timer** — optional, off by default (Settings → Rest timer). When on it appears after a set is checked off
   and counts down from 60/90/120/180s (remembered). Floats above the tab bar on phones.
 - **Exercise library** — Settings → Exercise library lists every exercise by muscle group with an on/off switch (same switch as the rest timer). Off exercises are hidden from the planner menus; users can add, rename and delete their own.
+- **Feedback sheet** — bottom sheet (centered dialog on desktop) for the recovery, effort and pump questions. Large choice buttons with a one-line consequence under each, one indigo action, Skip always available.
 - **Delta chip** — green `+5` next to a completed set that beat the same set last session.
 - **Buttons** — primary (filled indigo, one per screen region), secondary (hairline outline). Min height 44px,
   48px on touch.

@@ -1,5 +1,5 @@
 import { RestTimer } from './RestTimer'
-import { describeLastSession, lastSessionSets, maxSetsPerExercise, suggestionText } from '../domain/session'
+import { describeLastSession, lastSessionSets, maxSetsPerExercise, suggestionText, type TuneContext } from '../domain/session'
 import type { ExercisePrescription, ScheduledWorkout } from '../domain/program'
 import type { ActiveSession, CompletedSetRecord, SetEntry } from '../domain/storage'
 
@@ -12,6 +12,7 @@ interface Props {
   history: CompletedSetRecord[]
   syncLabel: string
   restTimer: boolean
+  tune: TuneContext
   error: string
   onBack: () => void
   onUpdate: (exerciseId: string, index: number, patch: Partial<SetEntry>) => void
@@ -22,7 +23,7 @@ interface Props {
   onDiscard: () => void
 }
 
-export function SessionView({ workout, session, history, syncLabel, restTimer, error, onBack, onUpdate, onToggle, onAddSet, onRemoveSet, onFinish, onDiscard }: Props) {
+export function SessionView({ workout, session, history, syncLabel, restTimer, tune, error, onBack, onUpdate, onToggle, onAddSet, onRemoveSet, onFinish, onDiscard }: Props) {
   const linear = workout.progression === 'linear'
   const entries = Object.values(session.sets).flat()
   const done = entries.filter((entry) => entry.complete).length
@@ -35,9 +36,9 @@ export function SessionView({ workout, session, history, syncLabel, restTimer, e
       const current = rows.findIndex((row) => !row.complete)
       const prefix = exerciseIndex === 0 ? '' : `${exercise.name} `
       return <article className="exercise-card" key={exercise.id}>
-        <div className="exercise-title"><div><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><h2>{exercise.name}</h2><p>{exercise.sets} {exercise.sets === 1 ? 'set' : 'sets'} × {exercise.repRange.min === exercise.repRange.max ? exercise.repRange.min : `${exercise.repRange.min}–${exercise.repRange.max}`} reps{linear ? '' : ` · RIR ${workout.target.targetRir}`}</p></div></div>
+        <div className="exercise-title"><div><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><h2>{exercise.name}</h2><p>{rows.length || exercise.sets} {(rows.length || exercise.sets) === 1 ? 'set' : 'sets'} × {exercise.repRange.min === exercise.repRange.max ? exercise.repRange.min : `${exercise.repRange.min}–${exercise.repRange.max}`} reps{linear ? '' : ` · RIR ${workout.target.targetRir}`}</p></div></div>
         {last.length > 0 && <p className="last-time">Last time: {describeLastSession(last)}</p>}
-        <p className="suggestion">{suggestionText(exercise, workout, last)}</p>
+        <p className="suggestion">{suggestionText(exercise, workout, last, tune)}</p>
         <div className="set-table set-table-rir" role="table" aria-label={`${exercise.name} set log`}>
           <div className="set-head" role="row"><span>SET</span><span>WEIGHT</span><span>REPS</span><span>RIR</span><span>DONE</span></div>
           {rows.map((set, index) => <div className={set.complete ? 'set-row is-done' : index === current ? 'set-row is-current' : 'set-row'} role="row" key={index}>
