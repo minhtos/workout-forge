@@ -67,6 +67,24 @@ export function applyEntryPatch(entries: SetEntry[], index: number, patch: Parti
   })
 }
 
+export const maxSetsPerExercise = 10
+
+/** Adds one more set, starting from the previous set's weight, reps and RIR. */
+export function addSetEntry(entries: SetEntry[]): SetEntry[] {
+  if (entries.length >= maxSetsPerExercise) return entries
+  const last = entries[entries.length - 1]
+  return [...entries, { weight: last?.weight ?? '', reps: last?.reps ?? '8', rir: last?.rir ?? '2', complete: false }]
+}
+
+/**
+ * Removes the last set. Only the last set can go, and only before it is checked off: earlier set
+ * numbers (and the sets already saved under them) never shift. Undo a finished set first to remove it.
+ */
+export function removeLastSetEntry(entries: SetEntry[]): SetEntry[] {
+  if (entries.length <= 1 || entries[entries.length - 1].complete) return entries
+  return entries.slice(0, -1)
+}
+
 export type ParsedEntry = { weight: number; reps: number; rir: number } | { error: string }
 
 export function parseEntry(entry: SetEntry): ParsedEntry {

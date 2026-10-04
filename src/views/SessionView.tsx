@@ -1,4 +1,4 @@
-import { describeLastSession, lastSessionSets, suggestionText } from '../domain/session'
+import { describeLastSession, lastSessionSets, maxSetsPerExercise, suggestionText } from '../domain/session'
 import type { ExercisePrescription, ScheduledWorkout } from '../domain/program'
 import type { ActiveSession, CompletedSetRecord, SetEntry } from '../domain/storage'
 
@@ -14,11 +14,13 @@ interface Props {
   onBack: () => void
   onUpdate: (exerciseId: string, index: number, patch: Partial<SetEntry>) => void
   onToggle: (exercise: ExercisePrescription, index: number) => void
+  onAddSet: (exerciseId: string) => void
+  onRemoveSet: (exerciseId: string) => void
   onFinish: () => void
   onDiscard: () => void
 }
 
-export function SessionView({ workout, session, history, syncLabel, error, onBack, onUpdate, onToggle, onFinish, onDiscard }: Props) {
+export function SessionView({ workout, session, history, syncLabel, error, onBack, onUpdate, onToggle, onAddSet, onRemoveSet, onFinish, onDiscard }: Props) {
   const linear = workout.progression === 'linear'
   const entries = Object.values(session.sets).flat()
   const done = entries.filter((entry) => entry.complete).length
@@ -41,6 +43,10 @@ export function SessionView({ workout, session, history, syncLabel, error, onBac
             <select aria-label={`${prefix}Set ${index + 1} RIR`} value={set.rir} disabled={set.complete} onChange={(event) => onUpdate(exercise.id, index, { rir: event.target.value })}>{rirOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select>
             <button className={set.complete ? 'check done' : 'check'} aria-pressed={set.complete} aria-label={set.complete ? `Undo ${prefix}set ${index + 1}` : `Complete ${prefix}set ${index + 1}`} onClick={() => onToggle(exercise, index)}>{set.complete ? '✓' : ''}</button>
           </div>)}
+        </div>
+        <div className="set-actions">
+          <button className="add-set" aria-label={`Add set to ${exercise.name}`} disabled={(session.sets[exercise.id]?.length ?? 0) >= maxSetsPerExercise} onClick={() => onAddSet(exercise.id)}>+ Add set</button>
+          <button className="add-set remove" aria-label={`Remove last set from ${exercise.name}`} title="Undo the last set first if it is already checked off" disabled={(session.sets[exercise.id]?.length ?? 0) <= 1 || session.sets[exercise.id]?.at(-1)?.complete === true} onClick={() => onRemoveSet(exercise.id)}>− Remove last set</button>
         </div>
       </article>
     })}

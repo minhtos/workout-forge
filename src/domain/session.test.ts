@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addExerciseToDay, createBlock, findWorkout, mergeCatalog, resolveWorkout } from './program'
-import { applyEntryPatch, buildInitialSets, lastSessionSets, parseEntry } from './session'
+import { addSetEntry, applyEntryPatch, buildInitialSets, lastSessionSets, maxSetsPerExercise, parseEntry, removeLastSetEntry } from './session'
 import type { CompletedSetRecord } from './storage'
 
 const catalog = mergeCatalog([])
@@ -60,5 +60,23 @@ describe('session helpers', () => {
     const blank = { weight: '100', reps: '6', rir: '3', complete: false }
     expect(applyEntryPatch([blank, blank], 0, { reps: '8' }).map((entry) => entry.reps)).toEqual(['8', '6'])
     expect(applyEntryPatch([blank, blank], 1, { weight: '110' }).map((entry) => entry.weight)).toEqual(['100', '110'])
+  })
+
+  it('adds a set copying the previous set, up to a cap', () => {
+    const start = [{ weight: '135', reps: '8', rir: '2', complete: true }]
+    const grown = addSetEntry(start)
+    expect(grown).toHaveLength(2)
+    expect(grown[1]).toEqual({ weight: '135', reps: '8', rir: '2', complete: false })
+    let many = start
+    for (let index = 0; index < 20; index += 1) many = addSetEntry(many)
+    expect(many).toHaveLength(maxSetsPerExercise)
+  })
+
+  it('removes only an unfinished last set and always keeps one set', () => {
+    const done = { weight: '135', reps: '8', rir: '2', complete: true }
+    const open = { ...done, complete: false }
+    expect(removeLastSetEntry([done, open])).toEqual([done])
+    expect(removeLastSetEntry([done, done])).toHaveLength(2)
+    expect(removeLastSetEntry([open])).toHaveLength(1)
   })
 })

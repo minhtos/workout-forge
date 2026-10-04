@@ -145,4 +145,25 @@ describe('Workout Forge gym flow', () => {
     expect((screen.getByLabelText('Set 2 weight') as HTMLInputElement).value).toBe('175')
     expect((screen.getByLabelText('Set 3 weight') as HTMLInputElement).value).toBe('190')
   })
+
+  it('lets you add and remove sets during a workout, keeping saved sets safe', () => {
+    planTwoDays()
+    fireEvent.click(screen.getByRole('button', { name: /start block/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    const addBench = () => fireEvent.click(screen.getByRole('button', { name: 'Add set to Barbell Bench Press' }))
+    const removeBench = screen.getByRole('button', { name: 'Remove last set from Barbell Bench Press' }) as HTMLButtonElement
+
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '135' } })
+    addBench()
+    expect((screen.getByLabelText('Set 4 weight') as HTMLInputElement).value).toBe('135')
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 4' }))
+    expect(removeBench.disabled).toBe(true)
+    expect(savedState().history).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo set 4' }))
+    expect(removeBench.disabled).toBe(false)
+    fireEvent.click(removeBench)
+    expect(screen.queryByLabelText('Set 4 weight')).toBeNull()
+    expect(savedState().history).toHaveLength(0)
+  })
 })

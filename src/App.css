@@ -67,3 +67,9 @@ select{font:inherit}
 .badge{font:10px 'DM Mono',monospace;letter-spacing:.06em;text-transform:uppercase;color:#8d91a0;border:1px solid #ffffff1c;border-radius:99px;padding:4px 9px}
 .badge.recommended{color:#49cd89;border-color:#49cd8955}
 .plan-slot .slot-name select{width:100%;margin-top:4px}
+
+/* v6: add / remove sets */
+.set-actions{display:flex;gap:18px;margin-top:6px}
+.add-set{min-height:44px;padding:4px 2px}
+.add-set:disabled{opacity:.35;cursor:not-allowed}
+.add-set.remove{color:#a5a9b5}
