@@ -192,7 +192,7 @@ function App() {
 
   async function sendMagicLink(email: string) {
     if (!supabase) return
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } })
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${window.location.origin}/` } })
     setCloudStatus(error ? error.message : 'Magic link sent. Open it on this device to stay signed in here.')
   }
   function backupAll() {
