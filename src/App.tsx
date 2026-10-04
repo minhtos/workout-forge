@@ -1,92 +1,224 @@
-import { useEffect, useMemo, useState } from 'react'
-import { exerciseCatalog, generateProgram, type ExercisePrescription, type ProgramDurationWeeks, type ScheduledWorkout, type TrainingDaysPerWeek } from './domain/program'
-import { getNextSetSuggestion } from './domain/progression'
-import { loadWorkoutState, saveWorkoutState, type CompletedSetRecord } from './domain/storage'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { mergeSets } from './domain/backup'
+import { autoFillPlan, createBlock, findWorkout, listWorkouts, mergeCatalog, nextWorkout, planProblem, resolveWorkout, slugify, type ExercisePrescription, type MuscleGroup, type PlanSlot, type TrainingDaysPerWeek } from './domain/program'
+import type { ProgramDurationWeeks } from './domain/progression'
+import { buildInitialSets, parseEntry } from './domain/session'
+import { archiveWorkoutState, emptyState, exportWorkoutState, loadWorkoutState, parseImportedState, saveWorkoutState, type SavedWorkoutState, type SetEntry } from './domain/storage'
 import { backupSession, restoreSessions } from './domain/sync'
 import { supabase } from './lib/supabase'
+import { PlanView } from './views/PlanView'
+import { ProgressView } from './views/ProgressView'
+import { SessionView } from './views/SessionView'
+import { SettingsView } from './views/SettingsView'
+import { SetupView } from './views/SetupView'
+import { TodayView } from './views/TodayView'
 import './App.css'
 
-type View = 'onboarding' | 'schedule' | 'session' | 'progress'
-type SetEntry = { reps: string; weight: string; rir: string; complete: boolean }
-type ExerciseSets = Record<string, SetEntry[]>
-const dayOptions: TrainingDaysPerWeek[] = [3, 4]
-const durationOptions: ProgramDurationWeeks[] = [5]
-const defaultWeekdays: Record<TrainingDaysPerWeek, number[]> = { 3: [1, 3, 5], 4: [1, 2, 4, 5] }
+type View = 'setup' | 'plan' | 'today' | 'session' | 'progress' | 'settings'
 
-function nextMonday(): string { const today = new Date(); const date = new Date(today.getFullYear(), today.getMonth(), today.getDate()); date.setDate(date.getDate() + ((8 - date.getDay()) % 7 || 7)); return date.toISOString().slice(0, 10) }
-function initialSets(workout: ScheduledWorkout, history: CompletedSetRecord[]): ExerciseSets {
-  return Object.fromEntries(workout.exercises.map((exercise) => {
-    const latest = [...history].filter((entry) => entry.exerciseId === exercise.id).sort((a, b) => b.completedAt.localeCompare(a.completedAt))[0]
-    const next = latest && workout.target.kind !== 'deload' ? getNextSetSuggestion({ weight: latest.weight, reps: latest.reps, rir: latest.rir, targetRir: workout.target.targetRir, repRange: exercise.repRange }) : null
-    const weight = latest && workout.target.kind === 'deload' ? latest.weight * 0.5 : (next?.weight ?? 135)
-    const reps = latest && workout.target.kind === 'deload' ? latest.reps : (next?.reps ?? exercise.repRange.min)
-    return [exercise.id, Array.from({ length: exercise.sets }, () => ({ reps: String(reps), weight: String(weight), rir: String(workout.target.targetRir), complete: false }))]
-  }))
+function initialView(state: SavedWorkoutState): View {
+  if (state.activeSession && state.block?.locked) return 'session'
+  if (!state.block) return 'setup'
+  return state.block.locked ? 'today' : 'plan'
 }
 
+const addUnique = (ids: string[], id: string) => (ids.includes(id) ? ids : [...ids, id])
+
 function App() {
-  const [savedState] = useState(() => loadWorkoutState())
-  const [view, setView] = useState<View>(savedState ? 'schedule' : 'onboarding')
-  const [trainingDays, setTrainingDays] = useState<TrainingDaysPerWeek>(savedState?.trainingDays ?? 3)
-  const [duration, setDuration] = useState<ProgramDurationWeeks>(savedState?.duration ?? 5)
-  const [program, setProgram] = useState<ReturnType<typeof generateProgram> | null>(savedState?.program ?? null)
-  const [completedIds, setCompletedIds] = useState<string[]>(savedState?.completedIds ?? [])
-  const [history, setHistory] = useState<CompletedSetRecord[]>(savedState?.history ?? [])
-  const [activeWorkout, setActiveWorkout] = useState<ScheduledWorkout | null>(null)
-  const [sessionId, setSessionId] = useState('')
-  const [setsByExercise, setSetsByExercise] = useState<ExerciseSets>({})
-  const [email, setEmail] = useState('')
+  const [state, setState] = useState(loadWorkoutState)
+  const [view, setView] = useState<View>(() => initialView(state))
+  const [setupDays, setSetupDays] = useState<TrainingDaysPerWeek>(state.block?.trainingDays ?? 3)
+  const [setupWeeks, setSetupWeeks] = useState<ProgramDurationWeeks>(state.block?.durationWeeks ?? 5)
+  const [userId, setUserId] = useState<string | null>(null)
   const [accountEmail, setAccountEmail] = useState<string | null>(null)
   const [cloudStatus, setCloudStatus] = useState('')
-  const [editingWorkoutId, setEditingWorkoutId] = useState<string>('')
+  const [entryError, setEntryError] = useState('')
+  const [saveFailed, setSaveFailed] = useState(false)
+  const [online, setOnline] = useState(0)
+  const stateRef = useRef(state)
+  const flushing = useRef(false)
 
-  useEffect(() => { if (program) saveWorkoutState({ trainingDays, duration, program, completedIds, history }) }, [completedIds, duration, history, program, trainingDays])
+  const { block, history, activeSession } = state
+  const catalog = useMemo(() => mergeCatalog(state.customExercises), [state.customExercises])
+  const upcoming = block?.locked ? nextWorkout(block) : null
+  const todayWorkout = block && upcoming ? resolveWorkout(block, upcoming, catalog) : null
+  const activeRef = block && activeSession ? findWorkout(block, activeSession.workoutId) : undefined
+  const activeWorkout = block && activeRef ? resolveWorkout(block, activeRef, catalog) : null
+  const total = block ? listWorkouts(block).length : 0
+  const finished = block ? block.completedIds.length + block.skippedIds.length : 0
+
+  // Keep the ref current before any effect that reads it, then persist on every change.
+  useEffect(() => { stateRef.current = state }, [state])
+  useEffect(() => { setSaveFailed(!saveWorkoutState(state)) }, [state])
+
+  // Auth: supabase persists the session locally and refreshes it, so users stay signed in.
   useEffect(() => {
     if (!supabase) return
-    supabase.auth.getUser().then(({ data }) => setAccountEmail(data.user?.email ?? null))
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => setAccountEmail(session?.user.email ?? null))
+    void supabase.auth.getSession().then(({ data }) => { setUserId(data.session?.user.id ?? null); setAccountEmail(data.session?.user.email ?? null) })
+    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { setUserId(session?.user.id ?? null); setAccountEmail(session?.user.email ?? null) })
     return () => listener.subscription.unsubscribe()
   }, [])
-  const selectedWeek = program?.workouts ?? []
-  const totalSessions = program?.workouts.length ?? 0
-  const volume = useMemo(() => history.reduce((total, set) => total + set.weight * set.reps, 0), [history])
 
-  function buildProgram() { setProgram(generateProgram({ startDate: nextMonday(), trainingDaysPerWeek: trainingDays, durationWeeks: duration, weekdays: defaultWeekdays[trainingDays] })); setCompletedIds([]); setView('schedule') }
-  function chooseExercise(workoutId: string, slot: number, exerciseId: string) { setProgram((current) => current ? { ...current, workouts: current.workouts.map((workout) => workout.id !== workoutId ? workout : { ...workout, exercises: workout.exercises.map((exercise, index) => { if (index !== slot) return exercise; const choice = exerciseCatalog.find((item) => item.id === exerciseId); return choice ? { ...exercise, ...choice } : exercise }) }) } : current) }
-  function startWorkout(workout: ScheduledWorkout) { setActiveWorkout(workout); setSessionId(crypto.randomUUID()); setSetsByExercise(initialSets(workout, history)); setView('session') }
-  function updateSet(exerciseId: string, index: number, patch: Partial<SetEntry>) { setSetsByExercise((current) => ({ ...current, [exerciseId]: current[exerciseId].map((set, setIndex) => setIndex === index ? { ...set, ...patch } : set) })) }
+  // Device data belongs to one account. A different account gets a clean slate; the previous data is archived, never deleted.
+  useEffect(() => {
+    if (!userId) return
+    const current = stateRef.current
+    if (current.ownerId === userId) return
+    if (current.ownerId === null) { setState({ ...current, ownerId: userId }); return }
+    archiveWorkoutState(current)
+    setState({ ...emptyState(), ownerId: userId })
+    setView('setup')
+  }, [userId])
+
+  const owned = userId !== null && state.ownerId === userId
+
+  const restoreFromCloud = useCallback(async (quiet: boolean) => {
+    if (!supabase || !userId) return
+    const result = await restoreSessions(supabase, userId, stateRef.current.history)
+    if (result.message) { setCloudStatus(`Restore failed: ${result.message}`); return }
+    setState((current) => ({ ...current, history: mergeSets(current.history, result.history) }))
+    if (!quiet || result.added) setCloudStatus(`Restore complete: ${result.added} sets added${result.skipped ? `, ${result.skipped} invalid records skipped` : ''}.`)
+  }, [userId])
+  useEffect(() => { if (owned) void restoreFromCloud(true) }, [owned, restoreFromCloud])
+
+  // Cloud sync queue: sessions stay "pending" until the cloud has their latest sets.
+  const flushPending = useCallback(async () => {
+    if (!supabase || !userId || flushing.current) return
+    flushing.current = true
+    const attempted = new Set<string>()
+    try {
+      for (;;) {
+        const id = stateRef.current.pendingSessionIds.find((candidate) => !attempted.has(candidate))
+        if (!id) break
+        const sets = stateRef.current.history.filter((set) => set.sessionId === id)
+        const result = await backupSession(supabase, userId, id, sets)
+        if (!result.ok) { setCloudStatus(`Backup pending: ${result.message}`); break }
+        const latest = stateRef.current.history.filter((set) => set.sessionId === id)
+        if (latest.length !== sets.length || latest.some((set, index) => set.id !== sets[index].id)) continue
+        attempted.add(id)
+        setState((current) => ({ ...current, pendingSessionIds: current.pendingSessionIds.filter((pending) => pending !== id) }))
+        setCloudStatus('')
+      }
+    } finally { flushing.current = false }
+  }, [userId])
+  useEffect(() => { if (owned && state.pendingSessionIds.length) void flushPending() }, [owned, state.pendingSessionIds, online, flushPending])
+  useEffect(() => {
+    const retry = () => setOnline((value) => value + 1)
+    window.addEventListener('online', retry)
+    return () => window.removeEventListener('online', retry)
+  }, [])
+
+  function setSlot(dayIndex: number, slotIndex: number, patch: Partial<PlanSlot>) {
+    setState((current) => current.block ? { ...current, block: { ...current.block, templates: current.block.templates.map((template, index) => index !== dayIndex ? template : { ...template, slots: template.slots.map((slot, position) => position === slotIndex ? { ...slot, ...patch } : slot) }) } } : current)
+  }
+  function addExercise(name: string, category: MuscleGroup) {
+    const id = `custom-${slugify(name)}`
+    setState((current) => mergeCatalog(current.customExercises).some((item) => item.id === id || item.name.toLowerCase() === name.toLowerCase()) ? current : { ...current, customExercises: [...current.customExercises, { id, name, category }] })
+  }
+  function startBlock() {
+    if (!block || planProblem(block, catalog)) return
+    setState({ ...state, block: { ...block, locked: true, startedAt: new Date().toISOString() } })
+    setView('today')
+  }
+  function startWorkout() {
+    if (!block || !todayWorkout) return
+    if (!activeSession || activeSession.workoutId !== todayWorkout.id) {
+      const sessionId = crypto.randomUUID()
+      setState({ ...state, activeSession: { workoutId: todayWorkout.id, sessionId, sets: buildInitialSets(todayWorkout, history, sessionId) } })
+    }
+    setEntryError('')
+    setView('session')
+  }
+  function updateEntry(exerciseId: string, index: number, patch: Partial<SetEntry>) {
+    setState((current) => current.activeSession ? { ...current, activeSession: { ...current.activeSession, sets: { ...current.activeSession.sets, [exerciseId]: current.activeSession.sets[exerciseId].map((entry, position) => position === index ? { ...entry, ...patch } : entry) } } } : current)
+  }
   function toggleSet(exercise: ExercisePrescription, index: number) {
-    if (!activeWorkout) return
-    const set = setsByExercise[exercise.id][index]; const weight = Number(set.weight); const reps = Number(set.reps); const rir = Number(set.rir)
-    if (set.complete || ![weight, reps, rir].every(Number.isFinite) || weight < 0 || reps <= 0 || rir < 0 || rir > 10) return
+    if (!activeSession || !activeWorkout) return
+    const { sessionId } = activeSession
+    const entry = activeSession.sets[exercise.id][index]
     const id = `${sessionId}-${exercise.id}-${index + 1}`
-    updateSet(exercise.id, index, { complete: true })
-    setHistory((current) => current.some((entry) => entry.id === id) ? current : [...current, { id, sessionId, workoutId: activeWorkout.id, exerciseId: exercise.id, exerciseName: exercise.name, setIndex: index + 1, weight, reps, rir, weightUnit: 'lb', completedAt: new Date().toISOString(), weekNumber: activeWorkout.weekNumber, repRange: exercise.repRange, targetRir: activeWorkout.target.targetRir}])
+    setEntryError('')
+    if (entry.complete) {
+      setState((current) => ({ ...current, history: current.history.filter((set) => set.id !== id), pendingSessionIds: addUnique(current.pendingSessionIds, sessionId) }))
+      updateEntry(exercise.id, index, { complete: false })
+      return
+    }
+    const parsed = parseEntry(entry)
+    if ('error' in parsed) { setEntryError(parsed.error); return }
+    const record = { id, sessionId, workoutId: activeWorkout.id, exerciseId: exercise.id, exerciseName: exercise.name, setIndex: index + 1, ...parsed, weightUnit: 'lb' as const, completedAt: new Date().toISOString(), weekNumber: activeWorkout.weekNumber, repRange: exercise.repRange, targetRir: activeWorkout.target.targetRir }
+    setState((current) => current.activeSession ? {
+      ...current,
+      history: current.history.some((set) => set.id === id) ? current.history : [...current.history, record],
+      pendingSessionIds: addUnique(current.pendingSessionIds, sessionId),
+      activeSession: { ...current.activeSession, sets: { ...current.activeSession.sets, [exercise.id]: current.activeSession.sets[exercise.id].map((item, position) => position === index ? { ...item, complete: true } : item) } },
+    } : current)
   }
-  async function finishWorkout() { if (!activeWorkout || !Object.values(setsByExercise).flat().some((set) => set.complete)) return; const sessionSets = history.filter((set) => set.sessionId === sessionId); if (supabase && accountEmail && sessionSets.length) { const { data } = await supabase.auth.getUser(); if (data.user) { const result = await backupSession(supabase, data.user.id, sessionId, sessionSets); setCloudStatus(result.ok ? 'Session saved.' : `Save pending: ${result.message}`) } }; setCompletedIds((ids) => [...new Set([...ids, activeWorkout.id])]); setView('schedule') }
-  async function sendMagicLink() { if (!supabase || !email.trim()) return; const { error } = await supabase.auth.signInWithOtp({ email: email.trim(), options: { emailRedirectTo: `${window.location.origin}/auth/callback` } }); setCloudStatus(error ? error.message : 'Magic link sent. Check your email.') }
-  async function restoreBackup() { if (!supabase) return; const { data } = await supabase.auth.getUser(); if (!data.user) return; const result = await restoreSessions(supabase, data.user.id, history); setHistory(result.history); setCloudStatus(result.message ?? `Restore complete: ${result.added} sets added, ${result.skipped} invalid records skipped.`) }
-  async function backupNow() { if (!supabase) return; const { data } = await supabase.auth.getUser(); if (!data.user) return; const sessions = [...new Set(history.map((set) => set.sessionId))]; let pending = 0; for (const id of sessions) { const result = await backupSession(supabase, data.user.id, id, history.filter((set) => set.sessionId === id)); if (!result.ok) pending += 1 }; setCloudStatus(pending ? `${pending} sessions still need backup.` : 'All completed sessions backed up.') }
-  function suggestion(exercise: ExercisePrescription) {
-    if (!activeWorkout) return null
-    const latest = [...history].filter((entry) => entry.exerciseId === exercise.id).sort((a, b) => b.completedAt.localeCompare(a.completedAt))[0]
-    if (!latest) return <p className="suggestion">First exposure: use a controlled load and target RIR {activeWorkout.target.targetRir}.</p>
-    if (activeWorkout.target.kind === 'deload') return <p className="suggestion">Deload: use {latest.weight * 0.5} lb for {latest.reps} reps — 50% of last load.</p>
-    const next = getNextSetSuggestion({ weight: latest.weight, reps: latest.reps, rir: latest.rir, targetRir: activeWorkout.target.targetRir, repRange: exercise.repRange })
-    return <p className="suggestion">Next time: {next.weight} lb × {next.reps}. {next.reason}</p>
+  function finishWorkout() {
+    if (!block || !activeSession) return
+    setState({ ...state, activeSession: null, block: { ...block, completedIds: addUnique(block.completedIds, activeSession.workoutId) } })
+    setView('today')
+  }
+  function discardSession() {
+    if (!activeSession || !window.confirm('Discard this session and every set logged in it?')) return
+    const { sessionId } = activeSession
+    setState((current) => ({ ...current, activeSession: null, history: current.history.filter((set) => set.sessionId !== sessionId), pendingSessionIds: addUnique(current.pendingSessionIds, sessionId) }))
+    setView('today')
+  }
+  function skipWorkout() {
+    if (!block || !upcoming || !window.confirm('Skip this workout? It will count as done for the block.')) return
+    setState({ ...state, block: { ...block, skippedIds: addUnique(block.skippedIds, upcoming.id) } })
+  }
+  function newBlock() {
+    if (block?.locked && upcoming && !window.confirm('Replace the current block? Your logged history is kept, but this block\'s progress is lost.')) return
+    setState({ ...state, block: null, activeSession: null })
+    setView('setup')
   }
 
-  const completedSetCount = Object.values(setsByExercise).flat().filter((set) => set.complete).length
-  const totalSetCount = Object.values(setsByExercise).flat().length
-  const latestSet = [...history].sort((a, b) => b.completedAt.localeCompare(a.completedAt))[0]
+  async function sendMagicLink(email: string) {
+    if (!supabase) return
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: window.location.origin } })
+    setCloudStatus(error ? error.message : 'Magic link sent. Open it on this device to stay signed in here.')
+  }
+  function backupAll() {
+    setState((current) => ({ ...current, pendingSessionIds: [...new Set([...current.pendingSessionIds, ...current.history.map((set) => set.sessionId)])] }))
+    setOnline((value) => value + 1)
+    setCloudStatus('Backing up all sessions…')
+  }
+  function exportData() {
+    const url = URL.createObjectURL(new Blob([exportWorkoutState(state)], { type: 'application/json' }))
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `workout-forge-${new Date().toISOString().slice(0, 10)}.json`
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+  function importData(text: string) {
+    const imported = parseImportedState(text)
+    if (!imported) { setCloudStatus('That file is not a Workout Forge export.'); return }
+    const merged = mergeSets(state.history, imported.history)
+    setState({ ...state, history: merged, block: state.block ?? imported.block, customExercises: [...state.customExercises, ...imported.customExercises.filter((item) => !state.customExercises.some((own) => own.id === item.id))], pendingSessionIds: [...new Set([...state.pendingSessionIds, ...merged.map((set) => set.sessionId)])] })
+    setCloudStatus(`Imported ${merged.length - state.history.length} sets.`)
+  }
+
+  const syncLabel = !owned ? 'saved on this device' : activeSession && state.pendingSessionIds.includes(activeSession.sessionId) ? 'syncing…' : 'backed up'
+  const navigate = (next: View) => () => setView(next === 'today' && activeSession ? 'session' : next)
+  const home = (): View => (!block ? 'setup' : block.locked ? 'today' : 'plan')
 
   return <main className="app-shell">
-    <header className="topbar"><button className="brand" onClick={() => setView(program ? 'schedule' : 'onboarding')} aria-label="Workout Forge home"><span className="brand-mark">WF</span><span>WORKOUT FORGE</span></button>{program && <nav aria-label="Primary navigation"><button className={view === 'schedule' ? 'nav-active' : ''} onClick={() => setView('schedule')}>Plan</button><button className={view === 'progress' ? 'nav-active' : ''} onClick={() => setView('progress')}>Progress</button></nav>}<span className="local-badge"><i /> Local-first</span></header>
-    {supabase && <section className="workspace"><div className="preview-card"><div><span className="preview-label">CLOUD BACKUP</span><h2>{accountEmail ? `Connected: ${accountEmail}` : 'Protect your training history'}</h2><p>{cloudStatus || (accountEmail ? 'Completed workouts back up automatically.' : 'Sign in with a magic link to enable cross-device backup.')}</p></div>{accountEmail ? <div><button className="secondary-button" onClick={backupNow}>Back up now</button><button className="secondary-button" onClick={restoreBackup}>Restore</button><button className="secondary-button" onClick={() => void supabase?.auth.signOut()}>Sign out</button></div> : <div><input aria-label="Backup email" type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="you@example.com" /><button className="secondary-button" onClick={sendMagicLink}>Send magic link</button></div>}</div></section>}
-    {view === 'onboarding' && <section className="onboarding" aria-labelledby="onboarding-title"><div className="eyebrow">YOUR TRAINING SYSTEM</div><h1 id="onboarding-title">Build a plan you’ll actually finish.</h1><p className="lede">Push, pull, legs — structured around your week and measured set by set.</p><div className="setup-grid"><section className="setup-card"><div className="step-label">01 — Training rhythm</div><h2>How many days can you train?</h2><div className="choice-grid two" aria-label="Training days per week">{dayOptions.map((days) => <button key={days} className={trainingDays === days ? 'choice selected' : 'choice'} aria-label={`${days} days per week`} aria-pressed={trainingDays === days} onClick={() => setTrainingDays(days)}><strong>{days}</strong><span>days / week</span></button>)}</div></section><section className="setup-card"><div className="step-label">02 — Training block</div><h2>How long is your focus window?</h2><div className="choice-grid two" aria-label="Program duration">{durationOptions.map((weeks) => <button key={weeks} className={duration === weeks ? 'choice selected' : 'choice'} aria-label={`${weeks} weeks`} aria-pressed={duration === weeks} onClick={() => setDuration(weeks)}><strong>{weeks}</strong><span>weeks</span></button>)}</div></section></div><section className="preview-card" aria-label="Program preview"><div><span className="preview-label">YOUR PROGRAM</span><h2>{trainingDays === 3 ? 'Push / Pull / Legs' : 'Push / Pull A/B'}</h2><p>{duration} weeks · {trainingDays * duration} planned sessions · RIR-driven progression</p></div><button className="primary-button" onClick={buildProgram}>Build my plan <span>→</span></button></section></section>}
-    {view === 'schedule' && program && <section className="workspace" aria-labelledby="schedule-title"><div className="workspace-heading"><div><div className="eyebrow">WEEK 01 OF {duration.toString().padStart(2, '0')}</div><h1 id="schedule-title">Your training block</h1><p>{totalSessions} planned sessions · {completedIds.length} complete</p></div><button className="secondary-button" onClick={() => setView('onboarding')}>New plan</button></div>{editingWorkoutId && <section className="setup-card"><h2>Choose your six exercises</h2>{program.workouts.find((workout) => workout.id === editingWorkoutId)?.exercises.map((exercise, slot, exercises) => <label key={slot}>Slot {slot + 1} · {exercise.category}<select value={exercise.id} onChange={(event) => chooseExercise(editingWorkoutId, slot, event.target.value)}>{exerciseCatalog.filter((item) => item.category === exercise.category).map((item) => <option key={item.id} value={item.id} disabled={item.id !== exercise.id && exercises.some((other, index) => index !== slot && other.id === item.id)}>{item.name}</option>)}</select></label>)}</section>}<div className="progress-line" aria-label={`${completedIds.length} of ${totalSessions} workouts completed`}><span style={{ width: `${totalSessions ? completedIds.length / totalSessions * 100 : 0}%` }} /></div><div className="week-label"><span>WEEK 01 · {selectedWeek[0]?.target.targetRir} RIR TARGET</span><span>{trainingDays} SESSIONS</span></div><div className="workout-list">{selectedWeek.map((workout, index) => { const complete = completedIds.includes(workout.id); return <article className={complete ? 'workout-card completed' : 'workout-card'} key={workout.id}><div className="session-number">{String(index + 1).padStart(2, '0')}</div><div className="workout-info"><span>{new Date(`${workout.date}T12:00:00`).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}</span><h2>{workout.title}</h2><p>{workout.exercises.length} movements · target RIR {workout.target.targetRir}</p></div>{complete ? <span className="complete-status">✓ Complete</span> : <><button className="secondary-button" onClick={() => setEditingWorkoutId(workout.id)}>Choose exercises</button><button className="start-button" onClick={() => startWorkout(workout)}>Start <span>→</span></button></>}</article> })}</div></section>}
-    {view === 'session' && activeWorkout && <section className="session-view" aria-labelledby="session-title"><button className="back-link" onClick={() => setView('schedule')}>← Back to plan</button><div className="session-header"><div><div className="eyebrow">ACTIVE SESSION · {activeWorkout.target.kind === 'deload' ? 'DELOAD' : `${activeWorkout.target.targetRir} RIR TARGET`}</div><h1 id="session-title">{activeWorkout.title}</h1><p>Log weight, reps, and RIR. Completed sets save to local history immediately.</p></div><div className="timer">RIR {activeWorkout.target.targetRir}</div></div>{activeWorkout.exercises.map((exercise, exerciseIndex) => <article className="exercise-card" key={exercise.id}><div className="exercise-title"><div><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><h2>{exercise.name}</h2><p>Target: {exercise.sets} sets × {exercise.repRange.min}–{exercise.repRange.max} reps · RIR {activeWorkout.target.targetRir}</p></div></div>{suggestion(exercise)}<div className="set-table set-table-rir" role="table" aria-label={`${exercise.name} set log`}><div className="set-head" role="row"><span>SET</span><span>WEIGHT</span><span>REPS</span><span>RIR</span><span>DONE</span></div>{setsByExercise[exercise.id]?.map((set, index) => <div className="set-row" role="row" key={index}><span>{index + 1}</span><label><input aria-label={`${exerciseIndex === 0 ? '' : `${exercise.name} `}Set ${index + 1} weight`} value={set.weight} inputMode="decimal" onChange={(event) => updateSet(exercise.id, index, { weight: event.target.value })} /><em>lb</em></label><select aria-label={`${exerciseIndex === 0 ? '' : `${exercise.name} `}Set ${index + 1} reps`} value={set.reps} onChange={(event) => updateSet(exercise.id, index, { reps: event.target.value })}>{Array.from({ length: 30 }, (_, value) => <option key={value + 1} value={value + 1}>{value + 1}</option>)}</select><select aria-label={`${exerciseIndex === 0 ? '' : `${exercise.name} `}Set ${index + 1} RIR`} value={set.rir} onChange={(event) => updateSet(exercise.id, index, { rir: event.target.value })}>{Array.from({ length: 11 }, (_, value) => <option key={value} value={value}>{value}</option>)}</select><button className={set.complete ? 'check done' : 'check'} aria-label={`Complete ${exerciseIndex === 0 ? '' : `${exercise.name} `}set ${index + 1}`} onClick={() => toggleSet(exercise, index)}>{set.complete ? '✓' : ''}</button></div>)}</div></article>)}<div className="session-footer"><span>{completedSetCount} / {totalSetCount} sets saved</span><button className="primary-button" disabled={!completedSetCount} onClick={finishWorkout}>Finish workout <span>→</span></button></div></section>}
-    {view === 'progress' && program && <section className="workspace" aria-labelledby="progress-title"><div className="workspace-heading"><div><div className="eyebrow">TRAINING DATA</div><h1 id="progress-title">Progress, without the noise.</h1><p>Every completed set is stored locally and drives the next suggestion.</p></div></div><div className="metrics-grid"><article><span>COMPLETED</span><strong>{completedIds.length}<small> / {totalSessions}</small></strong><p>sessions finished</p></article><article><span>LOGGED SETS</span><strong>{history.length}</strong><p>saved in session history</p></article><article><span>TOTAL VOLUME</span><strong>{volume.toLocaleString()}<small> lb</small></strong><p>completed working sets</p></article></div><section className="progress-empty"><span>LATEST COMPLETED SET</span>{latestSet ? <><h2>{latestSet.exerciseName}: {latestSet.weight} lb × {latestSet.reps} · RIR {latestSet.rir}</h2><p>Week {latestSet.weekNumber} target: {latestSet.targetRir} RIR / RIR {latestSet.targetRir}. Historical records retain their rep range and effort target.</p></> : <><h2>Your first completed set starts the record.</h2><p>Start the next planned workout and log weight, reps, and RIR.</p></>}</section></section>}
+    <header className="topbar"><button className="brand" onClick={navigate(home())} aria-label="Workout Forge home"><span className="brand-mark">WF</span><span>WORKOUT FORGE</span></button>
+      <nav aria-label="Primary navigation">
+        {block?.locked && <button className={view === 'today' || view === 'session' ? 'nav-active' : ''} onClick={navigate('today')}>Workout</button>}
+        <button className={view === 'progress' ? 'nav-active' : ''} onClick={navigate('progress')}>Progress</button>
+        <button className={view === 'settings' ? 'nav-active' : ''} onClick={navigate('settings')}>Settings</button>
+      </nav>
+      <span className="local-badge"><i /> {owned ? (state.pendingSessionIds.length ? 'Syncing' : 'Backed up') : 'Local-first'}</span></header>
+    {saveFailed && <p className="form-error banner" role="alert">This device could not save your data (storage full or blocked). Export your data from Settings now.</p>}
+    {view === 'setup' && <SetupView days={setupDays} weeks={setupWeeks} hasHistory={history.length > 0} onDays={setSetupDays} onWeeks={setSetupWeeks} onContinue={() => { setState({ ...state, block: createBlock(setupDays, setupWeeks) }); setView('plan') }} />}
+    {view === 'plan' && block && <PlanView block={block} catalog={catalog} onSlot={setSlot} onAddExercise={addExercise} onAutoFill={() => setState({ ...state, block: autoFillPlan(block, catalog) })} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
+    {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} durationWeeks={block.durationWeeks} finished={finished} total={total} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onSkip={skipWorkout} onNewBlock={newBlock} />}
+    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
+    {view === 'progress' && <ProgressView history={history} finished={finished} total={total} />}
+    {view === 'settings' && <SettingsView cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSendLink={(email) => void sendMagicLink(email)} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} onRestore={() => void restoreFromCloud(false)} onExport={exportData} onImport={importData} onNewBlock={newBlock} />}
   </main>
 }
 
