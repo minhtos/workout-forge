@@ -1,11 +1,14 @@
 import { useState } from 'react'
 import { maxExercisesPerDay, muscleGroups, planProblem, setCountOptions, type Block, type ExerciseCatalogItem, type MuscleGroup } from '../domain/program'
+import { findWorkoutSet, workoutSets, type WorkoutSet } from '../domain/workoutSets'
 
 interface Props {
   block: Block
   catalog: ExerciseCatalogItem[]
+  onApplySet: (set: WorkoutSet) => void
   onRename: (dayIndex: number, title: string) => void
   onAdd: (dayIndex: number, exerciseId: string) => void
+  onChoose: (dayIndex: number, position: number, exerciseId: string | null) => void
   onCreate: (dayIndex: number, name: string, category: MuscleGroup) => void
   onRemove: (dayIndex: number, position: number) => void
   onMove: (dayIndex: number, position: number, delta: -1 | 1) => void
@@ -16,35 +19,56 @@ interface Props {
 
 type Filter = MuscleGroup | 'All'
 
-export function PlanView({ block, catalog, onRename, onAdd, onCreate, onRemove, onMove, onSets, onBack, onStart }: Props) {
+export function PlanView({ block, catalog, onApplySet, onRename, onAdd, onChoose, onCreate, onRemove, onMove, onSets, onBack, onStart }: Props) {
   const [pickerDay, setPickerDay] = useState<number | null>(null)
   const [filter, setFilter] = useState<Filter>('All')
   const [newName, setNewName] = useState('')
   const [newCategory, setNewCategory] = useState<MuscleGroup>('Chest')
   const problem = planProblem(block, catalog)
   const byId = new Map(catalog.map((item) => [item.id, item]))
+  const activeSet = findWorkoutSet(block.workoutSetId)
 
   return <section className="workspace" aria-labelledby="plan-title">
-    <div className="workspace-heading"><div><div className="eyebrow">{block.durationWeeks} WEEKS + DELOAD · {block.trainingDays} DAYS / WEEK</div><h1 id="plan-title">Choose your exercises</h1><p>Build each training day however you like. Your choices lock in once you start the block.</p></div><button className="secondary-button" onClick={onBack}>Back</button></div>
+    <div className="workspace-heading"><div><div className="eyebrow">{block.durationWeeks} WEEKS + DELOAD · {block.trainingDays} DAYS / WEEK{activeSet ? ` · ${activeSet.name.toUpperCase()}` : ''}</div><h1 id="plan-title">Choose your exercises</h1><p>Start from a Workout Set, or build each day yourself. Your choices lock in once you start the block.</p></div><button className="secondary-button" onClick={onBack}>Back</button></div>
+
+    <section className="set-picker" aria-label="Workout Sets">
+      <div className="step-label">Start from a Workout Set</div>
+      <div className="set-grid">{workoutSets.map((set) => <article className={set.id === block.workoutSetId ? 'set-card selected' : 'set-card'} key={set.id}>
+        <span className={set.recommendedDays === block.trainingDays ? 'badge recommended' : 'badge'}>Recommended for {set.recommendedDays}-day program</span>
+        <h2>{set.name}</h2>
+        <p>{set.summary}</p>
+        <button className="secondary-button" aria-label={`Use ${set.name}`} onClick={() => onApplySet(set)}>{set.id === block.workoutSetId ? 'Applied' : 'Use this set'}</button>
+      </article>)}</div>
+    </section>
+
     <div className="plan-grid">{block.templates.map((day, dayIndex) => {
       const open = pickerDay === dayIndex
       const chosen = new Set(day.exercises.map((entry) => entry.exerciseId))
       const options = catalog.filter((item) => filter === 'All' || item.category === filter)
       const full = day.exercises.length >= maxExercisesPerDay
       return <article className="setup-card" key={dayIndex}>
-        <div className="step-label">Day {dayIndex + 1}</div>
+        <div className="step-label">{block.rotation ? 'Workout' : 'Day'} {dayIndex + 1}</div>
         <input className="day-name" aria-label={`Day ${dayIndex + 1} name`} value={day.title} maxLength={24} onChange={(event) => onRename(dayIndex, event.target.value)} />
         {day.exercises.length === 0 && <p className="hint">No exercises yet.</p>}
         {day.exercises.map((entry, position) => {
-          const item = byId.get(entry.exerciseId)
+          const item = entry.exerciseId ? byId.get(entry.exerciseId) : undefined
+          const name = item?.name ?? entry.category ?? 'exercise'
           const label = `Day ${dayIndex + 1} exercise ${position + 1}`
-          return <div className="plan-slot" key={entry.exerciseId}>
-            <div className="slot-name"><strong>{item?.name ?? entry.exerciseId}</strong><span className="slot-label">{item?.category}</span></div>
-            <select aria-label={`${label} sets`} value={entry.sets} onChange={(event) => onSets(dayIndex, position, Number(event.target.value))}>{setCountOptions.map((count) => <option key={count} value={count}>{count} sets</option>)}</select>
+          const isSlot = entry.category !== undefined
+          const choices = catalog.filter((candidate) => candidate.category === entry.category)
+          return <div className="plan-slot" key={position}>
+            {isSlot
+              ? <div className="slot-name"><span className="slot-label">{entry.category}</span>
+                <select aria-label={`${label} choice`} value={entry.exerciseId ?? ''} onChange={(event) => onChoose(dayIndex, position, event.target.value || null)}>
+                  <option value="">Choose {entry.category?.toLowerCase()} exercise…</option>
+                  {choices.map((choice) => <option key={choice.id} value={choice.id} disabled={choice.id !== entry.exerciseId && chosen.has(choice.id)}>{choice.name}</option>)}
+                </select></div>
+              : <div className="slot-name"><strong>{name}</strong><span className="slot-label">{item?.category}</span></div>}
+            <select aria-label={`${label} sets`} value={entry.sets} onChange={(event) => onSets(dayIndex, position, Number(event.target.value))}>{setCountOptions.map((count) => <option key={count} value={count}>{count} {count === 1 ? 'set' : 'sets'}{entry.reps ? ` × ${entry.reps}` : ''}</option>)}</select>
             <div className="slot-actions">
-              <button className="icon-button" aria-label={`Move ${item?.name} up`} disabled={position === 0} onClick={() => onMove(dayIndex, position, -1)}>↑</button>
-              <button className="icon-button" aria-label={`Move ${item?.name} down`} disabled={position === day.exercises.length - 1} onClick={() => onMove(dayIndex, position, 1)}>↓</button>
-              <button className="icon-button" aria-label={`Remove ${item?.name}`} onClick={() => onRemove(dayIndex, position)}>✕</button>
+              <button className="icon-button" aria-label={`Move ${name} up`} disabled={position === 0} onClick={() => onMove(dayIndex, position, -1)}>↑</button>
+              <button className="icon-button" aria-label={`Move ${name} down`} disabled={position === day.exercises.length - 1} onClick={() => onMove(dayIndex, position, 1)}>↓</button>
+              <button className="icon-button" aria-label={`Remove ${name}`} onClick={() => onRemove(dayIndex, position)}>✕</button>
             </div>
           </div>
         })}

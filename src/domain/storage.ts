@@ -58,13 +58,13 @@ interface StoredDay { title?: string; exercises?: PlanExercise[]; slots?: { exer
  */
 function normalizeBlock(raw: SavedWorkoutState['block']): Block | null {
   if (!raw) return null
-  const stored = raw as unknown as Omit<Block, 'templates' | 'durationWeeks' | 'trainingDays'> & { templates: StoredDay[]; durationWeeks: number; trainingDays: number }
+  const stored = raw as unknown as Omit<Block, 'templates' | 'durationWeeks' | 'trainingDays' | 'progression' | 'rotation' | 'workoutSetId'> & Partial<Pick<Block, 'progression' | 'rotation' | 'workoutSetId'>> & { templates: StoredDay[]; durationWeeks: number; trainingDays: number }
   const templates = stored.templates.map((day, index): DayTemplate => ({
     title: day.title ?? `Day ${index + 1}`,
     exercises: day.exercises ?? (day.slots ?? []).flatMap((slot) => (slot.exerciseId ? [{ exerciseId: slot.exerciseId, sets: slot.sets }] : [])),
   }))
   const trainingDays = [2, 3, 4].includes(stored.trainingDays) ? (stored.trainingDays as Block['trainingDays']) : (Math.min(4, Math.max(2, templates.length)) as Block['trainingDays'])
-  return { ...stored, templates, trainingDays, durationWeeks: stored.durationWeeks === 6 ? 6 : 4 }
+  return { ...stored, templates, trainingDays, durationWeeks: stored.durationWeeks === 6 ? 6 : 4, progression: stored.progression ?? 'rir', rotation: stored.rotation ?? false, workoutSetId: stored.workoutSetId ?? null }
 }
 
 function normalizeState(state: SavedWorkoutState): SavedWorkoutState {

@@ -101,4 +101,35 @@ describe('Workout Forge gym flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Progress' }))
     expect(within(screen.getByRole('region', { name: /progress/i })).getByText(/barbell bench press: 135 lb × 6/i)).toBeTruthy()
   })
+
+  it('builds a plan from a Workout Set by choosing one exercise per muscle slot', () => {
+    openPlanner('3', '4')
+    expect(screen.getAllByText(/Recommended for \d-day program/i)).toHaveLength(4)
+    fireEvent.click(screen.getByRole('button', { name: 'Use Push | Pull | Legs' }))
+    const start = screen.getByRole('button', { name: /start block/i }) as HTMLButtonElement
+    expect(start.disabled).toBe(true)
+    expect(screen.getByText(/choose an exercise for every slot on push/i)).toBeTruthy()
+
+    const days = [['Barbell Bench Press', 'Barbell Incline Bench Press', 'Dumbbell Incline Bench Press', 'Machine Incline Press', 'Cable Pushdown', 'Cable Pulldown'], ['Pull-ups', 'Pull-down', 'Row Machine', 'Barbell Row', 'Cable Curls', 'Barbell Curls'], ['Barbell Squat', 'Hack Squat', 'Leg Press Machine', 'Dumbbell RDL', 'Seated Leg Curl', 'Lying Leg Curl']]
+    const idFor = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    days.forEach((names, day) => names.forEach((name, slot) => fireEvent.change(screen.getByLabelText(`Day ${day + 1} exercise ${slot + 1} choice`), { target: { value: idFor(name) } })))
+    expect(start.disabled).toBe(false)
+    fireEvent.click(start)
+    expect(screen.getByText(/week 1 of 5 · day 1 of 3/i)).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Push' })).toBeTruthy()
+  })
+
+  it('starts the 5x5 set ready to go and alternates workouts', () => {
+    openPlanner('3', '4')
+    fireEvent.click(screen.getByRole('button', { name: 'Use Starting Strength 5x5' }))
+    fireEvent.click(screen.getByRole('button', { name: /start block/i }))
+    expect(screen.getByRole('heading', { name: 'Workout A' })).toBeTruthy()
+    expect(screen.getAllByText(/5 sets × 5 reps/).length).toBe(3)
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    expect(screen.queryByText(/RIR TARGET/)).toBeNull()
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '45' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+    fireEvent.click(screen.getByRole('button', { name: /finish workout/i }))
+    expect(screen.getByRole('heading', { name: 'Workout B' })).toBeTruthy()
+  })
 })

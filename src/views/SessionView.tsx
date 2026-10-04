@@ -19,16 +19,17 @@ interface Props {
 }
 
 export function SessionView({ workout, session, history, syncLabel, error, onBack, onUpdate, onToggle, onFinish, onDiscard }: Props) {
+  const linear = workout.progression === 'linear'
   const entries = Object.values(session.sets).flat()
   const done = entries.filter((entry) => entry.complete).length
   return <section className="session-view" aria-labelledby="session-title">
     <button className="back-link" onClick={onBack}>← Back</button>
-    <div className="session-header"><div><div className="eyebrow">WEEK {workout.weekNumber} · {workout.target.kind === 'deload' ? 'DELOAD' : `${workout.target.targetRir} RIR TARGET`}</div><h1 id="session-title">{workout.title}</h1><p>Each set saves the moment you check it off.</p></div><div className="timer">RIR {workout.target.targetRir}</div></div>
+    <div className="session-header"><div><div className="eyebrow">WEEK {workout.weekNumber} · {workout.target.kind === 'deload' ? 'DELOAD' : linear ? 'ADD WEIGHT EACH SESSION' : `${workout.target.targetRir} RIR TARGET`}</div><h1 id="session-title">{workout.title}</h1><p>Each set saves the moment you check it off.</p></div>{!linear && <div className="timer">RIR {workout.target.targetRir}</div>}</div>
     {workout.exercises.map((exercise, exerciseIndex) => {
       const last = lastSessionSets(history, exercise.id, session.sessionId)
       const prefix = exerciseIndex === 0 ? '' : `${exercise.name} `
       return <article className="exercise-card" key={exercise.id}>
-        <div className="exercise-title"><div><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><h2>{exercise.name}</h2><p>{exercise.sets} sets × {exercise.repRange.min}–{exercise.repRange.max} reps · RIR {workout.target.targetRir}</p></div></div>
+        <div className="exercise-title"><div><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><h2>{exercise.name}</h2><p>{exercise.sets} {exercise.sets === 1 ? 'set' : 'sets'} × {exercise.repRange.min === exercise.repRange.max ? exercise.repRange.min : `${exercise.repRange.min}–${exercise.repRange.max}`} reps{linear ? '' : ` · RIR ${workout.target.targetRir}`}</p></div></div>
         {last.length > 0 && <p className="last-time">Last time: {describeLastSession(last)}</p>}
         <p className="suggestion">{suggestionText(exercise, workout, last)}</p>
         <div className="set-table set-table-rir" role="table" aria-label={`${exercise.name} set log`}>

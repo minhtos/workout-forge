@@ -21,9 +21,9 @@ export function TodayView({ workout, trainingDays, totalWeeks, finished, total, 
   return <section className="workspace" aria-labelledby="today-title">
     <div className="eyebrow">WEEK {workout.weekNumber} OF {totalWeeks}{workout.target.kind === 'deload' ? ' · DELOAD' : ''} · DAY {workout.dayIndex + 1} OF {trainingDays}</div>
     <h1 id="today-title">{workout.title}</h1>
-    <p className="lede">{workout.target.kind === 'deload' ? 'Deload week: go light, about half your last load, and stop well short of failure.' : `Target: ${workout.target.targetRir} reps in reserve on every set.`}</p>
+    <p className="lede">{workout.target.kind === 'deload' ? 'Deload week: go light, about half your last load, and stop well short of failure.' : workout.progression === 'linear' ? 'Hit every rep on every set. Next session adds weight once you do.' : `Target: ${workout.target.targetRir} reps in reserve on every set.`}</p>
     {progress}
-    <div className="workout-list">{workout.exercises.map((exercise, index) => <article className="workout-card" key={exercise.id}><div className="session-number">{String(index + 1).padStart(2, '0')}</div><div className="workout-info"><span>{exercise.category}</span><h2>{exercise.name}</h2><p>{exercise.sets} sets × {exercise.repRange.min}–{exercise.repRange.max} reps</p></div></article>)}</div>
+    <div className="workout-list">{workout.exercises.map((exercise, index) => <article className="workout-card" key={exercise.id}><div className="session-number">{String(index + 1).padStart(2, '0')}</div><div className="workout-info"><span>{exercise.category}</span><h2>{exercise.name}</h2><p>{exercise.sets} {exercise.sets === 1 ? 'set' : 'sets'} × {exercise.repRange.min === exercise.repRange.max ? exercise.repRange.min : `${exercise.repRange.min}–${exercise.repRange.max}`} reps</p></div></article>)}</div>
     <div className="session-footer"><button className="secondary-button" onClick={onSkip}>Skip this workout</button><button className="primary-button" onClick={onStart}>{resuming ? 'Resume workout' : 'Start workout'} <span>→</span></button></div>
   </section>
 }
