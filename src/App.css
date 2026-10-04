@@ -67,7 +67,7 @@ select { font: inherit; }
 .set-row select, .plan-slot select, .button-row input, .add-exercise-form input, .add-exercise-form select, .day-name {
   min-width: 0; width: 100%; background: var(--surface-2); border: 1px solid var(--hairline-strong); border-radius: var(--radius-md); color: var(--ink); padding: 0 10px; font-size: 16px; min-height: 44px;
 }
-select option { color: #111; }
+select option { background: var(--surface-2); color: var(--ink); }
 .button-row input { width: 230px; }
 .day-name { margin: 10px 0 16px; font-size: 18px; font-weight: 500; padding: 0 12px; }
 .add-exercise-form { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }

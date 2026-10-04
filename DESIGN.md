@@ -97,3 +97,10 @@ Don't
 1. Change tokens in `:root` first; components should follow.
 2. Add new states as new classes, not by editing hex values.
 3. Re-check contrast whenever `ink-subtle` or a surface changes.
+
+## Light mode
+
+The palette follows the system setting (`prefers-color-scheme`). Dark is the default; light overrides the
+same tokens in a media query at the bottom of `src/index.css`, so components never need to know the theme.
+`color-scheme: dark light` makes native controls (the Reps and RIR dropdown menus, scrollbars) match, and
+`select option` uses `--surface-2` / `--ink`. Keep every new color a token with both a dark and a light value.
