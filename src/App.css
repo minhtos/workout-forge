@@ -232,3 +232,19 @@ select option { background: var(--surface-2); color: var(--ink); }
 .switch-thumb { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: var(--ink-subtle); transition: transform .15s, background .15s; }
 .switch[aria-checked='true'] { background: var(--primary); border-color: var(--primary); }
 .switch[aria-checked='true'] .switch-thumb { transform: translateX(20px); background: var(--on-primary); }
+
+/* ---------- Exercise library ---------- */
+.library-add { margin-top: 24px; }
+.library-group { margin-top: 28px; }
+.library-group-head { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding-bottom: 10px; border-bottom: 1px solid var(--hairline); }
+.library-group-head h2 { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; margin: 0; }
+.library-count { color: var(--ink-subtle); font: 12px var(--font-mono); letter-spacing: 0.04em; }
+.library-bulk { margin-left: auto; display: flex; gap: 6px; }
+.library-row { display: flex; align-items: center; gap: 14px; min-height: 56px; padding: 6px 0; border-bottom: 1px solid var(--hairline); }
+.library-row.is-off .library-name { color: var(--ink-subtle); text-decoration: line-through; text-decoration-color: var(--hairline-strong); }
+.library-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15px; }
+.library-actions { display: flex; gap: 6px; }
+.library-row.editing { flex-wrap: wrap; gap: 8px; padding: 10px 0; }
+.library-row.editing input, .library-row.editing select { flex: 1 1 160px; min-width: 0; min-height: 44px; background: var(--surface-2); border: 1px solid var(--hairline-strong); border-radius: var(--radius-md); color: var(--ink); padding: 0 10px; font-size: 16px; }
+.library-row .badge { font-size: 10px; }
+@media (max-width: 680px) { .library-bulk { margin-left: 0; } }

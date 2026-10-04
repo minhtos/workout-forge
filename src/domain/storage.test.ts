@@ -28,6 +28,12 @@ describe('workout storage', () => {
     expect(window.localStorage.getItem(stashed[0])).toBe('{not json')
   })
 
+  it('loads states saved before the exercise library existed, with everything on', () => {
+    const { hiddenExerciseIds: _removed, ...old } = emptyState()
+    window.localStorage.setItem('workout-forge:v3', JSON.stringify(old))
+    expect(loadWorkoutState().hiddenExerciseIds).toEqual([])
+  })
+
   it('migrates an in-progress block saved with muscle-group slots, keeping your place', () => {
     const old = {
       ...emptyState(),

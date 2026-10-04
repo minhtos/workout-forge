@@ -32,6 +32,8 @@ export interface SavedWorkoutState {
   ownerId: string | null
   block: Block | null
   customExercises: ExerciseCatalogItem[]
+  /** Exercises turned off in the library; hidden from program-building menus. */
+  hiddenExerciseIds: string[]
   history: CompletedSetRecord[]
   activeSession: ActiveSession | null
   /** Sessions whose latest sets have not yet been confirmed in the cloud. */
@@ -39,7 +41,7 @@ export interface SavedWorkoutState {
 }
 
 export function emptyState(): SavedWorkoutState {
-  return { version: 3, ownerId: null, block: null, customExercises: [], history: [], activeSession: null, pendingSessionIds: [] }
+  return { version: 3, ownerId: null, block: null, customExercises: [], hiddenExerciseIds: [], history: [], activeSession: null, pendingSessionIds: [] }
 }
 
 function isStateShape(candidate: unknown): candidate is SavedWorkoutState {
@@ -68,7 +70,7 @@ function normalizeBlock(raw: SavedWorkoutState['block']): Block | null {
 }
 
 function normalizeState(state: SavedWorkoutState): SavedWorkoutState {
-  return { ...state, block: normalizeBlock(state.block) }
+  return { ...state, block: normalizeBlock(state.block), hiddenExerciseIds: Array.isArray(state.hiddenExerciseIds) ? state.hiddenExerciseIds : [] }
 }
 
 /** Keeps a copy of data we are about to stop using, so nothing is ever silently discarded. */

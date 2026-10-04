@@ -2,7 +2,7 @@ import { getWeekTarget, totalWeeks, type Progression, type ProgramDurationWeeks,
 
 export type { Progression, ProgramDurationWeeks }
 export type TrainingDaysPerWeek = 2 | 3 | 4
-export type MuscleGroup = 'Chest' | 'Back' | 'Shoulders' | 'Triceps' | 'Biceps' | 'Quads' | 'Hamstrings'
+export type MuscleGroup = 'Chest' | 'Back' | 'Shoulders' | 'Triceps' | 'Biceps' | 'Forearms' | 'Quads' | 'Hamstrings' | 'Glutes' | 'Calves' | 'Core'
 export interface ExerciseCatalogItem { id: string; name: string; category: MuscleGroup }
 export interface ExercisePrescription { id: string; name: string; category: MuscleGroup; sets: number; repRange: RepRange }
 
@@ -33,7 +33,7 @@ export interface WorkoutRef { id: string; weekNumber: number; dayIndex: number; 
 export interface ScheduledWorkout extends WorkoutRef { exercises: ExercisePrescription[] }
 
 export const dayOptions: TrainingDaysPerWeek[] = [2, 3, 4]
-export const muscleGroups: MuscleGroup[] = ['Chest', 'Back', 'Shoulders', 'Triceps', 'Biceps', 'Quads', 'Hamstrings']
+export const muscleGroups: MuscleGroup[] = ['Chest', 'Back', 'Shoulders', 'Triceps', 'Biceps', 'Forearms', 'Quads', 'Hamstrings', 'Glutes', 'Calves', 'Core']
 export const defaultSetCount = 3
 export const setCountOptions = [1, 2, 3, 4, 5]
 export const maxExercisesPerDay = 12
@@ -44,16 +44,23 @@ const names: Record<MuscleGroup, string[]> = {
   Shoulders: ['Barbell Overhead Press', 'Dumbbell Shoulder Press', 'Lateral Raise'],
   Triceps: ['Dumbbell Tricep Extension', 'Cable Pushdown', 'Cable Single Arm Pulldown', 'Cable Pulldown', 'Cable Overhead Extension'],
   Biceps: ['Incline Dumbbell Curls', 'Cable Curls', 'Barbell Curls'],
-  Quads: ['Quad Extension', 'Barbell Squat', 'Leg Press Machine', 'Hack Squat'],
+  Forearms: ['Barbell Wrist Curl', 'Reverse Wrist Curl', 'Reverse Barbell Curl', 'Cable Wrist Curl', 'Farmers Carry'],
+  Quads: ['Leg Extension', 'Barbell Squat', 'Leg Press Machine', 'Hack Squat'],
   Hamstrings: ['Good Mornings', 'Dumbbell RDL', 'Seated Leg Curl', 'Lying Leg Curl', 'Barbell Deadlift'],
+  Glutes: ['Barbell Hip Thrust', 'Machine Hip Thrust', 'Machine Glute Kickback', 'Cable Pull-Through', 'Dumbbell Walking Lunge'],
+  Calves: ['Standing Calf Raise', 'Seated Calf Raise', 'Leg Press Calf Raise', 'Smith Machine Calf Raise', 'Donkey Calf Raise'],
+  Core: ['Cable Crunch', 'Hanging Leg Raise', 'Ab Wheel Rollout', 'Decline Sit-up', 'Machine Crunch'],
 }
 const ranges: Record<MuscleGroup, RepRange> = {
   Chest: { min: 6, max: 10 }, Back: { min: 6, max: 10 }, Shoulders: { min: 6, max: 10 }, Triceps: { min: 10, max: 15 },
-  Biceps: { min: 10, max: 15 }, Quads: { min: 6, max: 10 }, Hamstrings: { min: 8, max: 12 },
+  Biceps: { min: 10, max: 15 }, Forearms: { min: 10, max: 15 }, Quads: { min: 6, max: 10 }, Hamstrings: { min: 8, max: 12 },
+  Glutes: { min: 8, max: 12 }, Calves: { min: 10, max: 15 }, Core: { min: 10, max: 15 },
 }
 
 export const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-export const baseExercises: ExerciseCatalogItem[] = muscleGroups.flatMap((category) => names[category].map((name) => ({ id: slugify(name), name, category })))
+/** Ids of exercises that were renamed, so saved plans and history keep matching (Quad Extension is now Leg Extension). */
+const legacyIds: Record<string, string> = { 'Leg Extension': 'quad-extension' }
+export const baseExercises: ExerciseCatalogItem[] = muscleGroups.flatMap((category) => names[category].map((name) => ({ id: legacyIds[name] ?? slugify(name), name, category })))
 
 export function mergeCatalog(custom: ExerciseCatalogItem[]): ExerciseCatalogItem[] {
   const seen = new Set(baseExercises.map((item) => item.id))

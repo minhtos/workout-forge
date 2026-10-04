@@ -199,4 +199,50 @@ describe('Workout Forge gym flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Complete set 3' }))
     expect(screen.queryByRole('timer')).toBeNull()
   })
+
+  it('keeps exercises you turn off in the library out of the planner menus', () => {
+    openPlanner()
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    fireEvent.click(screen.getByRole('button', { name: /open library/i }))
+    expect(screen.getByRole('heading', { name: 'Exercise library' })).toBeTruthy()
+    for (const group of ['Forearms', 'Core', 'Glutes', 'Calves']) expect(screen.getByRole('region', { name: `${group} exercises` })).toBeTruthy()
+    expect(screen.getByText('Leg Extension')).toBeTruthy()
+    expect(screen.queryByText('Quad Extension')).toBeNull()
+
+    const bench = screen.getByRole('switch', { name: 'Use Barbell Bench Press' })
+    expect(bench.getAttribute('aria-checked')).toBe('true')
+    fireEvent.click(bench)
+    expect(bench.getAttribute('aria-checked')).toBe('false')
+    fireEvent.click(screen.getByRole('button', { name: 'Turn all Calves exercises off' }))
+
+    fireEvent.click(screen.getByRole('button', { name: 'Workout Forge home' }))
+    fireEvent.click(screen.getAllByRole('button', { name: /add exercise/i })[0])
+    const picker = within(screen.getByRole('group', { name: /Day 1/ }))
+    expect(picker.queryByRole('button', { name: /^Barbell Bench Press/ })).toBeNull()
+    expect(picker.getByRole('button', { name: /^Barbell Incline Bench Press/ })).toBeTruthy()
+    fireEvent.click(picker.getByRole('button', { name: 'Calves' }))
+    expect(screen.getByText(/nothing is turned on here/i)).toBeTruthy()
+  })
+
+  it('adds, edits and deletes your own exercise in the library', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    fireEvent.click(screen.getByRole('button', { name: /open library/i }))
+    fireEvent.change(screen.getByLabelText('Exercise name'), { target: { value: 'Weighted Dips' } })
+    fireEvent.change(screen.getByLabelText('Muscle group'), { target: { value: 'Triceps' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    expect(within(screen.getByRole('region', { name: 'Triceps exercises' })).getByText('Weighted Dips')).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('Exercise name'), { target: { value: 'pull-ups' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    expect(screen.getByRole('alert').textContent).toMatch(/already in the library/i)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Weighted Dips' }))
+    fireEvent.change(screen.getByLabelText('Rename Weighted Dips'), { target: { value: 'Ring Dips' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(screen.getByText('Ring Dips')).toBeTruthy()
+
+    fireEvent.click(screen.getByRole('button', { name: 'Delete Ring Dips' }))
+    expect(screen.queryByText('Ring Dips')).toBeNull()
+  })
 })

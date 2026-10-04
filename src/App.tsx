@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mergeSets } from './domain/backup'
 import { addExerciseToDay, createBlock, findWorkout, listWorkouts, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, setSlotExercise, slugify, type Block, type ExercisePrescription, type MuscleGroup, type TrainingDaysPerWeek } from './domain/program'
+import { addCustomExercise, deleteCustomExercise, enabledCatalog, exerciseInUse, setExerciseEnabled, setGroupEnabled, updateCustomExercise } from './domain/exercises'
 import { totalWeeks, type ProgramDurationWeeks } from './domain/progression'
 import { addSetEntry, applyEntryPatch, buildInitialSets, parseEntry, removeLastSetEntry } from './domain/session'
 import { applyWorkoutSet, type WorkoutSet } from './domain/workoutSets'
@@ -8,6 +9,7 @@ import { archiveWorkoutState, emptyState, exportWorkoutState, loadWorkoutState, 
 import { loadRestTimerEnabled, saveRestTimerEnabled } from './domain/settings'
 import { backupSession, restoreSessions } from './domain/sync'
 import { supabase } from './lib/supabase'
+import { LibraryView } from './views/LibraryView'
 import { PlanView } from './views/PlanView'
 import { ProgressView } from './views/ProgressView'
 import { SessionView } from './views/SessionView'
@@ -16,7 +18,7 @@ import { SetupView } from './views/SetupView'
 import { TodayView } from './views/TodayView'
 import './App.css'
 
-type View = 'setup' | 'plan' | 'today' | 'session' | 'progress' | 'settings'
+type View = 'setup' | 'plan' | 'today' | 'session' | 'progress' | 'settings' | 'library'
 
 function initialView(state: SavedWorkoutState): View {
   if (state.activeSession && state.block?.locked) return 'session'
@@ -128,6 +130,31 @@ function App() {
       return { ...current, customExercises: existing ? current.customExercises : [...current.customExercises, item], block: addExerciseToDay(current.block, dayIndex, item.id) }
     })
   }
+  function toggleExercise(id: string, enabled: boolean) {
+    setState((current) => ({ ...current, hiddenExerciseIds: setExerciseEnabled(current.hiddenExerciseIds, id, enabled) }))
+  }
+  function toggleGroup(group: MuscleGroup, enabled: boolean) {
+    setState((current) => ({ ...current, hiddenExerciseIds: setGroupEnabled(current.hiddenExerciseIds, mergeCatalog(current.customExercises), group, enabled) }))
+  }
+  /** Library edits return an error message for the form to show, or null when they worked. */
+  function addToLibrary(name: string, category: MuscleGroup): string | null {
+    const result = addCustomExercise(state.customExercises, name, category)
+    if ("error" in result) return result.error
+    setState({ ...state, customExercises: result.custom })
+    return null
+  }
+  function updateInLibrary(id: string, name: string, category: MuscleGroup): string | null {
+    const result = updateCustomExercise(state.customExercises, id, name, category)
+    if ("error" in result) return result.error
+    setState({ ...state, customExercises: result.custom })
+    return null
+  }
+  function deleteFromLibrary(id: string): string | null {
+    const result = deleteCustomExercise(state.customExercises, block, id)
+    if ("error" in result) return result.error
+    setState({ ...state, customExercises: result.custom, hiddenExerciseIds: setExerciseEnabled(state.hiddenExerciseIds, id, true) })
+    return null
+  }
   function startBlock() {
     if (!block || planProblem(block, catalog)) return
     setState({ ...state, block: { ...block, locked: true, startedAt: new Date().toISOString() } })
@@ -225,16 +252,17 @@ function App() {
       <nav aria-label="Primary navigation">
         {block?.locked && <button aria-current={view === 'today' || view === 'session' ? 'page' : undefined} className={view === 'today' || view === 'session' ? 'nav-active' : ''} onClick={navigate('today')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg>Workout</button>}
         <button aria-current={view === 'progress' ? 'page' : undefined} className={view === 'progress' ? 'nav-active' : ''} onClick={navigate('progress')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>Progress</button>
-        <button aria-current={view === 'settings' ? 'page' : undefined} className={view === 'settings' ? 'nav-active' : ''} onClick={navigate('settings')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Settings</button>
+        <button aria-current={view === 'settings' || view === 'library' ? 'page' : undefined} className={view === 'settings' || view === 'library' ? 'nav-active' : ''} onClick={navigate('settings')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Settings</button>
       </nav>
       <span className="local-badge"><i /> {owned ? (state.pendingSessionIds.length ? 'Syncing' : 'Backed up') : 'Local-first'}</span></header>
     {saveFailed && <p className="form-error banner" role="alert">This device could not save your data (storage full or blocked). Export your data from Settings now.</p>}
     {view === 'setup' && <SetupView days={setupDays} weeks={setupWeeks} hasHistory={history.length > 0} onDays={setSetupDays} onWeeks={setSetupWeeks} onContinue={() => { setState({ ...state, block: createBlock(setupDays, setupWeeks) }); setView('plan') }} />}
-    {view === 'plan' && block && <PlanView block={block} catalog={catalog} onApplySet={applySet} onChoose={(day, position, id) => editPlan((current) => setSlotExercise(current, day, position, id))} onRename={(day, title) => editPlan((current) => renameDay(current, day, title))} onAdd={(day, id) => editPlan((current) => addExerciseToDay(current, day, id))} onCreate={createExercise} onRemove={(day, position) => editPlan((current) => removeExerciseFromDay(current, day, position))} onMove={(day, position, delta) => editPlan((current) => moveExercise(current, day, position, delta))} onSets={(day, position, sets) => editPlan((current) => setExerciseSets(current, day, position, sets))} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
+    {view === 'plan' && block && <PlanView block={block} catalog={catalog} hiddenIds={state.hiddenExerciseIds} onApplySet={applySet} onChoose={(day, position, id) => editPlan((current) => setSlotExercise(current, day, position, id))} onRename={(day, title) => editPlan((current) => renameDay(current, day, title))} onAdd={(day, id) => editPlan((current) => addExerciseToDay(current, day, id))} onCreate={createExercise} onRemove={(day, position) => editPlan((current) => removeExerciseFromDay(current, day, position))} onMove={(day, position, delta) => editPlan((current) => moveExercise(current, day, position, delta))} onSets={(day, position, sets) => editPlan((current) => setExerciseSets(current, day, position, sets))} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
     {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onSkip={skipWorkout} onNewBlock={newBlock} />}
     {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
     {view === 'progress' && <ProgressView history={history} finished={finished} total={total} />}
-    {view === 'settings' && <SettingsView restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSendLink={(email) => void sendMagicLink(email)} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} onRestore={() => void restoreFromCloud(false)} onExport={exportData} onImport={importData} onNewBlock={newBlock} />}
+    {view === 'library' && <LibraryView catalog={catalog} custom={state.customExercises} hidden={state.hiddenExerciseIds} inUse={(id) => exerciseInUse(block, id)} onToggle={toggleExercise} onToggleGroup={toggleGroup} onAdd={addToLibrary} onUpdate={updateInLibrary} onDelete={deleteFromLibrary} onBack={() => setView('settings')} />}
+    {view === 'settings' && <SettingsView librarySummary={`${enabledCatalog(catalog, state.hiddenExerciseIds).length} of ${catalog.length} exercises on`} onOpenLibrary={() => setView('library')} restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSendLink={(email) => void sendMagicLink(email)} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} onRestore={() => void restoreFromCloud(false)} onExport={exportData} onImport={importData} onNewBlock={newBlock} />}
   </main>
 }
 

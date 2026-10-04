@@ -1,10 +1,13 @@
 import { useState } from 'react'
+import { enabledCatalog } from '../domain/exercises'
 import { maxExercisesPerDay, muscleGroups, planProblem, setCountOptions, type Block, type ExerciseCatalogItem, type MuscleGroup } from '../domain/program'
 import { findWorkoutSet, workoutSets, type WorkoutSet } from '../domain/workoutSets'
 
 interface Props {
   block: Block
   catalog: ExerciseCatalogItem[]
+  /** Exercises turned off in the library; they are left out of the menus. */
+  hiddenIds: string[]
   onApplySet: (set: WorkoutSet) => void
   onRename: (dayIndex: number, title: string) => void
   onAdd: (dayIndex: number, exerciseId: string) => void
@@ -19,7 +22,7 @@ interface Props {
 
 type Filter = MuscleGroup | 'All'
 
-export function PlanView({ block, catalog, onApplySet, onRename, onAdd, onChoose, onCreate, onRemove, onMove, onSets, onBack, onStart }: Props) {
+export function PlanView({ block, catalog, hiddenIds, onApplySet, onRename, onAdd, onChoose, onCreate, onRemove, onMove, onSets, onBack, onStart }: Props) {
   const [pickerDay, setPickerDay] = useState<number | null>(null)
   const [filter, setFilter] = useState<Filter>('All')
   const [newName, setNewName] = useState('')
@@ -27,6 +30,7 @@ export function PlanView({ block, catalog, onApplySet, onRename, onAdd, onChoose
   const problem = planProblem(block, catalog)
   const byId = new Map(catalog.map((item) => [item.id, item]))
   const activeSet = findWorkoutSet(block.workoutSetId)
+  const available = enabledCatalog(catalog, hiddenIds)
 
   return <section className="workspace" aria-labelledby="plan-title">
     <div className="workspace-heading"><div><div className="eyebrow">{block.durationWeeks} WEEKS + DELOAD · {block.trainingDays} DAYS / WEEK{activeSet ? ` · ${activeSet.name.toUpperCase()}` : ''}</div><h1 id="plan-title">Choose your exercises</h1><p>Start from a Workout Set, or build each day yourself. Your choices lock in once you start the block.</p></div><button className="secondary-button" onClick={onBack}>Back</button></div>
@@ -44,7 +48,7 @@ export function PlanView({ block, catalog, onApplySet, onRename, onAdd, onChoose
     <div className="plan-grid">{block.templates.map((day, dayIndex) => {
       const open = pickerDay === dayIndex
       const chosen = new Set(day.exercises.map((entry) => entry.exerciseId))
-      const options = catalog.filter((item) => filter === 'All' || item.category === filter)
+      const options = available.filter((item) => filter === 'All' || item.category === filter)
       const full = day.exercises.length >= maxExercisesPerDay
       return <article className="setup-card" key={dayIndex}>
         <div className="step-label">{block.rotation ? 'Workout' : 'Day'} {dayIndex + 1}</div>
@@ -55,7 +59,7 @@ export function PlanView({ block, catalog, onApplySet, onRename, onAdd, onChoose
           const name = item?.name ?? entry.category ?? 'exercise'
           const label = `Day ${dayIndex + 1} exercise ${position + 1}`
           const isSlot = entry.category !== undefined
-          const choices = catalog.filter((candidate) => candidate.category === entry.category)
+          const choices = enabledCatalog(catalog, hiddenIds, [entry.exerciseId]).filter((candidate) => candidate.category === entry.category)
           return <div className="plan-slot" key={position}>
             {isSlot
               ? <div className="slot-name"><span className="slot-label">{entry.category}</span>
@@ -76,6 +80,7 @@ export function PlanView({ block, catalog, onApplySet, onRename, onAdd, onChoose
         {open && <div className="picker" role="group" aria-label={`Add an exercise to Day ${dayIndex + 1}`}>
           <div className="filter-row">{(['All', ...muscleGroups] as Filter[]).map((group) => <button key={group} className={filter === group ? 'chip selected' : 'chip'} aria-pressed={filter === group} onClick={() => setFilter(group)}>{group}</button>)}</div>
           <div className="picker-list">{options.map((item) => <button key={item.id} className="picker-item" disabled={chosen.has(item.id) || full} onClick={() => onAdd(dayIndex, item.id)}><span>{item.name}</span><em>{chosen.has(item.id) ? 'Added' : item.category}</em></button>)}</div>
+          {options.length === 0 && <p className="hint">Nothing is turned on here. Turn exercises on in Settings → Exercise library.</p>}
           <form className="add-exercise-form" onSubmit={(event) => { event.preventDefault(); if (!newName.trim()) return; onCreate(dayIndex, newName.trim(), newCategory); setNewName('') }}>
             <input aria-label="New exercise name" value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Not listed? Name a new exercise" />
             <select aria-label="New exercise muscle group" value={newCategory} onChange={(event) => setNewCategory(event.target.value as MuscleGroup)}>{muscleGroups.map((group) => <option key={group}>{group}</option>)}</select>
