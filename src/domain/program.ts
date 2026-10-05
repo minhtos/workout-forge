@@ -21,6 +21,8 @@ export interface Block {
   progression: Progression
   /** When true the templates (e.g. workouts A and B) alternate across the week's training days and carry over between weeks. */
   rotation: boolean
+  /** Sets carried over from the previous block (per muscle group): the larger of the plan or last block's final sets minus one. */
+  startOffsets?: Partial<Record<MuscleGroup, number>>
   /** The Workout Set this plan started from, if any. */
   workoutSetId: string | null
   /** Once locked, exercises cannot change until the block is complete. */

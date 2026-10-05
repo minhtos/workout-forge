@@ -268,3 +268,6 @@ select option { background: var(--surface-2); color: var(--ink); }
 .sheet > .sheet-skip { display: block; margin: 12px auto 0; }
 @media (min-width: 681px) { .sheet-backdrop { align-items: center; } .sheet { border-radius: var(--radius-lg); } }
 @media (max-width: 480px) { .sheet-choices.three { grid-template-columns: 1fr; } }
+
+/* ---------- New block carry-over note ---------- */
+.carry-note { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--hairline-strong); border-left: 3px solid var(--primary); border-radius: var(--radius-md); background: var(--primary-tint); color: var(--ink-muted); font-size: 14px; line-height: 1.45; }

@@ -36,12 +36,12 @@ const sorenessDelta: Record<Soreness, number> = { sore: -1, ontime: 0, early: 1 
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
 
 /** Net set change for a muscle group, accumulated over the current block. */
-export function setOffset(feedback: SessionFeedback[], blockId: string | null, group: MuscleGroup): number {
+export function setOffset(feedback: SessionFeedback[], blockId: string | null, group: MuscleGroup, startOffset = 0): number {
   if (!blockId) return 0
   // "Recovered early" adds a set, unless the same session was then rated too hard: no extra set for next time.
   const delta = (entry: SessionFeedback) => (entry.soreness === 'early' && entry.effort === 'hard' ? 0 : sorenessDelta[entry.soreness as Soreness])
   const total = feedback.filter((entry) => entry.blockId === blockId && entry.group === group && entry.soreness).reduce((sum, entry) => sum + delta(entry), 0)
-  return clamp(total, -maxSetOffset, maxSetOffset)
+  return clamp(startOffset + total, -maxSetOffset, maxSetOffset)
 }
 
 /** Sets after applying the offset, never below 2 (or the planned count if lower) and never above 6 (or the planned count if higher). */
@@ -52,9 +52,9 @@ export function tunedSets(plannedSets: number, offset: number): number {
 /** Feedback only applies on RIR work weeks. */
 export const usesFeedback = (workout: Pick<ScheduledWorkout, 'progression' | 'target'>): boolean => workout.progression === 'rir' && workout.target.kind === 'work'
 
-export function tuneWorkoutSets(workout: ScheduledWorkout, feedback: SessionFeedback[], blockId: string | null): ScheduledWorkout {
+export function tuneWorkoutSets(workout: ScheduledWorkout, feedback: SessionFeedback[], blockId: string | null, startOffsets: Partial<Record<MuscleGroup, number>> = {}): ScheduledWorkout {
   if (!usesFeedback(workout)) return workout
-  return { ...workout, exercises: workout.exercises.map((exercise) => ({ ...exercise, sets: tunedSets(exercise.sets, setOffset(feedback, blockId, exercise.category)) })) }
+  return { ...workout, exercises: workout.exercises.map((exercise) => ({ ...exercise, sets: tunedSets(exercise.sets, setOffset(feedback, blockId, exercise.category, startOffsets[exercise.category] ?? 0)) })) }
 }
 
 export const feedbackFor = (feedback: SessionFeedback[], sessionId: string, group: MuscleGroup): SessionFeedback | undefined =>

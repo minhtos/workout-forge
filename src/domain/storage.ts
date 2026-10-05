@@ -23,6 +23,8 @@ export interface CompletedSetRecord {
   targetRir: number
   /** The rep target the set was prefilled with; reps below it count as missed. Older records do not have it. */
   targetReps?: number
+  /** Done in a deload week. Deload sessions are never used as the basis for later weights. */
+  deload?: boolean
 }
 
 /** Values are strings while typing; a set is only recorded in history when it is marked complete. */

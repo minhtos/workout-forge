@@ -4,8 +4,9 @@ import { addExerciseToDay, createBlock, findWorkout, listWorkouts, mergeCatalog,
 import { applyProgramSnapshot, runProgramSync } from './domain/programSync'
 import { addCustomExercise, deleteCustomExercise, enabledCatalog, exerciseInUse, mergeCustomExercises, setExerciseEnabled, setGroupEnabled, updateCustomExercise } from './domain/exercises'
 import { totalWeeks, type ProgramDurationWeeks } from './domain/progression'
-import { mergeFeedback, nextPrompt, resizeEntries, setOffset, tuneWorkoutSets, tunedSets, upsertFeedback, type Effort, type Pump, type SessionFeedback, type Soreness } from './domain/autoregulation'
-import { addSetEntry, applyEntryPatch, buildInitialSets, maxSetsPerExercise, parseEntry, removeLastSetEntry, type TuneContext } from './domain/session'
+import { mergeFeedback, nextPrompt, resizeEntries, setOffset, tuneWorkoutSets, tunedSets, upsertFeedback, usesFeedback, type Effort, type Pump, type SessionFeedback, type Soreness } from './domain/autoregulation'
+import { addSetEntry, applyEntryPatch, buildInitialSets, lastSessionSets, maxSetsPerExercise, parseEntry, removeLastSetEntry, type TuneContext } from './domain/session'
+import { carryOverFor, previousBlockId, startingOffsets } from './domain/transition'
 import { applyWorkoutSet, type WorkoutSet } from './domain/workoutSets'
 import { archiveWorkoutState, emptyState, exportWorkoutState, loadWorkoutState, parseImportedState, saveWorkoutState, type SavedWorkoutState, type SetEntry } from './domain/storage'
 import { loadRestTimerEnabled, saveRestTimerEnabled } from './domain/settings'
@@ -63,9 +64,14 @@ function App() {
   const catalog = useMemo(() => mergeCatalog(state.customExercises), [state.customExercises])
   const upcoming = block?.locked ? nextWorkout(block) : null
   const blockId = block?.startedAt ?? null
-  const tune = useMemo<TuneContext>(() => ({ feedback: state.feedback, blockId }), [state.feedback, blockId])
+  const startOffsets = block?.startOffsets
+  const tune = useMemo<TuneContext>(() => ({ feedback: state.feedback, blockId, startOffsets }), [state.feedback, blockId, startOffsets])
   const plannedWorkout = block && upcoming ? resolveWorkout(block, upcoming, catalog) : null
-  const todayWorkout = plannedWorkout ? tuneWorkoutSets(plannedWorkout, state.feedback, blockId) : null
+  const todayWorkout = plannedWorkout ? tuneWorkoutSets(plannedWorkout, state.feedback, blockId, startOffsets) : null
+  // Exercises whose Week 1 numbers come from the previous block's 0 RIR week (shown as a note on the Today screen).
+  const carriedCount = plannedWorkout && !activeSession && usesFeedback(plannedWorkout)
+    ? plannedWorkout.exercises.filter((exercise) => carryOverFor({ exercise, last: lastSessionSets(history, exercise.id, ''), blockId, feedback: state.feedback })).length
+    : 0
   const activeRef = block && activeSession ? findWorkout(block, activeSession.workoutId) : undefined
   const activeWorkout = block && activeRef ? resolveWorkout(block, activeRef, catalog) : null
   const sessionEntries = activeSession ? state.feedback.filter((entry) => entry.sessionId === activeSession.sessionId) : []
@@ -217,7 +223,10 @@ function App() {
   }
   function startBlock() {
     if (!block || planProblem(block, catalog)) return
-    setState({ ...state, block: { ...block, locked: true, startedAt: new Date().toISOString() } })
+    // A new block starts from the last one: sets carry over (larger of plan or last block's final sets minus one).
+    const startedAt = new Date().toISOString()
+    const startOffsets = startingOffsets(state.feedback, previousBlockId(state.feedback, startedAt))
+    setState({ ...state, block: { ...block, locked: true, startedAt, startOffsets } })
     setView('today')
   }
   function startWorkout() {
@@ -248,7 +257,7 @@ function App() {
     }
     const parsed = parseEntry(entry)
     if ('error' in parsed) { setEntryError(parsed.error); return }
-    const record = { id, sessionId, workoutId: activeWorkout.id, exerciseId: exercise.id, exerciseName: exercise.name, setIndex: index + 1, ...parsed, weightUnit: 'lb' as const, completedAt: new Date().toISOString(), weekNumber: activeWorkout.weekNumber, repRange: exercise.repRange, targetRir: activeWorkout.target.targetRir, targetReps: entry.targetReps }
+    const record = { id, sessionId, workoutId: activeWorkout.id, exerciseId: exercise.id, exerciseName: exercise.name, setIndex: index + 1, ...parsed, weightUnit: 'lb' as const, completedAt: new Date().toISOString(), weekNumber: activeWorkout.weekNumber, repRange: exercise.repRange, targetRir: activeWorkout.target.targetRir, targetReps: entry.targetReps, ...(activeWorkout.target.kind === 'deload' ? { deload: true } : {}) }
     setState((current) => current.activeSession ? {
       ...current,
       history: current.history.some((set) => set.id === id) ? current.history : [...current.history, record],
@@ -281,7 +290,7 @@ function App() {
   function answerSoreness(group: MuscleGroup, value: Soreness) {
     if (!activeSession || !activeWorkout || !block?.startedAt) return
     const feedback = upsertFeedback(state.feedback, { sessionId: activeSession.sessionId, blockId: block.startedAt, group }, { soreness: value }, new Date().toISOString())
-    const offset = setOffset(feedback, block.startedAt, group)
+    const offset = setOffset(feedback, block.startedAt, group, block.startOffsets?.[group] ?? 0)
     const sets = { ...activeSession.sets }
     for (const exercise of activeWorkout.exercises) {
       if (exercise.category !== group || sets[exercise.id].some((entry) => entry.complete)) continue
@@ -352,7 +361,7 @@ function App() {
     {saveFailed && <p className="form-error banner" role="alert">This device could not save your data (storage full or blocked). Export your data from Settings now.</p>}
     {view === 'setup' && <SetupView days={setupDays} weeks={setupWeeks} hasHistory={history.length > 0} onDays={setSetupDays} onWeeks={setSetupWeeks} onContinue={() => { setState({ ...state, block: createBlock(setupDays, setupWeeks) }); setView('plan') }} />}
     {view === 'plan' && block && <PlanView block={block} catalog={catalog} hiddenIds={state.hiddenExerciseIds} onApplySet={applySet} onChoose={(day, position, id) => editPlan((current) => setSlotExercise(current, day, position, id))} onRename={(day, title) => editPlan((current) => renameDay(current, day, title))} onAdd={(day, id) => editPlan((current) => addExerciseToDay(current, day, id))} onCreate={createExercise} onRemove={(day, position) => editPlan((current) => removeExerciseFromDay(current, day, position))} onMove={(day, position, delta) => editPlan((current) => moveExercise(current, day, position, delta))} onSets={(day, position, sets) => editPlan((current) => setExerciseSets(current, day, position, sets))} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
-    {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onSkip={skipWorkout} onNewBlock={newBlock} />}
+    {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} carriedCount={carriedCount} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onSkip={skipWorkout} onNewBlock={newBlock} />}
     {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
     {prompt && <FeedbackSheet key={`${prompt.kind}-${prompt.group}`} prompt={prompt} onSoreness={(value) => answerSoreness(prompt.group, value)} onSummary={(effort, pump) => answerSummary(prompt.group, { effort, pump })} onSkip={skipPrompt} />}
     {view === 'progress' && <ProgressView history={history} finished={finished} total={total} />}

@@ -355,4 +355,52 @@ describe('Workout Forge gym flow', () => {
     const set = saved.history.find((entry) => entry.setIndex === 1 && entry.reps === 7)
     expect(set).toMatchObject({ reps: 7, targetReps: 9, rir: 3 })
   })
+
+  it('starts a new block from the last block\'s 0 RIR week, ignoring the deload, and carries sets over', () => {
+    const OLD = '2026-09-01T09:00:00.000Z'
+    let block = createBlock(2, 4)
+    for (const day of [0, 1]) block = addExerciseToDay(block, day, 'barbell-bench-press')
+    const row = (sessionId: string, setIndex: number, weight: number, reps: number, completedAt: string, extra: Record<string, unknown>) => ({ id: `${sessionId}-${setIndex}`, sessionId, workoutId: 'w4-d1', exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex, weight, reps, rir: 0, weightUnit: 'lb' as const, completedAt, weekNumber: 4, repRange: { min: 6, max: 10 }, targetRir: 0, ...extra })
+    const history = [
+      row('fail', 1, 200, 6, '2026-09-22T10:00:00.000Z', {}), row('fail', 2, 195, 6, '2026-09-22T10:05:00.000Z', {}), row('fail', 3, 190, 5, '2026-09-22T10:10:00.000Z', {}),
+      ...[1, 2, 3].map((n) => row('deload', n, 100, 6, `2026-09-29T10:0${n}:00.000Z`, { weekNumber: 5, targetRir: 3, deload: true })),
+    ]
+    const feedback = [
+      { sessionId: 'a', blockId: OLD, group: 'Chest', soreness: 'early', at: '2026-09-02T10:00:00.000Z' },
+      { sessionId: 'b', blockId: OLD, group: 'Chest', soreness: 'early', at: '2026-09-09T10:00:00.000Z' },
+      { sessionId: 'fail', blockId: OLD, group: 'Chest', effort: 'right', pump: 'high', summaryDone: true, at: '2026-09-22T10:30:00.000Z' },
+    ]
+    window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history, feedback }))
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /start block/i }))
+    expect(screen.getByRole('note').textContent).toMatch(/1 exercise starts from your last 0 RIR numbers/i)
+    const stored = JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}') as { block: { startOffsets: Record<string, number> } }
+    expect(stored.block.startOffsets).toEqual({ Chest: 1 })
+
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    expect((screen.getByLabelText('Set 1 weight') as HTMLInputElement).value).toBe('185')
+    expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('6')
+    expect(screen.getByLabelText('Set 4 weight')).toBeTruthy()
+    expect(screen.queryByLabelText('Set 5 weight')).toBeNull()
+    expect(screen.getByText(/based on 200 lb × 6 at 0 RIR last block/i)).toBeTruthy()
+  })
+
+  it('marks sets done in a deload week so they are never used as a starting point', () => {
+    let block = createBlock(2, 4)
+    for (const day of [0, 1]) block = addExerciseToDay(block, day, 'barbell-bench-press')
+    const sessionId = '550e8400-e29b-41d4-a716-446655440000'
+    const history = [1, 2, 3].map((n) => ({ id: `${sessionId}-${n}`, sessionId, workoutId: 'w4-d2', exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex: n, weight: 200, reps: 6, rir: 0, weightUnit: 'lb' as const, completedAt: `2026-09-22T10:0${n}:00.000Z`, weekNumber: 4, repRange: { min: 6, max: 10 }, targetRir: 0, targetReps: 6 }))
+    const completedIds = ['w1-d1', 'w1-d2', 'w2-d1', 'w2-d2', 'w3-d1', 'w3-d2', 'w4-d1', 'w4-d2']
+    window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block: { ...block, locked: true, startedAt: '2026-09-01T09:00:00.000Z', completedIds }, history }))
+
+    render(<App />)
+    expect(screen.getByText(/week 5 of 5 · deload/i)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect((screen.getByLabelText('Set 1 weight') as HTMLInputElement).value).toBe('100')
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+    const saved = JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}') as { history: { weekNumber: number; deload?: boolean }[] }
+    expect(saved.history.find((entry) => entry.weekNumber === 5)).toMatchObject({ deload: true })
+  })
 })

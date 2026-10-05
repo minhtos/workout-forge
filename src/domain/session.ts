@@ -1,11 +1,13 @@
-import type { ExercisePrescription, ScheduledWorkout } from './program'
+import type { ExercisePrescription, MuscleGroup, ScheduledWorkout } from './program'
 import { feedbackFor, missedReps, nextSetTarget, setOffset, tunedSets, usesFeedback, type SessionFeedback } from './autoregulation'
 import { deloadLoad, linearIncrement } from './progression'
+import { carryOverFor } from './transition'
 import type { CompletedSetRecord, SetEntry } from './storage'
 
 /** Sets from the most recent earlier session that included this exercise. */
 export function lastSessionSets(history: CompletedSetRecord[], exerciseId: string, excludeSessionId: string): CompletedSetRecord[] {
-  const earlier = history.filter((set) => set.exerciseId === exerciseId && set.sessionId !== excludeSessionId)
+  // Deload sessions are skipped: they are half-weight by design and must never become the starting point for later weeks or blocks.
+  const earlier = history.filter((set) => set.exerciseId === exerciseId && set.sessionId !== excludeSessionId && !set.deload)
   if (!earlier.length) return []
   const latest = earlier.reduce((a, b) => (b.completedAt > a.completedAt ? b : a))
   return earlier.filter((set) => set.sessionId === latest.sessionId).sort((a, b) => a.setIndex - b.setIndex)
@@ -20,7 +22,7 @@ export function linearNext(exercise: ExercisePrescription, last: CompletedSetRec
 }
 
 /** Feedback the engine uses to tune a session: what was answered after earlier sessions, and which block it belongs to. */
-export interface TuneContext { feedback: SessionFeedback[]; blockId: string | null }
+export interface TuneContext { feedback: SessionFeedback[]; blockId: string | null; startOffsets?: Partial<Record<MuscleGroup, number>> }
 
 /** A fresh set. The rep target is remembered so a set that falls short can be recognised later. */
 const entryFor = (weight: number | string, reps: number, targetRir: string): SetEntry => ({ weight: String(weight), reps: String(reps), rir: targetRir, complete: false, targetReps: reps })
@@ -30,8 +32,9 @@ export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSe
   const tuning = tune && usesFeedback(workout) ? tune : undefined
   return Object.fromEntries(workout.exercises.map((exercise) => {
     const last = lastSessionSets(history, exercise.id, sessionId)
-    const count = tuning ? tunedSets(exercise.sets, setOffset(tuning.feedback, tuning.blockId, exercise.category)) : exercise.sets
+    const count = tuning ? tunedSets(exercise.sets, setOffset(tuning.feedback, tuning.blockId, exercise.category, tuning.startOffsets?.[exercise.category] ?? 0)) : exercise.sets
     const fb = tuning && last.length ? feedbackFor(tuning.feedback, last[0].sessionId, exercise.category) : undefined
+    const carry = tuning ? carryOverFor({ exercise, last, blockId: tuning.blockId, feedback: tuning.feedback }) : null
     const entries = Array.from({ length: count }, (_, index): SetEntry => {
       const base = last[index] ?? last[last.length - 1]
       if (!base) return entryFor('', exercise.repRange.min, targetRir)
@@ -40,6 +43,7 @@ export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSe
         const next = linearNext(exercise, last)
         return entryFor(next.weight, next.reps, targetRir)
       }
+      if (carry) return entryFor(carry.weight, carry.reps, targetRir)
       const next = nextSetTarget({ exercise, last, index, fb, all: tuning?.feedback ?? [] })
       return entryFor(next.weight, next.reps, targetRir)
     })
@@ -60,6 +64,8 @@ export function suggestionText(exercise: ExercisePrescription, workout: Schedule
     const next = linearNext(exercise, last)
     return next.added ? `Hit every rep last time. Add weight: ${next.weight} lb × ${next.reps}.` : `Missed reps last time. Repeat ${next.weight} lb × ${next.reps}.`
   }
+  const carry = tune && usesFeedback(workout) ? carryOverFor({ exercise, last, blockId: tune.blockId, feedback: tune.feedback }) : null
+  if (carry) return `Aim for ${carry.weight} lb × ${carry.reps}. New block: based on ${carry.fromWeight} lb × ${carry.fromReps} at 0 RIR last block (estimated max ${Math.round(carry.oneRepMax)} lb)${carry.easy ? ', plus a step because it felt easy' : ''}.`
   const fb = tune && usesFeedback(workout) ? feedbackFor(tune.feedback, base.sessionId, exercise.category) : undefined
   const next = nextSetTarget({ exercise, last, index: last.length - 1, fb, all: tune?.feedback ?? [] })
   return `Aim for ${next.weight} lb × ${next.reps}. ${next.note}`

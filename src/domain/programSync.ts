@@ -25,6 +25,7 @@ const blockSchema = z.object({
   progression: z.enum(['rir', 'linear']),
   rotation: z.boolean(),
   workoutSetId: z.string().nullable(),
+  startOffsets: z.record(z.string(), z.number().int().min(-10).max(10)).optional(),
   locked: z.boolean(),
   startedAt: z.string().nullable(),
   completedIds: z.array(z.string()).max(100),

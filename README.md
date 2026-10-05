@@ -54,6 +54,14 @@ Each week has a target RIR (reps in reserve): 4 weeks go 3, 2, 1, 0 and 6 weeks 
 **Recovery** (after the first exercise of a muscle group, only if you trained it before): *still sore* takes a set off every exercise for that muscle group, *just on time* changes nothing, *recovered early* adds a set. It applies to the unstarted exercises today and carries through the rest of the block (2 to 6 sets per exercise, at most 3 up or down in total). Sets are the only thing this changes. If you answer *recovered early* and then rate the same muscle group *too hard*, the extra set is not carried to the next session.
 
 The deload week and StrongLifts 5x5 never ask. Answers are stored with the session and back up with the program.
+## Starting the next block
+
+When you start a new block, Week 1 builds from your last block's **0 RIR week**, never from the deload (deload sessions are flagged and ignored as a starting point):
+
+- **Weight:** take the heaviest set of the 0 RIR week, estimate a one-rep max (weight × (1 + reps ÷ 30)), then use the weight at which the bottom of the rep range leaves 3 in reserve: `e1RM ÷ (1 + (reps + 3) ÷ 30)`, rounded to 2.5 lb. If that week was rated *easy*, add one weight step (2.5 lb dumbbell, 5 lb other). Example: 200 lb × 6 at 0 RIR gives 185 lb for 6 reps.
+- **Reps:** back to the bottom of the exercise's rep range.
+- **Sets:** for each muscle group, the larger of the plan or last block's final sets minus one (a set added by "recovered early" followed by "too hard" does not count).
+- It is automatic. A note on the Today screen says how many exercises were carried over, and each exercise explains its numbers. Exercises with no 0 RIR session behind them just continue as normal; 5x5 blocks are not affected.
 ## Hosting notes
 
 - Production is https://workoutforge.app (Vercel, auto-deploys from `main`). `vercel.json` forwards the old `workout-forge-iota.vercel.app` address to it; add `?keep=1` to the old address to reach the old site (for example to export data saved there).
