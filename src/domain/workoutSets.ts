@@ -30,20 +30,20 @@ const definitions: WorkoutSet[] = [
   },
   {
     id: 'push-pull-ab', name: 'Push | Pull A/B Split', recommendedDays: 4, progression: 'rir', rotation: false,
-    summary: 'Two push and two pull days, with legs spread across the A days.',
+    summary: 'Two push and two pull days. Quads ride along with the push days and hamstrings with the pull days.',
     days: [
-      { title: 'Push A', slots: slots(['Quads', 2], ['Chest', 2], ['Triceps', 2]) },
-      { title: 'Pull A', slots: slots(['Hamstrings', 2], ['Back', 2], ['Biceps', 2]) },
-      { title: 'Push B', slots: slots(['Chest', 3], ['Triceps', 3]) },
-      { title: 'Pull B', slots: slots(['Back', 3], ['Biceps', 3]) },
+      { title: 'Push A', slots: slots(['Chest', 2], ['Triceps', 2], ['Quads', 2]) },
+      { title: 'Pull A', slots: slots(['Back', 2], ['Biceps', 2], ['Hamstrings', 2]) },
+      { title: 'Push B', slots: slots(['Chest', 3], ['Triceps', 2], ['Quads', 1]) },
+      { title: 'Pull B', slots: slots(['Back', 3], ['Biceps', 2], ['Hamstrings', 1]) },
     ],
   },
   {
     id: 'whole-body', name: 'Whole Body', recommendedDays: 2, progression: 'rir', rotation: false,
     summary: 'Every major muscle group twice a week, one slot per muscle each day.',
     days: [
-      { title: 'Whole Body A', slots: slots(['Quads', 1], ['Chest', 1], ['Back', 1], ['Hamstrings', 1], ['Triceps', 1], ['Biceps', 1]) },
-      { title: 'Whole Body B', slots: slots(['Quads', 1], ['Chest', 1], ['Back', 1], ['Hamstrings', 1], ['Triceps', 1], ['Biceps', 1]) },
+      { title: 'Whole Body A', slots: slots(['Chest', 1], ['Triceps', 1], ['Back', 1], ['Biceps', 1], ['Quads', 1], ['Hamstrings', 1]) },
+      { title: 'Whole Body B', slots: slots(['Back', 1], ['Biceps', 1], ['Chest', 1], ['Triceps', 1], ['Hamstrings', 1], ['Quads', 1]) },
     ],
   },
   {

@@ -33,13 +33,45 @@ describe('Workout Sets', () => {
 
   it('validates once every slot has a distinct exercise, and rejects repeats within a day', () => {
     let block = applied('whole-body')
-    const choices = [['barbell-squat', 'barbell-bench-press', 'pull-ups', 'dumbbell-rdl', 'cable-pushdown', 'cable-curls'], ['hack-squat', 'machine-chest-press', 'pull-down', 'seated-leg-curl', 'cable-pulldown', 'barbell-curls']]
+    const choices = [['barbell-bench-press', 'cable-pushdown', 'pull-ups', 'cable-curls', 'barbell-squat', 'dumbbell-rdl'], ['pull-down', 'barbell-curls', 'machine-chest-press', 'cable-pulldown', 'seated-leg-curl', 'hack-squat']]
     choices.forEach((ids, day) => ids.forEach((id, position) => { block = setSlotExercise(block, day, position, id) }))
     expect(planProblem(block, catalog)).toBeNull()
     const twice = setSlotExercise(createBlock(2, 4), 0, 0, null)
     expect(twice.templates[0].exercises).toEqual([])
     const blockWithDup = setSlotExercise(applied('push-pull-legs'), 0, 0, 'barbell-bench-press')
     expect(setSlotExercise(blockWithDup, 0, 1, 'barbell-bench-press').templates[0].exercises[1].exerciseId).toBeNull()
+  })
+})
+
+describe('muscle group order in the default plans', () => {
+  const order = (id: string) => applied(id).templates.map((day) => [day.title, day.exercises.map((entry) => entry.category)] as const)
+
+  it('Whole Body A goes chest, triceps, back, biceps, quads, hamstrings; B goes back, biceps, chest, triceps, hamstrings, quads', () => {
+    expect(order('whole-body')).toEqual([
+      ['Whole Body A', ['Chest', 'Triceps', 'Back', 'Biceps', 'Quads', 'Hamstrings']],
+      ['Whole Body B', ['Back', 'Biceps', 'Chest', 'Triceps', 'Hamstrings', 'Quads']],
+    ])
+  })
+
+  it('Push | Pull A/B: A days are chest/triceps/quads and back/biceps/hamstrings; B days are 3 chest, 2 triceps, 1 quad and 3 back, 2 biceps, 1 hamstring', () => {
+    expect(order('push-pull-ab')).toEqual([
+      ['Push A', ['Chest', 'Chest', 'Triceps', 'Triceps', 'Quads', 'Quads']],
+      ['Pull A', ['Back', 'Back', 'Biceps', 'Biceps', 'Hamstrings', 'Hamstrings']],
+      ['Push B', ['Chest', 'Chest', 'Chest', 'Triceps', 'Triceps', 'Quads']],
+      ['Pull B', ['Back', 'Back', 'Back', 'Biceps', 'Biceps', 'Hamstrings']],
+    ])
+  })
+
+  it('still has six slots on every day of these two sets', () => {
+    for (const id of ['whole-body', 'push-pull-ab']) for (const [, categories] of order(id)) expect(categories).toHaveLength(6)
+  })
+
+  it('leaves Push | Pull | Legs as it was', () => {
+    expect(order('push-pull-legs')).toEqual([
+      ['Push', ['Chest', 'Chest', 'Chest', 'Chest', 'Triceps', 'Triceps']],
+      ['Pull', ['Back', 'Back', 'Back', 'Back', 'Biceps', 'Biceps']],
+      ['Legs', ['Quads', 'Quads', 'Quads', 'Hamstrings', 'Hamstrings', 'Hamstrings']],
+    ])
   })
 })
 
