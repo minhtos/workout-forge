@@ -47,7 +47,7 @@ Each week has a target RIR (reps in reserve): 4 weeks go 3, 2, 1, 0 and 6 weeks 
 - The workout was completed but some sets were short: the weight stays, and each short set starts from what you actually did plus one rep.
 
 **When every set hit its reps**
-- **Effort** (after the last exercise of a muscle group): *easy* adds one weight step (no extra rep), *just right* keeps the weight and adds a rep, *too hard* keeps the weight and still adds one rep. Steps are 2.5 lb for dumbbell exercises and 5 lb for everything else, which is also the most the weight can rise in a week.
+- **Effort** (after the last exercise of a muscle group): *easy* adds one weight step (no extra rep), *just right* keeps the weight and adds a rep, *too hard* keeps the weight and still adds one rep. Steps are 2.5 lb for dumbbell exercises and 5 lb for everything else, which is also the most the weight can rise in a week. Every prescribed weight (progression, deload, block-to-block) is snapped to the nearest 2.5 lb, so a logged 138.4 lb never produces a target like 138.42 lb.
 - **Muscle pump** (same prompt): *low* adds a rep (two if the previous check was also low, and it never stacks on top of the rep from "just right" or "too hard"), *high* adds nothing extra. Reps only come back down when the weight goes up at the top of the rep range: the weight rises one step and reps return to the bottom of the range.
 - If you skip both, the default is one more rep.
 

@@ -1,3 +1,4 @@
+import { roundWeight } from './weights'
 import type { ExercisePrescription, MuscleGroup, ScheduledWorkout } from './program'
 import type { CompletedSetRecord, SetEntry } from './storage'
 
@@ -104,11 +105,11 @@ export function nextSetTarget(args: { exercise: ExercisePrescription; last: Comp
   const step = weightIncrement(exercise.name)
 
   if (last.every((set) => missedReps(set) > 0)) {
-    return { weight: Math.max(0, base.weight - step), reps: base.targetReps ?? base.reps, note: `You missed reps on every set last time: weight drops ${step} lb.` }
+    return { weight: roundWeight(base.weight - step), reps: base.targetReps ?? base.reps, note: `You missed reps on every set last time: weight drops ${step} lb.` }
   }
   if (last.some((set) => missedReps(set) > 0)) {
     const short = missedReps(base) > 0
-    return { weight: base.weight, reps: short ? base.reps + 1 : base.reps, note: 'You fell short on some sets last time: weight stays, and those sets start from what you did plus a rep.' }
+    return { weight: roundWeight(base.weight), reps: short ? base.reps + 1 : base.reps, note: 'You fell short on some sets last time: weight stays, and those sets start from what you did plus a rep.' }
   }
 
   const answered = !!(fb?.effort || fb?.pump)
@@ -136,7 +137,7 @@ export function nextSetTarget(args: { exercise: ExercisePrescription; last: Comp
     weight = Math.max(weight, base.weight + step)
     notes.push(`Top of the rep range: +${step} lb, back to ${reps} reps.`)
   }
-  return { weight, reps, note: notes.join(' ') }
+  return { weight: roundWeight(weight), reps, note: notes.join(' ') }
 }
 
 /** Sets after soreness changes during a session: grow or shrink the unfinished tail without touching finished sets. */

@@ -1,3 +1,4 @@
+import { roundWeight } from './weights'
 import { feedbackFor, setOffset, weightIncrement, type SessionFeedback } from './autoregulation'
 import type { ExercisePrescription, MuscleGroup } from './program'
 import type { CompletedSetRecord } from './storage'
@@ -11,11 +12,9 @@ import type { CompletedSetRecord } from './storage'
  */
 export const estimateOneRepMax = (weight: number, reps: number): number => weight * (1 + reps / 30)
 
-const roundToStep = (weight: number) => Math.round(weight / 2.5) * 2.5
-
 /** Weight at which `targetReps + 3` reps is the limit, i.e. `targetReps` with 3 in reserve. */
 export function startingWeight(weight: number, reps: number, targetReps: number): number {
-  return roundToStep(estimateOneRepMax(weight, reps) / (1 + (targetReps + 3) / 30))
+  return roundWeight(estimateOneRepMax(weight, reps) / (1 + (targetReps + 3) / 30))
 }
 
 export interface CarryOver {

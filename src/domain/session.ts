@@ -1,3 +1,4 @@
+import { roundWeight } from './weights'
 import type { ExercisePrescription, MuscleGroup, ScheduledWorkout } from './program'
 import { feedbackFor, missedReps, nextSetTarget, setOffset, tunedSets, usesFeedback, type SessionFeedback } from './autoregulation'
 import { deloadLoad, linearIncrement } from './progression'
@@ -18,7 +19,7 @@ export function linearNext(exercise: ExercisePrescription, last: CompletedSetRec
   const weight = Math.max(...last.map((set) => set.weight))
   const target = exercise.repRange.max
   const added = last.length >= exercise.sets && last.every((set) => set.reps >= target)
-  return { weight: added ? weight + linearIncrement(exercise.id) : weight, reps: target, added }
+  return { weight: roundWeight(added ? weight + linearIncrement(exercise.id) : weight), reps: target, added }
 }
 
 /** Feedback the engine uses to tune a session: what was answered after earlier sessions, and which block it belongs to. */

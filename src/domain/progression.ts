@@ -1,3 +1,4 @@
+import { roundWeight } from './weights'
 export interface RepRange { min: number; max: number }
 /** 'rir' follows the weekly reps-in-reserve targets; 'linear' adds weight every session once all prescribed reps are hit (5x5). */
 export type Progression = 'rir' | 'linear'
@@ -24,5 +25,5 @@ export function getWeekTarget(durationWeeks: ProgramDurationWeeks, weekNumber: n
 }
 
 export function deloadLoad(weight: number, multiplier: number): number {
-  return Math.round((weight * multiplier) / 2.5) * 2.5
+  return roundWeight(weight * multiplier)
 }
