@@ -6,6 +6,7 @@ import { addCustomExercise, deleteCustomExercise, enabledCatalog, exerciseInUse,
 import { totalWeeks, type ProgramDurationWeeks } from './domain/progression'
 import { mergeFeedback, nextPrompt, resizeEntries, setOffset, tuneWorkoutSets, tunedSets, upsertFeedback, usesFeedback, type Effort, type Pump, type SessionFeedback, type Soreness } from './domain/autoregulation'
 import { addSetEntry, applyEntryPatch, buildInitialSets, lastSessionSets, maxSetsPerExercise, parseEntry, removeLastSetEntry, type TuneContext } from './domain/session'
+import { adjustRepsForWeightEdit, historicalOneRepMax, type RepNotice } from './domain/repAdjust'
 import { carryOverFor, previousBlockId, startingOffsets } from './domain/transition'
 import { applyWorkoutSet, type WorkoutSet } from './domain/workoutSets'
 import { archiveWorkoutState, emptyState, exportWorkoutState, loadWorkoutState, parseImportedState, saveWorkoutState, type SavedWorkoutState, type SetEntry } from './domain/storage'
@@ -56,6 +57,7 @@ function App() {
   const [online, setOnline] = useState(0)
   const [planStatus, setPlanStatus] = useState('')
   const [finishing, setFinishing] = useState(false)
+  const [repNotices, setRepNotices] = useState<Record<string, RepNotice | null>>({})
   const adoptingRemote = useRef(false)
   const stateRef = useRef(state)
   const flushing = useRef(false)
@@ -236,10 +238,23 @@ function App() {
       setState({ ...state, activeSession: { workoutId: plannedWorkout.id, sessionId, sets: buildInitialSets(plannedWorkout, history, sessionId, tune) } })
     }
     setEntryError('')
+    setRepNotices({})
     setView('session')
   }
+  /** Applies one edit to a set row. A weight change on an RIR work week also rescales the reps to keep the week's target RIR. */
+  function editRows(current: SavedWorkoutState, exerciseId: string, index: number, patch: Partial<SetEntry>): { next: SavedWorkoutState; notice: RepNotice | null } {
+    const session = current.activeSession
+    const rows = session?.sets[exerciseId]
+    if (!session || !rows) return { next: current, notice: null }
+    const edited = applyEntryPatch(rows, index, patch)
+    const result = patch.weight !== undefined && activeWorkout && usesFeedback(activeWorkout)
+      ? adjustRepsForWeightEdit(rows, edited, historicalOneRepMax(lastSessionSets(current.history, exerciseId, session.sessionId)), activeWorkout.target.targetRir)
+      : { entries: edited, notice: null }
+    return { next: { ...current, activeSession: { ...session, sets: { ...session.sets, [exerciseId]: result.entries } } }, notice: result.notice }
+  }
   function updateEntry(exerciseId: string, index: number, patch: Partial<SetEntry>) {
-    setState((current) => current.activeSession ? { ...current, activeSession: { ...current.activeSession, sets: { ...current.activeSession.sets, [exerciseId]: applyEntryPatch(current.activeSession.sets[exerciseId], index, patch) } } } : current)
+    setState((current) => editRows(current, exerciseId, index, patch).next)
+    if (patch.weight !== undefined) setRepNotices((notices) => ({ ...notices, [exerciseId]: editRows(state, exerciseId, index, patch).notice }))
   }
   function resizeSets(exerciseId: string, resize: (entries: SetEntry[]) => SetEntry[]) {
     setState((current) => current.activeSession ? { ...current, activeSession: { ...current.activeSession, sets: { ...current.activeSession.sets, [exerciseId]: resize(current.activeSession.sets[exerciseId]) } } } : current)
@@ -269,6 +284,7 @@ function App() {
     if (!block || !activeSession) return
     setState({ ...state, feedback, activeSession: null, block: { ...block, completedIds: addUnique(block.completedIds, activeSession.workoutId) } })
     setFinishing(false)
+    setRepNotices({})
     setView('today')
   }
   /** Finishing asks any unanswered effort and pump questions first (each can be skipped). */
@@ -362,7 +378,7 @@ function App() {
     {view === 'setup' && <SetupView days={setupDays} weeks={setupWeeks} hasHistory={history.length > 0} onDays={setSetupDays} onWeeks={setSetupWeeks} onContinue={() => { setState({ ...state, block: createBlock(setupDays, setupWeeks) }); setView('plan') }} />}
     {view === 'plan' && block && <PlanView block={block} catalog={catalog} hiddenIds={state.hiddenExerciseIds} onApplySet={applySet} onChoose={(day, position, id) => editPlan((current) => setSlotExercise(current, day, position, id))} onRename={(day, title) => editPlan((current) => renameDay(current, day, title))} onAdd={(day, id) => editPlan((current) => addExerciseToDay(current, day, id))} onCreate={createExercise} onRemove={(day, position) => editPlan((current) => removeExerciseFromDay(current, day, position))} onMove={(day, position, delta) => editPlan((current) => moveExercise(current, day, position, delta))} onSets={(day, position, sets) => editPlan((current) => setExerciseSets(current, day, position, sets))} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
     {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} carriedCount={carriedCount} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onSkip={skipWorkout} onNewBlock={newBlock} />}
-    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
+    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} repNotices={repNotices} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
     {prompt && <FeedbackSheet key={`${prompt.kind}-${prompt.group}`} prompt={prompt} onSoreness={(value) => answerSoreness(prompt.group, value)} onSummary={(effort, pump) => answerSummary(prompt.group, { effort, pump })} onSkip={skipPrompt} />}
     {view === 'progress' && <ProgressView history={history} finished={finished} total={total} />}
     {view === 'library' && <LibraryView catalog={catalog} custom={state.customExercises} hidden={state.hiddenExerciseIds} inUse={(id) => exerciseInUse(block, id)} onToggle={toggleExercise} onToggleGroup={toggleGroup} onAdd={addToLibrary} onUpdate={updateInLibrary} onDelete={deleteFromLibrary} onBack={() => setView('settings')} />}

@@ -2,6 +2,7 @@ import { cleanup, fireEvent, render, screen, within } from '@testing-library/rea
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
 import { addExerciseToDay, createBlock } from './domain/program'
+import { applyWorkoutSet, findWorkoutSet } from './domain/workoutSets'
 import { emptyState } from './domain/storage'
 
 beforeEach(() => { window.localStorage.clear(); vi.spyOn(window, 'confirm').mockReturnValue(true) })
@@ -402,5 +403,73 @@ describe('Workout Forge gym flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
     const saved = JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}') as { history: { weekNumber: number; deload?: boolean }[] }
     expect(saved.history.find((entry) => entry.weekNumber === 5)).toMatchObject({ deload: true })
+  })
+
+  it('rescales reps when you change the weight, to keep the week\'s target RIR', () => {
+    let block = createBlock(2, 4)
+    for (const day of [0, 1]) block = addExerciseToDay(block, day, 'barbell-bench-press')
+    block = { ...block, locked: true, startedAt: '2026-09-28T09:00:00.000Z', completedIds: ['w1-d1'] }
+    const sessionId = '550e8400-e29b-41d4-a716-446655440000'
+    const history = [1, 2, 3].map((n) => ({ id: `${sessionId}-${n}`, sessionId, workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex: n, weight: 200, reps: 6, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3, targetReps: 6 }))
+    window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history }))
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    const reps = (n: number) => (screen.getByLabelText(`Set ${n} reps`) as HTMLSelectElement).value
+    expect(screen.queryByRole('status')).toBeNull()
+    expect([reps(1), reps(2), reps(3)]).toEqual(['7', '7', '7'])
+
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '190' } })
+    expect([reps(1), reps(2), reps(3)]).toEqual(['7', '7', '7'])
+    expect(screen.getByRole('status').textContent).toMatch(/At 190 lb, about 7 reps leaves 3 in reserve/)
+
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '170' } })
+    expect([reps(1), reps(2), reps(3)]).toEqual(['10', '10', '10'])
+
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '100' } })
+    expect(reps(1)).toBe('15')
+    expect(screen.getByRole('status').textContent).toMatch(/light for this week's target.*capped at 15/i)
+
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '320' } })
+    expect(reps(1)).toBe('1')
+    expect(screen.getByRole('status').textContent).toMatch(/very heavy/i)
+  })
+
+  it('changes only the set you edit once earlier sets are finished, and never touches a finished set', () => {
+    let block = createBlock(2, 4)
+    for (const day of [0, 1]) block = addExerciseToDay(block, day, 'barbell-bench-press')
+    block = { ...block, locked: true, startedAt: '2026-09-28T09:00:00.000Z', completedIds: ['w1-d1'] }
+    const sessionId = '550e8400-e29b-41d4-a716-446655440000'
+    const history = [1, 2, 3].map((n) => ({ id: `${sessionId}-${n}`, sessionId, workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex: n, weight: 200, reps: 6, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3, targetReps: 6 }))
+    window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history }))
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+    fireEvent.change(screen.getByLabelText('Set 2 weight'), { target: { value: '170' } })
+    const reps = (n: number) => (screen.getByLabelText(`Set ${n} reps`) as HTMLSelectElement).value
+    expect([reps(1), reps(2), reps(3)]).toEqual(['7', '10', '7'])
+    const saved = JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}') as { history: { setIndex: number; weight: number; reps: number; targetReps?: number }[] }
+    expect(saved.history.find((entry) => entry.setIndex === 1 && entry.weight === 200 && entry.reps === 7)).toMatchObject({ targetReps: 7 })
+  })
+
+  it('leaves reps alone when there is no history, and in 5x5 and deload weeks', () => {
+    planTwoDays()
+    fireEvent.click(screen.getByRole('button', { name: /start block/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '135' } })
+    expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('6')
+    expect(screen.queryByRole('status')).toBeNull()
+    cleanup()
+    window.localStorage.clear()
+
+    const strength = { ...applyWorkoutSet(createBlock(3, 4), findWorkoutSet('strength-5x5')!), locked: true, startedAt: '2026-09-28T09:00:00.000Z' }
+    const squats = [1, 2, 3, 4, 5].map((n) => ({ id: `sq-${n}`, sessionId: 'sq', workoutId: 'w1-d1', exerciseId: 'barbell-squat', exerciseName: 'Barbell Squat', setIndex: n, weight: 135, reps: 5, rir: 2, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 5, max: 5 }, targetRir: 2, targetReps: 5 }))
+    window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block: { ...strength, completedIds: [] }, history: squats }))
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '100' } })
+    expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('5')
+    expect(screen.queryByRole('status')).toBeNull()
   })
 })

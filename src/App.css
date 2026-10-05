@@ -271,3 +271,7 @@ select option { background: var(--surface-2); color: var(--ink); }
 
 /* ---------- New block carry-over note ---------- */
 .carry-note { margin: 0 0 16px; padding: 12px 14px; border: 1px solid var(--hairline-strong); border-left: 3px solid var(--primary); border-radius: var(--radius-md); background: var(--primary-tint); color: var(--ink-muted); font-size: 14px; line-height: 1.45; }
+
+/* ---------- Rep adjustment note ---------- */
+.rep-notice { margin: 10px 0 0; padding: 8px 12px; border-left: 3px solid var(--primary); border-radius: var(--radius-sm); background: var(--primary-tint); color: var(--ink-muted); font-size: 13px; line-height: 1.4; }
+.rep-notice.warn { border-left-color: var(--danger-text); background: var(--danger-surface); color: var(--ink); }
