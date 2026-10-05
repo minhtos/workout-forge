@@ -478,7 +478,7 @@ describe('Workout Forge gym flow', () => {
     for (const day of [0, 1]) block = addExerciseToDay(block, day, 'machine-chest-press')
     block = { ...block, locked: true, startedAt: '2026-09-28T09:00:00.000Z', completedIds: ['w1-d1'] }
     const sessionId = '550e8400-e29b-41d4-a716-446655440000'
-    const history = [1, 2, 3].map((n) => ({ id: `${sessionId}-${n}`, sessionId, workoutId: 'w1-d1', exerciseId: 'machine-chest-press', exerciseName: 'Machine Chest Press', setIndex: n, weight: 150, reps: 8, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 6, max: 15 }, targetRir: 3, targetReps: 8 }))
+    const history = [1, 2, 3].map((n) => ({ id: `${sessionId}-${n}`, sessionId, workoutId: 'w1-d1', exerciseId: 'machine-chest-press', exerciseName: 'Machine Chest Press', setIndex: n, weight: 150, reps: 8, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 8, max: 15 }, targetRir: 3, targetReps: 8 }))
     window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history }))
 
     render(<App />)
@@ -496,7 +496,12 @@ describe('Workout Forge gym flow', () => {
     expect(maxOf('Barbell Row')).toMatch(/max 12/)
     expect(maxOf('Row Machine')).toMatch(/max 15/)
     expect(maxOf('Barbell Squat')).toMatch(/max 12/)
-    expect(maxOf('Hack Squat')).toMatch(/max 15/)
+    expect(maxOf('Hack Squat')).toMatch(/max 12/)
+    expect(maxOf('Leg Press Machine')).toMatch(/max 12/)
+    expect(maxOf('Assisted Pull-ups')).toMatch(/max 12/)
+    expect(maxOf('Machine Hip Thrust')).toMatch(/max 12/)
+    expect(maxOf('Pull-down')).toMatch(/max 15/)
+    expect(maxOf('Leg Extension')).toMatch(/max 15/)
 
     fireEvent.change(screen.getByLabelText('Exercise name'), { target: { value: 'Pendlay Row' } })
     fireEvent.change(screen.getByLabelText('Muscle group'), { target: { value: 'Back' } })

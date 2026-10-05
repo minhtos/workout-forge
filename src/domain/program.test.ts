@@ -75,7 +75,7 @@ describe('planning a day', () => {
 })
 
 describe('rep max by exercise class', () => {
-  const compoundIds = ['barbell-bench-press', 'barbell-incline-bench-press', 'dumbbell-incline-bench-press', 'pull-ups', 'tbar-row', 'barbell-row', 'barbell-overhead-press', 'dumbbell-shoulder-press', 'barbell-squat', 'barbell-deadlift', 'good-mornings', 'dumbbell-rdl', 'barbell-hip-thrust', 'dumbbell-walking-lunge']
+  const compoundIds = ['barbell-bench-press', 'barbell-incline-bench-press', 'dumbbell-incline-bench-press', 'pull-ups', 'assisted-pull-ups', 'tbar-row', 'barbell-row', 'barbell-overhead-press', 'dumbbell-shoulder-press', 'barbell-squat', 'hack-squat', 'leg-press-machine', 'barbell-deadlift', 'good-mornings', 'dumbbell-rdl', 'barbell-hip-thrust', 'machine-hip-thrust', 'dumbbell-walking-lunge']
   const byId = (id: string) => baseExercises.find((item) => item.id === id)!
 
   it('gives large compound lifts a rep max of 12', () => {
@@ -86,14 +86,17 @@ describe('rep max by exercise class', () => {
     const others = baseExercises.filter((item) => !compoundIds.includes(item.id))
     expect(others.length).toBeGreaterThan(30)
     for (const item of others) expect(repMaxFor(item), item.id).toBe(15)
-    for (const id of ['machine-chest-press', 'row-machine', 'leg-press-machine', 'hack-squat', 'pull-down', 'assisted-pull-ups', 'machine-hip-thrust', 'quad-extension', 'cable-pushdown', 'lateral-raise']) expect(repMaxFor(byId(id)), id).toBe(15)
+    for (const id of ['machine-chest-press', 'machine-incline-press', 'row-machine', 'pull-down', 'machine-glute-kickback', 'quad-extension', 'cable-pushdown', 'lateral-raise', 'farmers-carry']) expect(repMaxFor(byId(id)), id).toBe(15)
   })
 
-  it('keeps the muscle group\'s floor and swaps in the class\'s rep max', () => {
+  it('keeps the muscle group\'s floor for 12-max lifts and swaps in the class\'s rep max', () => {
     expect(repRangeFor(byId('barbell-bench-press'))).toEqual({ min: 6, max: 12 })
     expect(repRangeFor(byId('barbell-squat'))).toEqual({ min: 6, max: 12 })
     expect(repRangeFor(byId('dumbbell-rdl'))).toEqual({ min: 8, max: 12 })
-    expect(repRangeFor(byId('leg-press-machine'))).toEqual({ min: 6, max: 15 })
+    expect(repRangeFor(byId('leg-press-machine'))).toEqual({ min: 6, max: 12 })
+    expect(repRangeFor(byId('hack-squat'))).toEqual({ min: 6, max: 12 })
+    expect(repRangeFor(byId('assisted-pull-ups'))).toEqual({ min: 6, max: 12 })
+    expect(repRangeFor(byId('machine-hip-thrust'))).toEqual({ min: 8, max: 12 })
     expect(repRangeFor(byId('cable-pushdown'))).toEqual({ min: 10, max: 15 })
   })
 
@@ -105,5 +108,32 @@ describe('rep max by exercise class', () => {
     block = addExerciseToDay(block, 0, 'custom-cable-fly')
     const exercises = resolveWorkout(block, findWorkout(block, 'w1-d1')!, mergeCatalog(custom)).exercises
     expect(exercises.map((exercise) => exercise.repRange.max)).toEqual([12, 15])
+  })
+})
+
+describe('rep minimum for 15-max exercises', () => {
+  const byId = (id: string) => baseExercises.find((item) => item.id === id)!
+
+  it('is at least 8, even in muscle groups whose floor is 6', () => {
+    for (const id of ['machine-chest-press', 'machine-incline-press', 'machine-fly', 'dumbbell-fly', 'row-machine', 'pull-down', 'lateral-raise', 'quad-extension']) expect(repRangeFor(byId(id)), id).toEqual({ min: 8, max: 15 })
+  })
+
+  it('keeps a higher floor where the muscle group already has one', () => {
+    for (const id of ['cable-pushdown', 'cable-curls', 'standing-calf-raise', 'cable-crunch', 'cable-wrist-curl']) expect(repRangeFor(byId(id)), id).toEqual({ min: 10, max: 15 })
+    expect(repRangeFor(byId('seated-leg-curl'))).toEqual({ min: 8, max: 15 })
+    expect(repRangeFor(byId('machine-glute-kickback'))).toEqual({ min: 8, max: 15 })
+  })
+
+  it('never leaves a 15-max exercise starting below 8, and never starts above the max', () => {
+    for (const item of baseExercises) {
+      const range = repRangeFor(item)
+      expect(range.min).toBeLessThanOrEqual(range.max)
+      if (!item.compound) expect(range.min, item.id).toBeGreaterThanOrEqual(8)
+    }
+  })
+
+  it('applies to your own exercises too', () => {
+    expect(repRangeFor({ category: 'Chest' })).toEqual({ min: 8, max: 15 })
+    expect(repRangeFor({ category: 'Chest', compound: true })).toEqual({ min: 6, max: 12 })
   })
 })

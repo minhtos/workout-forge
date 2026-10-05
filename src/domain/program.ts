@@ -63,15 +63,17 @@ const repFloors: Record<MuscleGroup, number> = {
 export const compoundRepMax = 12
 export const standardRepMax = 15
 export const repMaxFor = (item: Pick<ExerciseCatalogItem, 'compound'>): number => (item.compound ? compoundRepMax : standardRepMax)
-export const repRangeFor = (item: Pick<ExerciseCatalogItem, 'category' | 'compound'>): RepRange => ({ min: repFloors[item.category], max: repMaxFor(item) })
+/** Exercises with a rep max of 15 never start below 8 reps; a muscle group whose floor is already higher keeps it. */
+export const standardRepMin = 8
+export const repRangeFor = (item: Pick<ExerciseCatalogItem, 'category' | 'compound'>): RepRange => ({ min: item.compound ? repFloors[item.category] : Math.max(repFloors[item.category], standardRepMin), max: repMaxFor(item) })
 
-/** Large free-weight and bodyweight compound lifts. Machines, cables and isolation work are not on this list. */
+/** Large compound lifts (rep max 12): free-weight and bodyweight lifts, plus the big machine versions. Isolation work, cables and other machines are not on this list. */
 const compoundNames = new Set([
   'Barbell Bench Press', 'Barbell Incline Bench Press', 'Dumbbell Incline Bench Press',
-  'Pull-ups', 'TBar Row', 'Barbell Row',
+  'Pull-ups', 'Assisted Pull-ups', 'TBar Row', 'Barbell Row',
   'Barbell Overhead Press', 'Dumbbell Shoulder Press',
-  'Barbell Squat', 'Barbell Deadlift', 'Good Mornings', 'Dumbbell RDL',
-  'Barbell Hip Thrust', 'Dumbbell Walking Lunge',
+  'Barbell Squat', 'Hack Squat', 'Leg Press Machine', 'Barbell Deadlift', 'Good Mornings', 'Dumbbell RDL',
+  'Barbell Hip Thrust', 'Machine Hip Thrust', 'Dumbbell Walking Lunge',
 ])
 
 export const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')

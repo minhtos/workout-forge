@@ -56,12 +56,12 @@ Each week has a target RIR (reps in reserve): 4 weeks go 3, 2, 1, 0 and 6 weeks 
 The deload week and StrongLifts 5x5 never ask. Answers are stored with the session and back up with the program.
 ## Rep max
 
-Every exercise has a rep max, the top of its rep range. Progression uses it as the "top of the range" (add weight and start again at the bottom), and the weight-to-rep adjustment never asks for more reps than it.
+Every exercise has a rep range. The top (rep max) is used by progression as the "top of the range" (add weight and start again at the bottom), and the weight-to-rep adjustment never asks for more reps than it.
 
-- **12** for large compound lifts: Barbell Bench Press, Barbell Incline Bench Press, Dumbbell Incline Bench Press, Pull-ups, TBar Row, Barbell Row, Barbell Overhead Press, Dumbbell Shoulder Press, Barbell Squat, Barbell Deadlift, Good Mornings, Dumbbell RDL, Barbell Hip Thrust and Dumbbell Walking Lunge.
-- **15** for everything else: isolation work, machines and cables.
-- The bottom of the range still depends on the muscle group (6 for chest, back, shoulders and quads; 8 for hamstrings and glutes; 10 for arms, forearms, calves and core).
-- Your own exercises are 15 unless you tick **Large compound lift** when adding or editing them. The library shows each exercise's rep max.
+- **Rep max 12** for large compound lifts: Barbell Bench Press, Barbell Incline Bench Press, Dumbbell Incline Bench Press, Pull-ups, Assisted Pull-ups, TBar Row, Barbell Row, Barbell Overhead Press, Dumbbell Shoulder Press, Barbell Squat, Hack Squat, Leg Press Machine, Barbell Deadlift, Good Mornings, Dumbbell RDL, Barbell Hip Thrust, Machine Hip Thrust and Dumbbell Walking Lunge.
+- **Rep max 15** for everything else: isolation work, other machines and cables.
+- **Bottom of the range:** 12-max lifts start at their muscle group's floor (6 for chest, back, shoulders and quads; 8 for hamstrings and glutes; 10 for arms, forearms, calves and core). 15-max exercises start at 8, or at the group's floor if that is higher (10 for arms, calves, core).
+- Your own exercises are 15-max (8 to 15) unless you tick **Large compound lift** when adding or editing them (then 12-max at the group's floor). The library shows each exercise's rep max.
 ## Changing the weight changes the reps
 
 If you override the weight on a set in an RIR work week, the reps rescale so the set still lands on that week's target RIR:
