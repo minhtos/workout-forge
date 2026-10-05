@@ -125,3 +125,17 @@ describe('the 12 exercise limit per muscle group', () => {
     expect(merged.filter((item) => item.category === 'Chest')).toHaveLength(1)
   })
 })
+
+describe('marking your own exercise as a large compound lift', () => {
+  it('stores the flag only when it is on, and lets you change it', () => {
+    const added = addCustomExercise([], 'Pendlay Row', 'Back', true)
+    expect(added).toMatchObject({ custom: [{ name: 'Pendlay Row', category: 'Back', compound: true }] })
+    expect(addCustomExercise([], 'Cable Fly 2', 'Chest')).toMatchObject({ custom: [{ name: 'Cable Fly 2', category: 'Chest' }] })
+    expect('custom' in (added as object) && ((added as { custom: { compound?: boolean }[] }).custom[0].compound)).toBe(true)
+    const custom = (added as { custom: ExerciseCatalogItem[] }).custom
+    const off = updateCustomExercise(custom, custom[0].id, 'Pendlay Row', 'Back', false) as { custom: { compound?: boolean }[] }
+    expect(off.custom[0].compound).toBeUndefined()
+    const on = updateCustomExercise(off.custom as ExerciseCatalogItem[], custom[0].id, 'Pendlay Row', 'Back', true) as { custom: { compound?: boolean }[] }
+    expect(on.custom[0].compound).toBe(true)
+  })
+})

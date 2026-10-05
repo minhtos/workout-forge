@@ -44,7 +44,7 @@ function nameProblem(name: string, custom: ExerciseCatalogItem[], ignoreId?: str
   return clash ? `"${clash.name}" is already in the library.` : null
 }
 
-export function addCustomExercise(custom: ExerciseCatalogItem[], name: string, category: MuscleGroup): LibraryResult {
+export function addCustomExercise(custom: ExerciseCatalogItem[], name: string, category: MuscleGroup, compound = false): LibraryResult {
   const problem = nameProblem(name, custom)
   if (problem) return { error: problem }
   if (groupCount(custom, category) >= maxExercisesPerGroup) return { error: groupFull(category) }
@@ -52,16 +52,16 @@ export function addCustomExercise(custom: ExerciseCatalogItem[], name: string, c
   const taken = new Set(mergeCatalog(custom).map((item) => item.id))
   let id = base
   for (let n = 2; taken.has(id); n += 1) id = `${base}-${n}`
-  return { custom: [...custom, { id, name: name.trim(), category }], id }
+  return { custom: [...custom, { id, name: name.trim(), category, ...(compound ? { compound: true } : {}) }], id }
 }
 
-export function updateCustomExercise(custom: ExerciseCatalogItem[], id: string, name: string, category: MuscleGroup): LibraryResult {
+export function updateCustomExercise(custom: ExerciseCatalogItem[], id: string, name: string, category: MuscleGroup, compound = false): LibraryResult {
   if (!custom.some((item) => item.id === id)) return { error: 'Only exercises you added can be edited.' }
   const problem = nameProblem(name, custom, id)
   if (problem) return { error: problem }
   const moving = custom.find((item) => item.id === id)?.category !== category
   if (moving && groupCount(custom, category) >= maxExercisesPerGroup) return { error: groupFull(category) }
-  return { custom: custom.map((item) => (item.id === id ? { ...item, name: name.trim(), category } : item)), id }
+  return { custom: custom.map((item) => (item.id === id ? { id: item.id, name: name.trim(), category, ...(compound ? { compound: true } : {}) } : item)), id }
 }
 
 /** Brings in exercises from an export, skipping duplicates and anything that would overfill a muscle group. */

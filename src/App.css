@@ -275,3 +275,8 @@ select option { background: var(--surface-2); color: var(--ink); }
 /* ---------- Rep adjustment note ---------- */
 .rep-notice { margin: 10px 0 0; padding: 8px 12px; border-left: 3px solid var(--primary); border-radius: var(--radius-sm); background: var(--primary-tint); color: var(--ink-muted); font-size: 13px; line-height: 1.4; }
 .rep-notice.warn { border-left-color: var(--danger-text); background: var(--danger-surface); color: var(--ink); }
+
+/* ---------- Compound checkbox and rep max label ---------- */
+.check-row { display: flex; align-items: center; gap: 10px; flex: 1 1 100%; min-height: 44px; color: var(--ink-muted); font-size: 14px; }
+.check-row input { width: 20px; height: 20px; accent-color: var(--primary); }
+.rep-max { font: 11px var(--font-mono); letter-spacing: 0.04em; color: var(--ink-subtle); }

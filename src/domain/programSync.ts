@@ -39,7 +39,7 @@ const snapshotSchema = z.object({
   version: z.literal(1),
   updatedAt: z.string().datetime(),
   block: blockSchema.nullable(),
-  customExercises: z.array(z.object({ id: z.string().min(1), name: z.string().min(1).max(60), category: group })).max(500),
+  customExercises: z.array(z.object({ id: z.string().min(1), name: z.string().min(1).max(60), category: group, compound: z.boolean().optional() })).max(500),
   hiddenExerciseIds: z.array(z.string()).max(1000),
   feedback: z.array(feedbackSchema).max(2000).default([]),
 })

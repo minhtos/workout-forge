@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { addExerciseToDay, createBlock, dayOptions, findWorkout, listWorkouts, maxExercisesPerDay, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, type Block } from './program'
+import { baseExercises, repMaxFor, repRangeFor, addExerciseToDay, createBlock, dayOptions, findWorkout, listWorkouts, maxExercisesPerDay, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, type Block } from './program'
 
 const catalog = mergeCatalog([])
 const withExercises = (block: Block, perDay: string[][]) => perDay.reduce((current, ids, day) => ids.reduce((next, id) => addExerciseToDay(next, day, id), current), block)
@@ -69,7 +69,41 @@ describe('planning a day', () => {
   it('resolves exercises with their category rep ranges', () => {
     const block = withExercises(createBlock(2, 4), [['barbell-bench-press', 'cable-pushdown']])
     const workout = resolveWorkout(block, findWorkout(block, 'w1-d1')!, catalog)
-    expect(workout.exercises[0]).toMatchObject({ category: 'Chest', sets: 3, repRange: { min: 6, max: 10 } })
+    expect(workout.exercises[0]).toMatchObject({ category: 'Chest', sets: 3, repRange: { min: 6, max: 12 } })
     expect(workout.exercises[1]).toMatchObject({ category: 'Triceps', repRange: { min: 10, max: 15 } })
+  })
+})
+
+describe('rep max by exercise class', () => {
+  const compoundIds = ['barbell-bench-press', 'barbell-incline-bench-press', 'dumbbell-incline-bench-press', 'pull-ups', 'tbar-row', 'barbell-row', 'barbell-overhead-press', 'dumbbell-shoulder-press', 'barbell-squat', 'barbell-deadlift', 'good-mornings', 'dumbbell-rdl', 'barbell-hip-thrust', 'dumbbell-walking-lunge']
+  const byId = (id: string) => baseExercises.find((item) => item.id === id)!
+
+  it('gives large compound lifts a rep max of 12', () => {
+    for (const id of compoundIds) expect(repMaxFor(byId(id)), id).toBe(12)
+  })
+
+  it('gives every other exercise (isolation, machines, cables) a rep max of 15', () => {
+    const others = baseExercises.filter((item) => !compoundIds.includes(item.id))
+    expect(others.length).toBeGreaterThan(30)
+    for (const item of others) expect(repMaxFor(item), item.id).toBe(15)
+    for (const id of ['machine-chest-press', 'row-machine', 'leg-press-machine', 'hack-squat', 'pull-down', 'assisted-pull-ups', 'machine-hip-thrust', 'quad-extension', 'cable-pushdown', 'lateral-raise']) expect(repMaxFor(byId(id)), id).toBe(15)
+  })
+
+  it('keeps the muscle group\'s floor and swaps in the class\'s rep max', () => {
+    expect(repRangeFor(byId('barbell-bench-press'))).toEqual({ min: 6, max: 12 })
+    expect(repRangeFor(byId('barbell-squat'))).toEqual({ min: 6, max: 12 })
+    expect(repRangeFor(byId('dumbbell-rdl'))).toEqual({ min: 8, max: 12 })
+    expect(repRangeFor(byId('leg-press-machine'))).toEqual({ min: 6, max: 15 })
+    expect(repRangeFor(byId('cable-pushdown'))).toEqual({ min: 10, max: 15 })
+  })
+
+  it('lets your own exercises be marked as large compound lifts (default 15)', () => {
+    const custom = [{ id: 'custom-pendlay-row', name: 'Pendlay Row', category: 'Back' as const, compound: true }, { id: 'custom-cable-fly', name: 'Cable Fly', category: 'Chest' as const }]
+    expect(repMaxFor(custom[0])).toBe(12)
+    expect(repMaxFor(custom[1])).toBe(15)
+    let block = addExerciseToDay(createBlock(2, 4), 0, 'custom-pendlay-row')
+    block = addExerciseToDay(block, 0, 'custom-cable-fly')
+    const exercises = resolveWorkout(block, findWorkout(block, 'w1-d1')!, mergeCatalog(custom)).exercises
+    expect(exercises.map((exercise) => exercise.repRange.max)).toEqual([12, 15])
   })
 })

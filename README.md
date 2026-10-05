@@ -54,13 +54,21 @@ Each week has a target RIR (reps in reserve): 4 weeks go 3, 2, 1, 0 and 6 weeks 
 **Recovery** (after the first exercise of a muscle group, only if you trained it before): *still sore* takes a set off every exercise for that muscle group, *just on time* changes nothing, *recovered early* adds a set. It applies to the unstarted exercises today and carries through the rest of the block (2 to 6 sets per exercise, at most 3 up or down in total). Sets are the only thing this changes. If you answer *recovered early* and then rate the same muscle group *too hard*, the extra set is not carried to the next session.
 
 The deload week and StrongLifts 5x5 never ask. Answers are stored with the session and back up with the program.
+## Rep max
+
+Every exercise has a rep max, the top of its rep range. Progression uses it as the "top of the range" (add weight and start again at the bottom), and the weight-to-rep adjustment never asks for more reps than it.
+
+- **12** for large compound lifts: Barbell Bench Press, Barbell Incline Bench Press, Dumbbell Incline Bench Press, Pull-ups, TBar Row, Barbell Row, Barbell Overhead Press, Dumbbell Shoulder Press, Barbell Squat, Barbell Deadlift, Good Mornings, Dumbbell RDL, Barbell Hip Thrust and Dumbbell Walking Lunge.
+- **15** for everything else: isolation work, machines and cables.
+- The bottom of the range still depends on the muscle group (6 for chest, back, shoulders and quads; 8 for hamstrings and glutes; 10 for arms, forearms, calves and core).
+- Your own exercises are 15 unless you tick **Large compound lift** when adding or editing them. The library shows each exercise's rep max.
 ## Changing the weight changes the reps
 
 If you override the weight on a set in an RIR work week, the reps rescale so the set still lands on that week's target RIR:
 
 1. Your strength comes from your last non-deload session: each set gives a one-rep max with the Brzycki formula (`weight × 36 ÷ (37 − reps to failure)`), counting the reps you left in reserve; a set that missed its reps counts as failure. The best set is used.
 2. Reps to failure at the new weight are `37 − 36 × weight ÷ 1RM`; subtract the week's target RIR and round. Example: with a 232 lb max and a 0 RIR week, 190 lb gives about 8 reps.
-3. Reps stay between 1 and 15. At a limit, a short note says so instead of silently clamping.
+3. Reps stay between 1 and the exercise's rep max (12 for large compound lifts, 15 otherwise). At a limit, a short note says so instead of silently clamping.
 
 It applies to every unfinished set whose weight changed (including the later sets that follow set 1's weight), and the set's rep target moves with it, so missed-rep checks use the new number. Finished sets are never touched. It does nothing the first time you do an exercise, in deload weeks, or in 5x5 blocks.
 ## Starting the next block

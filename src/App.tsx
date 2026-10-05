@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mergeSets } from './domain/backup'
-import { addExerciseToDay, createBlock, findWorkout, listWorkouts, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, setSlotExercise, type Block, type ExercisePrescription, type MuscleGroup, type TrainingDaysPerWeek } from './domain/program'
+import { standardRepMax, addExerciseToDay, createBlock, findWorkout, listWorkouts, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, setSlotExercise, type Block, type ExercisePrescription, type MuscleGroup, type TrainingDaysPerWeek } from './domain/program'
 import { applyProgramSnapshot, runProgramSync } from './domain/programSync'
 import { addCustomExercise, deleteCustomExercise, enabledCatalog, exerciseInUse, mergeCustomExercises, setExerciseEnabled, setGroupEnabled, updateCustomExercise } from './domain/exercises'
 import { totalWeeks, type ProgramDurationWeeks } from './domain/progression'
@@ -186,14 +186,14 @@ function App() {
     editPlan((current) => applyWorkoutSet(current, set))
   }
   /** Adds a custom exercise to the catalog (or reuses an existing one with the same name) and puts it on the day. */
-  function createExercise(dayIndex: number, name: string, category: MuscleGroup): string | null {
+  function createExercise(dayIndex: number, name: string, category: MuscleGroup, compound = false): string | null {
     if (!state.block || state.block.locked) return null
     const existing = catalog.find((item) => item.name.toLowerCase() === name.toLowerCase())
     if (existing) {
       setState({ ...state, block: addExerciseToDay(state.block, dayIndex, existing.id) })
       return null
     }
-    const result = addCustomExercise(state.customExercises, name, category)
+    const result = addCustomExercise(state.customExercises, name, category, compound)
     if ('error' in result) return result.error
     setState({ ...state, customExercises: result.custom, block: addExerciseToDay(state.block, dayIndex, result.id) })
     return null
@@ -205,14 +205,14 @@ function App() {
     setState((current) => ({ ...current, hiddenExerciseIds: setGroupEnabled(current.hiddenExerciseIds, mergeCatalog(current.customExercises), group, enabled) }))
   }
   /** Library edits return an error message for the form to show, or null when they worked. */
-  function addToLibrary(name: string, category: MuscleGroup): string | null {
-    const result = addCustomExercise(state.customExercises, name, category)
+  function addToLibrary(name: string, category: MuscleGroup, compound = false): string | null {
+    const result = addCustomExercise(state.customExercises, name, category, compound)
     if ("error" in result) return result.error
     setState({ ...state, customExercises: result.custom })
     return null
   }
-  function updateInLibrary(id: string, name: string, category: MuscleGroup): string | null {
-    const result = updateCustomExercise(state.customExercises, id, name, category)
+  function updateInLibrary(id: string, name: string, category: MuscleGroup, compound = false): string | null {
+    const result = updateCustomExercise(state.customExercises, id, name, category, compound)
     if ("error" in result) return result.error
     setState({ ...state, customExercises: result.custom })
     return null
@@ -248,7 +248,7 @@ function App() {
     if (!session || !rows) return { next: current, notice: null }
     const edited = applyEntryPatch(rows, index, patch)
     const result = patch.weight !== undefined && activeWorkout && usesFeedback(activeWorkout)
-      ? adjustRepsForWeightEdit(rows, edited, historicalOneRepMax(lastSessionSets(current.history, exerciseId, session.sessionId)), activeWorkout.target.targetRir)
+      ? adjustRepsForWeightEdit(rows, edited, historicalOneRepMax(lastSessionSets(current.history, exerciseId, session.sessionId)), activeWorkout.target.targetRir, activeWorkout.exercises.find((exercise) => exercise.id === exerciseId)?.repRange.max ?? standardRepMax)
       : { entries: edited, notice: null }
     return { next: { ...current, activeSession: { ...session, sets: { ...session.sets, [exerciseId]: result.entries } } }, notice: result.notice }
   }

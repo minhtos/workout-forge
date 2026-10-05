@@ -3,7 +3,8 @@ import { getWeekTarget, totalWeeks, type Progression, type ProgramDurationWeeks,
 export type { Progression, ProgramDurationWeeks }
 export type TrainingDaysPerWeek = 2 | 3 | 4
 export type MuscleGroup = 'Chest' | 'Back' | 'Shoulders' | 'Triceps' | 'Biceps' | 'Forearms' | 'Quads' | 'Hamstrings' | 'Glutes' | 'Calves' | 'Core'
-export interface ExerciseCatalogItem { id: string; name: string; category: MuscleGroup }
+/** `compound` marks a large compound lift (rep max 12); everything else has a rep max of 15. */
+export interface ExerciseCatalogItem { id: string; name: string; category: MuscleGroup; compound?: boolean }
 export interface ExercisePrescription { id: string; name: string; category: MuscleGroup; sets: number; repRange: RepRange }
 
 /**
@@ -53,16 +54,30 @@ const names: Record<MuscleGroup, string[]> = {
   Calves: ['Standing Calf Raise', 'Seated Calf Raise', 'Leg Press Calf Raise', 'Smith Machine Calf Raise', 'Donkey Calf Raise'],
   Core: ['Cable Crunch', 'Hanging Leg Raise', 'Ab Wheel Rollout', 'Decline Sit-up', 'Machine Crunch'],
 }
-const ranges: Record<MuscleGroup, RepRange> = {
-  Chest: { min: 6, max: 10 }, Back: { min: 6, max: 10 }, Shoulders: { min: 6, max: 10 }, Triceps: { min: 10, max: 15 },
-  Biceps: { min: 10, max: 15 }, Forearms: { min: 10, max: 15 }, Quads: { min: 6, max: 10 }, Hamstrings: { min: 8, max: 12 },
-  Glutes: { min: 8, max: 12 }, Calves: { min: 10, max: 15 }, Core: { min: 10, max: 15 },
+/** The bottom of the rep range for each muscle group. The top depends on the exercise (see repMaxFor). */
+const repFloors: Record<MuscleGroup, number> = {
+  Chest: 6, Back: 6, Shoulders: 6, Triceps: 10, Biceps: 10, Forearms: 10, Quads: 6, Hamstrings: 8, Glutes: 8, Calves: 10, Core: 10,
 }
+
+/** Rep max: large compound lifts stop at 12 reps, everything else (isolation, machines, cables) at 15. */
+export const compoundRepMax = 12
+export const standardRepMax = 15
+export const repMaxFor = (item: Pick<ExerciseCatalogItem, 'compound'>): number => (item.compound ? compoundRepMax : standardRepMax)
+export const repRangeFor = (item: Pick<ExerciseCatalogItem, 'category' | 'compound'>): RepRange => ({ min: repFloors[item.category], max: repMaxFor(item) })
+
+/** Large free-weight and bodyweight compound lifts. Machines, cables and isolation work are not on this list. */
+const compoundNames = new Set([
+  'Barbell Bench Press', 'Barbell Incline Bench Press', 'Dumbbell Incline Bench Press',
+  'Pull-ups', 'TBar Row', 'Barbell Row',
+  'Barbell Overhead Press', 'Dumbbell Shoulder Press',
+  'Barbell Squat', 'Barbell Deadlift', 'Good Mornings', 'Dumbbell RDL',
+  'Barbell Hip Thrust', 'Dumbbell Walking Lunge',
+])
 
 export const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 /** Ids of exercises that were renamed, so saved plans and history keep matching (Quad Extension is now Leg Extension). */
 const legacyIds: Record<string, string> = { 'Leg Extension': 'quad-extension' }
-export const baseExercises: ExerciseCatalogItem[] = muscleGroups.flatMap((category) => names[category].map((name) => ({ id: legacyIds[name] ?? slugify(name), name, category })))
+export const baseExercises: ExerciseCatalogItem[] = muscleGroups.flatMap((category) => names[category].map((name): ExerciseCatalogItem => ({ id: legacyIds[name] ?? slugify(name), name, category, ...(compoundNames.has(name) ? { compound: true } : {}) })))
 
 export function mergeCatalog(custom: ExerciseCatalogItem[]): ExerciseCatalogItem[] {
   const seen = new Set(baseExercises.map((item) => item.id))
@@ -149,7 +164,7 @@ export function resolveWorkout(block: Block, ref: WorkoutRef, catalog: ExerciseC
   const exercises = block.templates[ref.templateIndex].exercises.flatMap((entry) => {
     const item = catalog.find((candidate) => candidate.id === entry.exerciseId)
     if (!item) return []
-    return [{ ...item, sets: entry.sets, repRange: entry.reps ? { min: entry.reps, max: entry.reps } : { ...ranges[item.category] } }]
+    return [{ ...item, sets: entry.sets, repRange: entry.reps ? { min: entry.reps, max: entry.reps } : repRangeFor(item) }]
   })
   return { ...ref, exercises }
 }

@@ -427,8 +427,8 @@ describe('Workout Forge gym flow', () => {
     expect([reps(1), reps(2), reps(3)]).toEqual(['10', '10', '10'])
 
     fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '100' } })
-    expect(reps(1)).toBe('15')
-    expect(screen.getByRole('status').textContent).toMatch(/light for this week's target.*capped at 15/i)
+    expect(reps(1)).toBe('12')
+    expect(screen.getByRole('status').textContent).toMatch(/light for this week's target.*capped at 12/i)
 
     fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '320' } })
     expect(reps(1)).toBe('1')
@@ -471,5 +471,47 @@ describe('Workout Forge gym flow', () => {
     fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '100' } })
     expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('5')
     expect(screen.queryByRole('status')).toBeNull()
+  })
+
+  it('caps reps at 15 on a machine exercise, where a barbell lift stops at 12', () => {
+    let block = createBlock(2, 4)
+    for (const day of [0, 1]) block = addExerciseToDay(block, day, 'machine-chest-press')
+    block = { ...block, locked: true, startedAt: '2026-09-28T09:00:00.000Z', completedIds: ['w1-d1'] }
+    const sessionId = '550e8400-e29b-41d4-a716-446655440000'
+    const history = [1, 2, 3].map((n) => ({ id: `${sessionId}-${n}`, sessionId, workoutId: 'w1-d1', exerciseId: 'machine-chest-press', exerciseName: 'Machine Chest Press', setIndex: n, weight: 150, reps: 8, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 6, max: 15 }, targetRir: 3, targetReps: 8 }))
+    window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history }))
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '90' } })
+    expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('15')
+    expect(screen.getByRole('status').textContent).toMatch(/capped at 15/i)
+  })
+
+  it('shows each exercise\'s rep max in the library, and lets you mark your own as a large compound lift', () => {
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
+    fireEvent.click(screen.getByRole('button', { name: /open library/i }))
+    const maxOf = (name: string) => screen.getByText(name).closest('.library-name')?.textContent ?? ''
+    expect(maxOf('Barbell Row')).toMatch(/max 12/)
+    expect(maxOf('Row Machine')).toMatch(/max 15/)
+    expect(maxOf('Barbell Squat')).toMatch(/max 12/)
+    expect(maxOf('Hack Squat')).toMatch(/max 15/)
+
+    fireEvent.change(screen.getByLabelText('Exercise name'), { target: { value: 'Pendlay Row' } })
+    fireEvent.change(screen.getByLabelText('Muscle group'), { target: { value: 'Back' } })
+    fireEvent.click(screen.getByLabelText(/Large compound lift/))
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    expect(maxOf('Pendlay Row')).toMatch(/max 12/)
+
+    fireEvent.change(screen.getByLabelText('Exercise name'), { target: { value: 'Cable Row 2' } })
+    fireEvent.change(screen.getByLabelText('Muscle group'), { target: { value: 'Back' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Add' }))
+    expect(maxOf('Cable Row 2')).toMatch(/max 15/)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Edit Cable Row 2' }))
+    fireEvent.click(screen.getByLabelText('Cable Row 2 is a large compound lift'))
+    fireEvent.click(screen.getByRole('button', { name: 'Save' }))
+    expect(maxOf('Cable Row 2')).toMatch(/max 12/)
   })
 })
