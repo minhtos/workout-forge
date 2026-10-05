@@ -1,46 +1,39 @@
-/* Inter is bundled with the app (SIL Open Font License, see src/assets/fonts/Inter-LICENSE.txt), so it works offline and needs no third-party request. */
-@font-face {
-  font-family: 'Inter';
-  font-style: normal;
-  font-weight: 100 900;
-  font-display: swap;
-  src: url('./assets/fonts/inter-latin-wght-normal.woff2') format('woff2-variations'), url('./assets/fonts/inter-latin-wght-normal.woff2') format('woff2');
-}
+/* Barlow and Barlow Condensed (SIL Open Font License) are bundled via @fontsource and imported in main.tsx, so the app works offline and makes no third-party font requests. */
 :root {
   /* Workout Forge design tokens. See DESIGN.md. Never hardcode colors outside this block. */
-  --canvas: #010102;
-  --surface-1: #0f1011;
-  --surface-2: #141516;
-  --surface-3: #18191a;
-  --hairline: #23252a;
-  --hairline-strong: #34343a;
-  --ink: #f7f8f8;
-  --ink-muted: #d0d6e0;
-  --ink-subtle: #9ba0aa;
-  --primary: #5e6ad2;
-  --primary-hover: #7480e8;
-  --primary-tint: rgba(94, 106, 210, 0.14);
-  --primary-text: #a3abff;
-  --on-primary: #ffffff;
+  --canvas: #16181b;
+  --surface-1: #1c2025;
+  --surface-2: #20242a;
+  --surface-3: #272c33;
+  --hairline: #2f353e;
+  --hairline-strong: #3a404a;
+  --ink: #f2f0eb;
+  --ink-muted: #c9cfd8;
+  --ink-subtle: #aab1bc;
+  --primary: #f26b21;
+  --primary-hover: #ff8a4c;
+  --primary-tint: rgba(242, 107, 33, 0.14);
+  --primary-text: #ff8a4c;
+  --on-primary: #16181b;
   --success: #27a644;
   --success-text: #5fd183;
   --danger-text: #ff9b9b;
   --danger-surface: #2a1214;
-  --glow: rgba(94, 106, 210, 0.22);
+  --glow: rgba(242, 107, 33, 0.2);
 
   --radius-sm: 6px;
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-pill: 9999px;
 
-  --font-sans: Inter, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-sans: Barlow, system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Barlow Condensed', Barlow, system-ui, sans-serif;
   --font-mono: ui-monospace, 'SF Mono', 'DM Mono', Menlo, Consolas, monospace;
 
   --tap: 48px;
   --tabbar-h: 60px;
 
   font-family: var(--font-sans);
-  font-feature-settings: 'cv11', 'ss03';
   color: var(--ink);
   background: var(--canvas);
   font-synthesis: none;
@@ -60,21 +53,22 @@
     --ink: #14161a;
     --ink-muted: #3a4150;
     --ink-subtle: #596071;
-    --primary: #5e6ad2;
-    --primary-hover: #4b57c0;
-    --primary-tint: rgba(94, 106, 210, 0.12);
-    --primary-text: #3c48b2;
-    --on-primary: #ffffff;
+    --primary: #f26b21;
+    --primary-hover: #d95a12;
+    --primary-tint: rgba(242, 107, 33, 0.12);
+    --primary-text: #b04a0f;
+    --on-primary: #16181b;
     --success: #1f8a3a;
     --success-text: #17702f;
     --danger-text: #b42323;
     --danger-surface: #fde8e8;
-    --glow: rgba(94, 106, 210, 0.12);
+    --glow: rgba(242, 107, 33, 0.1);
   }
 }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; min-height: 100vh; background: var(--canvas); }
 button, input, select { font: inherit; }
+input::placeholder { color: var(--ink-subtle); opacity: 1; }
 button { cursor: pointer; }
 button:focus-visible, input:focus-visible, select:focus-visible { outline: 2px solid var(--primary-hover); outline-offset: 3px; }
 @media (prefers-reduced-motion: reduce) {

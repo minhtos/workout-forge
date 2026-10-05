@@ -12,8 +12,8 @@ export default defineConfig({
         name: 'Workout Forge',
         short_name: 'Workout Forge',
         description: 'A focused, local-first workout planner and training log.',
-        theme_color: '#0a0b0e',
-        background_color: '#0a0b0e',
+        theme_color: '#16181b',
+        background_color: '#16181b',
         display: 'standalone',
         start_url: '/',
         icons: [

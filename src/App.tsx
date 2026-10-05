@@ -16,6 +16,10 @@ import { supabase } from './lib/supabase'
 import { FeedbackSheet } from './views/FeedbackSheet'
 import { LibraryView } from './views/LibraryView'
 import { PlanView } from './views/PlanView'
+import { LandingView } from './views/LandingView'
+import { ResetPasswordView } from './views/ResetPasswordView'
+import type { AuthResult } from './views/AuthForm'
+import { authMessage } from './domain/auth'
 import { ProgressView } from './views/ProgressView'
 import { SessionView } from './views/SessionView'
 import { SettingsView } from './views/SettingsView'
@@ -23,11 +27,11 @@ import { SetupView } from './views/SetupView'
 import { TodayView } from './views/TodayView'
 import './App.css'
 
-type View = 'setup' | 'plan' | 'today' | 'session' | 'progress' | 'settings' | 'library'
+type View = 'landing' | 'setup' | 'plan' | 'today' | 'session' | 'progress' | 'settings' | 'library'
 
 function initialView(state: SavedWorkoutState): View {
   if (state.activeSession && state.block?.locked) return 'session'
-  if (!state.block) return 'setup'
+  if (!state.block) return state.history.length ? 'setup' : 'landing'
   return state.block.locked ? 'today' : 'plan'
 }
 
@@ -35,6 +39,9 @@ const addUnique = (ids: string[], id: string) => (ids.includes(id) ? ids : [...i
 
 /** What counts as "the program" for syncing; changes to it stamp programUpdatedAt. */
 const signatureOf = (state: Pick<SavedWorkoutState, 'block' | 'customExercises' | 'hiddenExerciseIds' | 'feedback'>) => JSON.stringify([state.block, state.customExercises, state.hiddenExerciseIds, state.feedback])
+
+/** Signing in from the landing page moves on to the app; the program sync then picks the right screen. */
+const leaveLanding = (view: View): View => (view === 'landing' ? 'setup' : view)
 
 /** After a program arrives from the cloud, move off a screen that no longer fits it. */
 function settleView(view: View, block: Block | null): View {
@@ -51,6 +58,7 @@ function App() {
   const [userId, setUserId] = useState<string | null>(null)
   const [accountEmail, setAccountEmail] = useState<string | null>(null)
   const [cloudStatus, setCloudStatus] = useState('')
+  const [recovering, setRecovering] = useState(false)
   const [entryError, setEntryError] = useState('')
   const [saveFailed, setSaveFailed] = useState(false)
   const [restTimer, setRestTimer] = useState(loadRestTimerEnabled)
@@ -91,8 +99,13 @@ function App() {
   // Auth: supabase persists the session locally and refreshes it, so users stay signed in.
   useEffect(() => {
     if (!supabase) return
-    void supabase.auth.getSession().then(({ data }) => { setUserId(data.session?.user.id ?? null); setAccountEmail(data.session?.user.email ?? null) })
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => { setUserId(session?.user.id ?? null); setAccountEmail(session?.user.email ?? null) })
+    void supabase.auth.getSession().then(({ data }) => { setUserId(data.session?.user.id ?? null); setAccountEmail(data.session?.user.email ?? null); if (data.session) setView(leaveLanding) })
+    const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
+      setUserId(session?.user.id ?? null)
+      setAccountEmail(session?.user.email ?? null)
+      if (session) setView(leaveLanding)
+      if (event === 'PASSWORD_RECOVERY') setRecovering(true)
+    })
     return () => listener.subscription.unsubscribe()
   }, [])
 
@@ -337,10 +350,29 @@ function App() {
     setView('setup')
   }
 
-  async function sendMagicLink(email: string) {
-    if (!supabase) return
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: `${window.location.origin}/` } })
-    setCloudStatus(error ? error.message : 'Magic link sent. Open it on this device to stay signed in here.')
+  const unavailable: AuthResult = { ok: false, message: 'Accounts are not available in this build.' }
+  async function signIn(email: string, password: string): Promise<AuthResult> {
+    if (!supabase) return unavailable
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    return error ? { ok: false, message: authMessage(error) } : { ok: true, message: 'Signed in.' }
+  }
+  async function signUp(email: string, password: string): Promise<AuthResult> {
+    if (!supabase) return unavailable
+    const { data, error } = await supabase.auth.signUp({ email, password, options: { emailRedirectTo: `${window.location.origin}/` } })
+    if (error) return { ok: false, message: authMessage(error) }
+    return { ok: true, message: data.session ? 'Account created. You are signed in.' : 'Check your email to confirm your account, then sign in.' }
+  }
+  async function resetPassword(email: string): Promise<AuthResult> {
+    if (!supabase) return unavailable
+    const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: `${window.location.origin}/` })
+    return error ? { ok: false, message: authMessage(error) } : { ok: true, message: 'If an account exists for that email, a reset link is on its way.' }
+  }
+  async function saveNewPassword(password: string): Promise<AuthResult> {
+    if (!supabase) return unavailable
+    const { error } = await supabase.auth.updateUser({ password })
+    if (error) return { ok: false, message: authMessage(error) }
+    setRecovering(false)
+    return { ok: true, message: 'Password saved.' }
   }
   function backupAll() {
     setState((current) => ({ ...current, pendingSessionIds: [...new Set([...current.pendingSessionIds, ...current.history.map((set) => set.sessionId)])] }))
@@ -367,6 +399,9 @@ function App() {
   const navigate = (next: View) => () => setView(next === 'today' && activeSession ? 'session' : next)
   const home = (): View => (!block ? 'setup' : block.locked ? 'today' : 'plan')
 
+  if (view === 'landing' && !recovering) return <LandingView cloudEnabled={!!supabase} onStart={() => setView('setup')} onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} />
+  if (recovering) return <main className="app-shell"><ResetPasswordView onSubmit={saveNewPassword} /></main>
+
   return <main className="app-shell">
     <header className="topbar"><button className="brand" onClick={navigate(home())} aria-label="Workout Forge home"><span className="brand-mark">WF</span><span>WORKOUT FORGE</span></button>
       <nav aria-label="Primary navigation">
@@ -383,7 +418,7 @@ function App() {
     {prompt && <FeedbackSheet key={`${prompt.kind}-${prompt.group}`} prompt={prompt} onSoreness={(value) => answerSoreness(prompt.group, value)} onSummary={(effort, pump) => answerSummary(prompt.group, { effort, pump })} onSkip={skipPrompt} />}
     {view === 'progress' && <ProgressView history={history} catalog={catalog} finished={finished} total={total} />}
     {view === 'library' && <LibraryView catalog={catalog} custom={state.customExercises} hidden={state.hiddenExerciseIds} inUse={(id) => exerciseInUse(block, id)} onToggle={toggleExercise} onToggleGroup={toggleGroup} onAdd={addToLibrary} onUpdate={updateInLibrary} onDelete={deleteFromLibrary} onBack={() => setView('settings')} />}
-    {view === 'settings' && <SettingsView librarySummary={`${enabledCatalog(catalog, state.hiddenExerciseIds).length} of ${catalog.length} exercises on`} onOpenLibrary={() => setView('library')} restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSendLink={(email) => void sendMagicLink(email)} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} planStatus={planStatus} onRestore={() => { void restoreFromCloud(false); setOnline((value) => value + 1) }} onExport={exportData} onImport={importData} onNewBlock={newBlock} />}
+    {view === 'settings' && <SettingsView librarySummary={`${enabledCatalog(catalog, state.hiddenExerciseIds).length} of ${catalog.length} exercises on`} onOpenLibrary={() => setView('library')} restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} planStatus={planStatus} onRestore={() => { void restoreFromCloud(false); setOnline((value) => value + 1) }} onExport={exportData} onImport={importData} onNewBlock={newBlock} />}
   </main>
 }
 

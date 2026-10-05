@@ -8,8 +8,14 @@ import { emptyState } from './domain/storage'
 beforeEach(() => { window.localStorage.clear(); vi.spyOn(window, 'confirm').mockReturnValue(true) })
 afterEach(() => { cleanup(); vi.restoreAllMocks() })
 
-function openPlanner(days: '2' | '3' | '4' = '2', weeks: '4' | '6' = '4') {
+/** Fresh visitors see the landing page first; this renders the app and gets past it. */
+function renderApp() {
   render(<App />)
+  const start = screen.queryByRole('button', { name: /get started/i })
+  if (start) fireEvent.click(start)
+}
+function openPlanner(days: '2' | '3' | '4' = '2', weeks: '4' | '6' = '4') {
+  renderApp()
   fireEvent.click(screen.getByRole('button', { name: new RegExp(`${days} days`, 'i') }))
   fireEvent.click(screen.getByRole('button', { name: new RegExp(`${weeks} weeks`, 'i') }))
   fireEvent.click(screen.getByRole('button', { name: /choose exercises/i }))
@@ -24,7 +30,7 @@ const savedState = () => JSON.parse(window.localStorage.getItem('workout-forge:v
 
 describe('Workout Forge gym flow', () => {
   it('offers 2, 3 and 4 days and 4 or 6 weeks with a deload, and nothing else', () => {
-    render(<App />)
+    renderApp()
     expect(screen.getAllByRole('button', { name: /days per week/i }).map((button) => button.getAttribute('aria-label'))).toEqual(['2 days per week', '3 days per week', '4 days per week'])
     expect(screen.getAllByRole('button', { name: /^\d+ weeks$/i }).map((button) => button.getAttribute('aria-label'))).toEqual(['4 weeks', '6 weeks'])
     fireEvent.click(screen.getByRole('button', { name: /^2 days/i }))
@@ -82,7 +88,7 @@ describe('Workout Forge gym flow', () => {
     expect(savedState().history).toHaveLength(1)
 
     cleanup()
-    render(<App />)
+    renderApp()
     expect(screen.getByRole('heading', { name: 'Day 1' })).toBeTruthy()
     expect((screen.getByLabelText('Set 1 weight') as HTMLInputElement).value).toBe('135')
 
@@ -195,7 +201,7 @@ describe('Workout Forge gym flow', () => {
     expect(screen.queryByRole('timer')).toBeNull()
 
     cleanup()
-    render(<App />)
+    renderApp()
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     expect(screen.getByRole('switch', { name: /rest timer/i }).getAttribute('aria-checked')).toBe('true')
     fireEvent.click(screen.getByRole('switch', { name: /rest timer/i }))
@@ -229,7 +235,7 @@ describe('Workout Forge gym flow', () => {
   })
 
   it('adds, edits and deletes your own exercise in the library', () => {
-    render(<App />)
+    renderApp()
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     fireEvent.click(screen.getByRole('button', { name: /open library/i }))
     fireEvent.change(screen.getByLabelText('Exercise name'), { target: { value: 'Weighted Dips' } })
@@ -284,7 +290,7 @@ describe('Workout Forge gym flow', () => {
     const history = ['barbell-bench-press', 'barbell-incline-bench-press'].flatMap((id) => [1, 2, 3].map((n) => ({ id: `${sessionId}-${id}-${n}`, sessionId, workoutId: 'w1-d1', exerciseId: id, exerciseName: id, setIndex: n, weight: 100, reps: 8, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3 })))
     window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history }))
 
-    render(<App />)
+    renderApp()
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     expect(screen.queryByRole('dialog')).toBeNull()
     for (const n of [1, 2, 3]) fireEvent.click(screen.getByRole('button', { name: `Complete set ${n}` }))
@@ -345,7 +351,7 @@ describe('Workout Forge gym flow', () => {
     const history = [1, 2, 3].map((n) => ({ id: `${sessionId}-barbell-bench-press-${n}`, sessionId, workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex: n, weight: 100, reps: 8, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3 }))
     window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history }))
 
-    render(<App />)
+    renderApp()
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     expect(screen.queryByLabelText('Set 1 RIR')).toBeNull()
     expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('9')
@@ -373,7 +379,7 @@ describe('Workout Forge gym flow', () => {
     ]
     window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history, feedback }))
 
-    render(<App />)
+    renderApp()
     fireEvent.click(screen.getByRole('button', { name: /start block/i }))
     expect(screen.getByRole('note').textContent).toMatch(/1 exercise starts from your last 0 RIR numbers/i)
     const stored = JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}') as { block: { startOffsets: Record<string, number> } }
@@ -395,7 +401,7 @@ describe('Workout Forge gym flow', () => {
     const completedIds = ['w1-d1', 'w1-d2', 'w2-d1', 'w2-d2', 'w3-d1', 'w3-d2', 'w4-d1', 'w4-d2']
     window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block: { ...block, locked: true, startedAt: '2026-09-01T09:00:00.000Z', completedIds }, history }))
 
-    render(<App />)
+    renderApp()
     expect(screen.getByText(/week 5 of 5 · deload/i)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     expect(screen.queryByRole('dialog')).toBeNull()
@@ -413,7 +419,7 @@ describe('Workout Forge gym flow', () => {
     const history = [1, 2, 3].map((n) => ({ id: `${sessionId}-${n}`, sessionId, workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex: n, weight: 200, reps: 6, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3, targetReps: 6 }))
     window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history }))
 
-    render(<App />)
+    renderApp()
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     const reps = (n: number) => (screen.getByLabelText(`Set ${n} reps`) as HTMLSelectElement).value
     expect(screen.queryByRole('status')).toBeNull()
@@ -443,7 +449,7 @@ describe('Workout Forge gym flow', () => {
     const history = [1, 2, 3].map((n) => ({ id: `${sessionId}-${n}`, sessionId, workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex: n, weight: 200, reps: 6, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3, targetReps: 6 }))
     window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history }))
 
-    render(<App />)
+    renderApp()
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
     fireEvent.change(screen.getByLabelText('Set 2 weight'), { target: { value: '170' } })
@@ -466,7 +472,7 @@ describe('Workout Forge gym flow', () => {
     const strength = { ...applyWorkoutSet(createBlock(3, 4), findWorkoutSet('strength-5x5')!), locked: true, startedAt: '2026-09-28T09:00:00.000Z' }
     const squats = [1, 2, 3, 4, 5].map((n) => ({ id: `sq-${n}`, sessionId: 'sq', workoutId: 'w1-d1', exerciseId: 'barbell-squat', exerciseName: 'Barbell Squat', setIndex: n, weight: 135, reps: 5, rir: 2, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 5, max: 5 }, targetRir: 2, targetReps: 5 }))
     window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block: { ...strength, completedIds: [] }, history: squats }))
-    render(<App />)
+    renderApp()
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '100' } })
     expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('5')
@@ -481,7 +487,7 @@ describe('Workout Forge gym flow', () => {
     const history = [1, 2, 3].map((n) => ({ id: `${sessionId}-${n}`, sessionId, workoutId: 'w1-d1', exerciseId: 'machine-chest-press', exerciseName: 'Machine Chest Press', setIndex: n, weight: 150, reps: 8, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 8, max: 15 }, targetRir: 3, targetReps: 8 }))
     window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history }))
 
-    render(<App />)
+    renderApp()
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '90' } })
     expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('15')
@@ -489,7 +495,7 @@ describe('Workout Forge gym flow', () => {
   })
 
   it('shows each exercise\'s rep max in the library, and lets you mark your own as a large compound lift', () => {
-    render(<App />)
+    renderApp()
     fireEvent.click(screen.getByRole('button', { name: 'Settings' }))
     fireEvent.click(screen.getByRole('button', { name: /open library/i }))
     const maxOf = (name: string) => screen.getByText(name).closest('.library-name')?.textContent ?? ''
@@ -530,7 +536,7 @@ describe('Workout Forge gym flow', () => {
         row('p1', 1, 0, 8, 5, { exerciseId: 'pull-ups', exerciseName: 'Pull-ups' }),
       ]
       window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), history }))
-      render(<App />)
+      renderApp()
       fireEvent.click(screen.getByRole('button', { name: 'Progress' }))
     }
 
@@ -589,10 +595,26 @@ describe('Workout Forge gym flow', () => {
     it('says so when nothing is in range, and draws nothing before the first workout', () => {
       cleanup()
       window.localStorage.clear()
-      render(<App />)
+      renderApp()
       fireEvent.click(screen.getByRole('button', { name: 'Progress' }))
       expect(screen.queryByLabelText('Time range')).toBeNull()
       expect(screen.getByText(/Your first completed set starts the record/)).toBeTruthy()
     })
+  })
+})
+
+describe('landing page', () => {
+  it('greets a first-time visitor and opens setup without an account', () => {
+    render(<App />)
+    expect(screen.getByRole('heading', { level: 1, name: /train with a plan/i })).toBeTruthy()
+    expect(screen.queryByRole('heading', { name: /set up your next block/i })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /get started free/i }))
+    expect(screen.getByRole('heading', { name: /set up your next block/i })).toBeTruthy()
+  })
+
+  it('skips the landing page when there is already a plan on the device', () => {
+    window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block: createBlock(2, 4) }))
+    render(<App />)
+    expect(screen.queryByRole('button', { name: /get started free/i })).toBeNull()
   })
 })

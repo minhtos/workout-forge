@@ -16,7 +16,7 @@ Unfinished sessions resume after a reload. Skip, undo-a-set and discard-session 
 ## Data and backup
 
 - Primary store: browser localStorage (`workout-forge:v3`). Older v2 history is carried forward and the v2 data is left untouched; unreadable data is stashed, never discarded.
-- Optional Supabase magic-link sign-in backs up every set (upsert per session, retried when offline) and restores on sign-in. Sessions stay signed in on a device.
+- Optional Supabase email + password accounts (sign up, sign in, forgot password) back up every set (upsert per session, retried when offline) and restore on sign-in. Sessions stay signed in on a device.
 - A different account signing in on the same device gets a clean slate; the previous data is archived locally.
 - Settings has JSON export/import. Each muscle group holds at most 12 exercises (built-in plus your own).
 - Your program also backs up to Supabase (`user_programs`, one row per user): the current block with its progress, your own exercises, and the exercise-library on/off switches. The newest copy wins by timestamp, so a new device that signs in picks it up; a newer cloud copy waits until a workout in progress is finished. The rest-timer setting stays per device.
@@ -28,7 +28,7 @@ npm install
 npm run dev
 ```
 
-Environment: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`. In Supabase Auth, set the Site URL and Redirect URLs to your deployed origin, `https://workoutforge.app` (magic links return to the site root). Apply `supabase/migrations/*.sql` in order.
+Environment: `VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`. In Supabase Auth, set the Site URL and Redirect URLs to your deployed origin, `https://workoutforge.app` (confirmation and password-reset links return to the site root). For sign-up, enable the Email provider and decide whether "Confirm email" is on; the built-in Supabase mailer is rate-limited, so set up a custom SMTP sender before marketing. Apply `supabase/migrations/*.sql` in order.
 
 ## Verification
 
@@ -91,7 +91,7 @@ When you start a new block, Week 1 builds from your last block's **0 RIR week**,
 ## Hosting notes
 
 - Production is https://workoutforge.app (Vercel, auto-deploys from `main`). `vercel.json` forwards the old `workout-forge-iota.vercel.app` address to it; add `?keep=1` to the old address to reach the old site (for example to export data saved there).
-- Inter is bundled in `src/assets/fonts` (SIL OFL) and precached by the service worker, so the app needs no third-party font requests.
+- Barlow and Barlow Condensed are bundled through `@fontsource` (SIL OFL) and precached by the service worker, so the app needs no third-party font requests.
 
 ## Stack
 
