@@ -84,6 +84,8 @@ function App() {
 
   // Keep the ref current before any effect that reads it, then persist on every change.
   useEffect(() => { stateRef.current = state }, [state])
+  // Writing to localStorage is an external sync whose outcome (quota/blocked) has to be surfaced as state.
+  // oxlint-disable-next-line react/set-state-in-effect
   useEffect(() => { setSaveFailed(!saveWorkoutState(state)) }, [state])
 
   // Auth: supabase persists the session locally and refreshes it, so users stay signed in.
