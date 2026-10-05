@@ -70,6 +70,7 @@ tracking; body uses none. Minimum text size is 12px. Weights and reps are `numer
   and counts down from 60/90/120/180s (remembered). Floats above the tab bar on phones.
 - **Exercise library** — Settings → Exercise library lists every exercise by muscle group with an on/off switch (same switch as the rest timer). Off exercises are hidden from the planner menus; users can add, rename and delete their own.
 - **Feedback sheet** — bottom sheet (centered dialog on desktop) for the recovery, effort and pump questions. Large choice buttons with a one-line consequence under each, one indigo action, Skip always available.
+- **Charts** — hand-drawn SVG in `src/views/Charts.tsx`, one accent (`--primary`) because every chart has a single series. Marks: 2px line with 8px dots and a 2px surface ring, 10% area wash, columns at most 24px wide with a 4px rounded top and square base, hairline solid gridlines, a direct label only on the latest value and the peak. Text uses ink tokens, never the series color. Hover, touch and arrow keys drive one tooltip that sits beside the active mark; every chart has a table view. No dual axes: two measures get two charts.
 - **Delta chip** — green `+5` next to a completed set that beat the same set last session.
 - **Buttons** — primary (filled indigo, one per screen region), secondary (hairline outline). Min height 44px,
   48px on touch.

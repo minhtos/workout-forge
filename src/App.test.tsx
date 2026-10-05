@@ -519,4 +519,80 @@ describe('Workout Forge gym flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Save' }))
     expect(maxOf('Cable Row 2')).toMatch(/max 12/)
   })
+
+  describe('progress charts', () => {
+    const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString()
+    const row = (sessionId: string, setIndex: number, weight: number, reps: number, days: number, extra: Record<string, unknown> = {}) => ({ id: `${sessionId}-${setIndex}`, sessionId, workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex, weight, reps, rir: 0, weightUnit: 'lb' as const, completedAt: daysAgo(days), weekNumber: 1, repRange: { min: 6, max: 12 }, targetRir: 0, targetReps: reps, ...extra })
+    const seed = () => {
+      const history = [
+        row('b0', 1, 190, 6, 100), row('b1', 1, 200, 6, 16), row('b2', 1, 205, 6, 9), row('b3', 1, 210, 6, 2), row('b3', 2, 205, 6, 2),
+        row('d1', 1, 100, 6, 1, { deload: true, weekNumber: 5, targetRir: 3 }),
+        row('p1', 1, 0, 8, 5, { exerciseId: 'pull-ups', exerciseName: 'Pull-ups' }),
+      ]
+      window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), history }))
+      render(<App />)
+      fireEvent.click(screen.getByRole('button', { name: 'Progress' }))
+    }
+
+    it('shows an estimated-max line for the most-trained exercise, leaving deload sessions out', () => {
+      seed()
+      expect(screen.getByRole('heading', { name: 'Estimated max: Barbell Bench Press' })).toBeTruthy()
+      const chart = screen.getByRole('group', { name: /Estimated max for Barbell Bench Press: 3 sessions/ })
+      expect(chart.getAttribute('aria-label')).toMatch(/lb on .* to \d+ lb on /)
+      const table = within(screen.getByRole('region', { name: /Estimated max/ }))
+      expect(table.getAllByRole('row')).toHaveLength(4)
+      expect(table.queryByText('100 × 6')).toBeNull()
+    })
+
+    it('shows the same details on keyboard focus as on hover', () => {
+      seed()
+      const chart = screen.getByRole('group', { name: /Estimated max for Barbell Bench Press/ })
+      fireEvent.keyDown(chart, { key: 'ArrowRight' })
+      expect(screen.getByRole('status').textContent).toMatch(/estimated max/)
+      expect(screen.getByRole('status').textContent).toMatch(/Top set 210 × 6/)
+      fireEvent.keyDown(chart, { key: 'ArrowLeft' })
+      expect(screen.getByRole('status').textContent).toMatch(/Top set 205 × 6/)
+      fireEvent.keyDown(chart, { key: 'Escape' })
+      expect(screen.queryByRole('status')).toBeNull()
+    })
+
+    it('shows sets per week as columns with a table twin, and a tooltip per week from the keyboard', () => {
+      seed()
+      const chart = screen.getByRole('group', { name: /Sets per week for all muscle groups: 6 sets over the last 12 weeks/ })
+      const rows = within(screen.getByRole('region', { name: /Sets per week/ })).getAllByRole('row')
+      expect(rows).toHaveLength(13)
+      fireEvent.keyDown(chart, { key: 'End' })
+      expect(screen.getByRole('status').textContent).toMatch(/Week of/)
+      expect(screen.getByRole('status').textContent).toMatch(/sets?/)
+      expect(screen.getByRole('status').textContent).toMatch(/Volume/)
+    })
+
+    it('scopes the charts with the time range, muscle group and exercise filters', () => {
+      seed()
+      const sessions = () => screen.getByRole('group', { name: /Estimated max for Barbell Bench Press/ }).getAttribute('aria-label')
+      expect(sessions()).toMatch(/3 sessions/)
+      fireEvent.click(screen.getByRole('button', { name: '26 weeks' }))
+      expect(sessions()).toMatch(/4 sessions/)
+      fireEvent.click(screen.getByRole('button', { name: '4 weeks' }))
+      expect(sessions()).toMatch(/3 sessions/)
+
+      fireEvent.change(screen.getByLabelText('Muscle group'), { target: { value: 'Back' } })
+      expect(screen.getByRole('heading', { name: 'Sets per week: Back' })).toBeTruthy()
+      expect((screen.getByLabelText('Exercise') as HTMLSelectElement).value).toBe('pull-ups')
+      expect(screen.getByText(/Log Pull-ups again to see a trend. One session so far: 8 reps/)).toBeTruthy()
+
+      fireEvent.change(screen.getByLabelText('Muscle group'), { target: { value: 'all' } })
+      fireEvent.change(screen.getByLabelText('Exercise'), { target: { value: 'pull-ups' } })
+      expect(screen.getByRole('heading', { name: 'Best set: Pull-ups' })).toBeTruthy()
+    })
+
+    it('says so when nothing is in range, and draws nothing before the first workout', () => {
+      cleanup()
+      window.localStorage.clear()
+      render(<App />)
+      fireEvent.click(screen.getByRole('button', { name: 'Progress' }))
+      expect(screen.queryByLabelText('Time range')).toBeNull()
+      expect(screen.getByText(/Your first completed set starts the record/)).toBeTruthy()
+    })
+  })
 })

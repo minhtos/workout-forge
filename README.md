@@ -54,6 +54,14 @@ Each week has a target RIR (reps in reserve): 4 weeks go 3, 2, 1, 0 and 6 weeks 
 **Recovery** (after the first exercise of a muscle group, only if you trained it before): *still sore* takes a set off every exercise for that muscle group, *just on time* changes nothing, *recovered early* adds a set. It applies to the unstarted exercises today and carries through the rest of the block (2 to 6 sets per exercise, at most 3 up or down in total). Sets are the only thing this changes. If you answer *recovered early* and then rate the same muscle group *too hard*, the extra set is not carried to the next session.
 
 The deload week and StrongLifts 5x5 never ask. Answers are stored with the session and back up with the program.
+## Progress charts
+
+The Progress tab has two charts under one row of filters (time range of 4, 12 or 26 weeks, muscle group, exercise):
+
+- **Estimated max** (line): one point per session for the chosen exercise, from your best set, counting the reps you left in reserve (Brzycki, the same estimate the weight-to-rep adjustment uses). Deload sessions are left out. Bodyweight exercises logged at 0 lb chart your best reps per session instead. Above it: your current value, the change over the range, and your best set.
+- **Sets per week** (columns): every completed set per week (Monday to Sunday), optionally for one muscle group. The tooltip adds the week's volume (weight × reps).
+
+Hover, tap, or use the arrow keys (Home and End jump to the ends, Escape clears) to read a point. Each chart has a **Table view** with every value, so nothing depends on hovering. Charts are drawn as SVG with the app's own colors, so they follow light and dark mode.
 ## Rep max
 
 Every exercise has a rep range. The top (rep max) is used by progression as the "top of the range" (add weight and start again at the bottom), and the weight-to-rep adjustment never asks for more reps than it.
