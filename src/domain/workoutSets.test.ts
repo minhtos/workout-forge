@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createBlock, findWorkout, listWorkouts, mergeCatalog, nextWorkout, planProblem, resolveWorkout, setSlotExercise } from './program'
 import { buildInitialSets, linearNext, suggestionText } from './session'
 import type { CompletedSetRecord } from './storage'
-import { applyWorkoutSet, findWorkoutSet, workoutSets } from './workoutSets'
+import { applyWorkoutSet, findWorkoutSet, isPlanCustomized, workoutSets } from './workoutSets'
 
 const catalog = mergeCatalog([])
 const set = (id: string) => findWorkoutSet(id)!
@@ -116,5 +116,22 @@ describe('5x5 set', () => {
     const sets = buildInitialSets(next, history, 'new')['barbell-squat']
     expect(sets.map((entry) => [entry.weight, entry.reps])).toEqual([['140', '5'], ['140', '5'], ['140', '5'], ['140', '5'], ['140', '5']])
     expect(suggestionText(next.exercises[0], next, history)).toMatch(/Add weight: 140 lb × 5/)
+  })
+})
+
+describe('isPlanCustomized', () => {
+  it('is false for an untouched set, including one that prefills lifts', () => {
+    expect(isPlanCustomized(applied('whole-body'))).toBe(false)
+    expect(isPlanCustomized(applied('strength-5x5'))).toBe(false)
+  })
+
+  it('is true once a slot is filled or a prefilled lift is changed', () => {
+    expect(isPlanCustomized(setSlotExercise(applied('whole-body'), 0, 0, 'barbell-bench-press'))).toBe(true)
+    expect(isPlanCustomized(setSlotExercise(applied('strength-5x5'), 0, 1, 'dumbbell-bench-press'))).toBe(true)
+  })
+
+  it('without a set, is true only when an exercise is chosen', () => {
+    expect(isPlanCustomized(createBlock(3, 4))).toBe(false)
+    expect(isPlanCustomized(setSlotExercise({ ...applied('whole-body'), workoutSetId: null }, 0, 0, 'barbell-bench-press'))).toBe(true)
   })
 })

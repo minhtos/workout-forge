@@ -8,7 +8,7 @@ import { mergeFeedback, nextPrompt, resizeEntries, setOffset, tuneWorkoutSets, t
 import { addSetEntry, applyEntryPatch, buildInitialSets, lastSessionSets, maxSetsPerExercise, parseEntry, removeLastSetEntry, type TuneContext } from './domain/session'
 import { adjustRepsForWeightEdit, historicalOneRepMax, type RepNotice } from './domain/repAdjust'
 import { carryOverFor, previousBlockId, startingOffsets } from './domain/transition'
-import { applyWorkoutSet, type WorkoutSet } from './domain/workoutSets'
+import { applyWorkoutSet, isPlanCustomized, type WorkoutSet } from './domain/workoutSets'
 import { archiveWorkoutState, emptyState, exportWorkoutState, loadWorkoutState, parseImportedState, saveWorkoutState, type SavedWorkoutState, type SetEntry } from './domain/storage'
 import { loadRestTimerEnabled, saveRestTimerEnabled } from './domain/settings'
 import { backupSession, restoreSessions } from './domain/sync'
@@ -183,8 +183,7 @@ function App() {
     setState((current) => current.block && !current.block.locked ? { ...current, block: edit(current.block) } : current)
   }
   function applySet(set: WorkoutSet) {
-    const planned = block?.templates.some((day) => day.exercises.some((entry) => entry.exerciseId))
-    if (planned && !window.confirm(`Replace your current plan with ${set.name}?`)) return
+    if (block && isPlanCustomized(block) && !window.confirm(`Replace your current plan with ${set.name}?`)) return
     editPlan((current) => applyWorkoutSet(current, set))
   }
   /** Adds a custom exercise to the catalog (or reuses an existing one with the same name) and puts it on the day. */

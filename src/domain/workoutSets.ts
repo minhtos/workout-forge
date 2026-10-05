@@ -75,3 +75,10 @@ export function applyWorkoutSet(block: Block, set: WorkoutSet): Block {
     })),
   }
 }
+
+/** True when the plan holds choices worth confirming before they are replaced: edits to a Workout Set, or exercises picked without one. */
+export function isPlanCustomized(block: Block): boolean {
+  const set = findWorkoutSet(block.workoutSetId)
+  if (!set) return block.templates.some((day) => day.exercises.some((entry) => entry.exerciseId))
+  return JSON.stringify(block.templates) !== JSON.stringify(applyWorkoutSet(block, set).templates)
+}
