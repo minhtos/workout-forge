@@ -84,6 +84,16 @@ export const weightIncrement = (exerciseName: string): number => (/dumbbell/i.te
 /** Reps short of the target the set was prefilled with. Records from before targets were stored count as hit. */
 export const missedReps = (set: CompletedSetRecord): number => Math.max(0, (set.targetReps ?? set.reps) - set.reps)
 
+/** Weight taken off an exercise that has stalled: two sessions in a row with missed reps at the same weight. */
+export const stallDrop = 0.1
+
+/** Two consecutive non-deload sessions with a missed set, both at the same top weight (a weight change resets the count). */
+export function isStalled(last: CompletedSetRecord[], previous: CompletedSetRecord[]): boolean {
+  if (!last.length || !previous.length) return false
+  const top = (sets: CompletedSetRecord[]) => Math.max(...sets.map((set) => set.weight))
+  return last.some((set) => missedReps(set) > 0) && previous.some((set) => missedReps(set) > 0) && top(last) === top(previous)
+}
+
 export interface NextTarget { weight: number; reps: number; note: string }
 
 function previousFeedback(feedback: SessionFeedback[], current: SessionFeedback): SessionFeedback | undefined {
@@ -92,6 +102,7 @@ function previousFeedback(feedback: SessionFeedback[], current: SessionFeedback)
 
 /**
  * The target for one set next time, from last session's sets and the effort/pump answers given after it.
+ *  0. Stalled (missed reps two sessions in a row at the same weight): weight drops 10%, same rep target.
  *  1. Every set missed its reps: weight drops one step, same rep target.
  *  2. Some sets missed (workout completed): weight stays; short sets start from what you did plus one rep.
  *  3. Every set hit its target: easy adds one weight step (reps stay unless the pump was low); just right keeps the
@@ -99,11 +110,15 @@ function previousFeedback(feedback: SessionFeedback[], current: SessionFeedback)
  *     rep. Past the top of the rep range the weight goes up one step and reps go back to the bottom. With no answers
  *     at all the default is one more rep.
  */
-export function nextSetTarget(args: { exercise: ExercisePrescription; last: CompletedSetRecord[]; index: number; fb?: SessionFeedback; all: SessionFeedback[] }): NextTarget {
+export function nextSetTarget(args: { exercise: ExercisePrescription; last: CompletedSetRecord[]; previous?: CompletedSetRecord[]; index: number; fb?: SessionFeedback; all: SessionFeedback[] }): NextTarget {
   const { exercise, last, index, fb, all } = args
   const base = last[index] ?? last[last.length - 1]
   const step = weightIncrement(exercise.name)
 
+  if (isStalled(last, args.previous ?? [])) {
+    const weight = roundWeight(Math.min(base.weight * (1 - stallDrop), base.weight - step))
+    return { weight, reps: base.targetReps ?? base.reps, note: `Missed reps two sessions in a row: weight drops about ${stallDrop * 100}% to clear fatigue, same reps.` }
+  }
   if (last.every((set) => missedReps(set) > 0)) {
     return { weight: roundWeight(base.weight - step), reps: base.targetReps ?? base.reps, note: `You missed reps on every set last time: weight drops ${step} lb.` }
   }

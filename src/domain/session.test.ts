@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addExerciseToDay, createBlock, findWorkout, mergeCatalog, resolveWorkout } from './program'
-import { addSetEntry, applyEntryPatch, buildInitialSets, lastSessionSets, maxSetsPerExercise, parseEntry, removeLastSetEntry } from './session'
+import { addSetEntry, applyEntryPatch, buildInitialSets, lastSessionSets, maxSetsPerExercise, previousSessionSets, parseEntry, removeLastSetEntry } from './session'
 import type { CompletedSetRecord } from './storage'
 
 const catalog = mergeCatalog([])
@@ -78,5 +78,15 @@ describe('session helpers', () => {
     expect(removeLastSetEntry([done, open])).toEqual([done])
     expect(removeLastSetEntry([done, done])).toHaveLength(2)
     expect(removeLastSetEntry([open])).toHaveLength(1)
+  })
+})
+
+describe('previousSessionSets', () => {
+  it('is the session before the latest one, skipping deloads and the excluded session', () => {
+    const history = [logged('a', 1, 100, 8, 3, '2026-10-01T10:00:00.000Z'), logged('b', 1, 100, 8, 3, '2026-10-03T10:00:00.000Z'), { ...logged('d', 1, 50, 8, 3, '2026-10-04T10:00:00.000Z'), deload: true }, logged('c', 1, 100, 8, 3, '2026-10-05T10:00:00.000Z')]
+    expect(lastSessionSets(history, 'barbell-bench-press', 'c').map((set) => set.sessionId)).toEqual(['b'])
+    expect(previousSessionSets(history, 'barbell-bench-press', 'c').map((set) => set.sessionId)).toEqual(['a'])
+    expect(previousSessionSets(history, 'barbell-bench-press', '').map((set) => set.sessionId)).toEqual(['b'])
+    expect(previousSessionSets(history.slice(0, 1), 'barbell-bench-press', '')).toEqual([])
   })
 })

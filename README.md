@@ -43,7 +43,8 @@ npm run lint
 Each week has a target RIR (reps in reserve): 4 weeks go 3, 2, 1, 0 and 6 weeks go 3, 2, 2, 1, 1, 0, then a deload week (50% of the last working weight, same reps, planned sets). You pick a weight and reps that get you to that week's target; there is no per-set RIR box to fill in. The app then decides the next session from what you did, plus three quick questions that can all be skipped.
 
 **Missed reps come first**
-- Every set missed its reps: the weight drops one step. This is the only time weight goes down.
+- **Stall:** missed reps in two sessions in a row at the same weight takes about 10% off that exercise (at least one step, rounded to 2.5 lb), same rep target, without waiting for the deload week. A change of weight resets the count, so it never drops twice in a row.
+- Every set missed its reps: the weight drops one step. Apart from a stall, this is the only time weight goes down.
 - The workout was completed but some sets were short: the weight stays, and each short set starts from what you actually did plus one rep.
 
 **When every set hit its reps**

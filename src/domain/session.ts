@@ -5,14 +5,23 @@ import { deloadLoad, linearIncrement } from './progression'
 import { carryOverFor } from './transition'
 import type { CompletedSetRecord, SetEntry } from './storage'
 
-/** Sets from the most recent earlier session that included this exercise. */
-export function lastSessionSets(history: CompletedSetRecord[], exerciseId: string, excludeSessionId: string): CompletedSetRecord[] {
+/** The most recent earlier sessions that included this exercise, newest first, each with its sets in order. */
+function recentSessions(history: CompletedSetRecord[], exerciseId: string, excludeSessionId: string, count: number): CompletedSetRecord[][] {
   // Deload sessions are skipped: they are half-weight by design and must never become the starting point for later weeks or blocks.
-  const earlier = history.filter((set) => set.exerciseId === exerciseId && set.sessionId !== excludeSessionId && !set.deload)
-  if (!earlier.length) return []
-  const latest = earlier.reduce((a, b) => (b.completedAt > a.completedAt ? b : a))
-  return earlier.filter((set) => set.sessionId === latest.sessionId).sort((a, b) => a.setIndex - b.setIndex)
+  const bySession = new Map<string, CompletedSetRecord[]>()
+  for (const set of history) {
+    if (set.exerciseId !== exerciseId || set.sessionId === excludeSessionId || set.deload) continue
+    bySession.set(set.sessionId, [...(bySession.get(set.sessionId) ?? []), set])
+  }
+  const finishedAt = (sets: CompletedSetRecord[]) => sets.reduce((latest, set) => (set.completedAt > latest ? set.completedAt : latest), '')
+  return [...bySession.values()].sort((a, b) => finishedAt(b).localeCompare(finishedAt(a))).slice(0, count).map((sets) => sets.sort((a, b) => a.setIndex - b.setIndex))
 }
+
+/** Sets from the most recent earlier session that included this exercise. */
+export const lastSessionSets = (history: CompletedSetRecord[], exerciseId: string, excludeSessionId: string): CompletedSetRecord[] => recentSessions(history, exerciseId, excludeSessionId, 1)[0] ?? []
+
+/** Sets from the session before the most recent one; used to spot a stall. */
+export const previousSessionSets = (history: CompletedSetRecord[], exerciseId: string, excludeSessionId: string): CompletedSetRecord[] => recentSessions(history, exerciseId, excludeSessionId, 2)[1] ?? []
 
 /** Linear progression: repeat the working weight until every prescribed set hits the target reps, then add the increment. */
 export function linearNext(exercise: ExercisePrescription, last: CompletedSetRecord[]): { weight: number; reps: number; added: boolean } {
@@ -33,6 +42,7 @@ export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSe
   const tuning = tune && usesFeedback(workout) ? tune : undefined
   return Object.fromEntries(workout.exercises.map((exercise) => {
     const last = lastSessionSets(history, exercise.id, sessionId)
+    const previous = previousSessionSets(history, exercise.id, sessionId)
     const count = tuning ? tunedSets(exercise.sets, setOffset(tuning.feedback, tuning.blockId, exercise.category, tuning.startOffsets?.[exercise.category] ?? 0)) : exercise.sets
     const fb = tuning && last.length ? feedbackFor(tuning.feedback, last[0].sessionId, exercise.category) : undefined
     const carry = tuning ? carryOverFor({ exercise, last, blockId: tuning.blockId, feedback: tuning.feedback }) : null
@@ -45,7 +55,7 @@ export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSe
         return entryFor(next.weight, next.reps, targetRir)
       }
       if (carry) return entryFor(carry.weight, carry.reps, targetRir)
-      const next = nextSetTarget({ exercise, last, index, fb, all: tuning?.feedback ?? [] })
+      const next = nextSetTarget({ exercise, last, previous, index, fb, all: tuning?.feedback ?? [] })
       return entryFor(next.weight, next.reps, targetRir)
     })
     return [exercise.id, entries]
@@ -57,7 +67,7 @@ export function describeLastSession(sets: CompletedSetRecord[]): string {
   return sets.map((set) => (missedReps(set) > 0 ? `${set.weight}×${set.reps} (target ${set.targetReps})` : `${set.weight}×${set.reps}`)).join(' · ')
 }
 
-export function suggestionText(exercise: ExercisePrescription, workout: ScheduledWorkout, last: CompletedSetRecord[], tune?: TuneContext): string {
+export function suggestionText(exercise: ExercisePrescription, workout: ScheduledWorkout, last: CompletedSetRecord[], tune?: TuneContext, previous: CompletedSetRecord[] = []): string {
   const base = last[last.length - 1]
   if (!base) return workout.progression === 'linear' ? 'First time: start light and add weight each session.' : `First time: pick a weight and reps that leave about ${workout.target.targetRir} in reserve.`
   if (workout.target.kind === 'deload') return `Deload: ${deloadLoad(Math.max(...last.map((set) => set.weight)), workout.target.loadMultiplier)} lb for ${base.reps} reps (half your last load).`
@@ -68,7 +78,7 @@ export function suggestionText(exercise: ExercisePrescription, workout: Schedule
   const carry = tune && usesFeedback(workout) ? carryOverFor({ exercise, last, blockId: tune.blockId, feedback: tune.feedback }) : null
   if (carry) return `Aim for ${carry.weight} lb × ${carry.reps}. New block: based on ${carry.fromWeight} lb × ${carry.fromReps} at 0 RIR last block (estimated max ${Math.round(carry.oneRepMax)} lb)${carry.easy ? ', plus a step because it felt easy' : ''}.`
   const fb = tune && usesFeedback(workout) ? feedbackFor(tune.feedback, base.sessionId, exercise.category) : undefined
-  const next = nextSetTarget({ exercise, last, index: last.length - 1, fb, all: tune?.feedback ?? [] })
+  const next = nextSetTarget({ exercise, last, previous, index: last.length - 1, fb, all: tune?.feedback ?? [] })
   return `Aim for ${next.weight} lb × ${next.reps}. ${next.note}`
 }
 

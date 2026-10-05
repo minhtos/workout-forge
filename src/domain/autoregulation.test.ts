@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { feedbackFor, mergeFeedback, missedReps, nextPrompt, nextSetTarget, resizeEntries, setOffset, tuneWorkoutSets, tunedSets, upsertFeedback, weightIncrement, type SessionFeedback } from './autoregulation'
+import { feedbackFor, isStalled, mergeFeedback, missedReps, nextPrompt, nextSetTarget, resizeEntries, setOffset, tuneWorkoutSets, tunedSets, upsertFeedback, weightIncrement, type SessionFeedback } from './autoregulation'
 import { addExerciseToDay, createBlock, findWorkout, mergeCatalog, resolveWorkout, type Block } from './program'
 import { applyWorkoutSet, findWorkoutSet } from './workoutSets'
 import { buildInitialSets, describeLastSession, suggestionText } from './session'
@@ -88,6 +88,23 @@ describe('what happens next, from what you actually did', () => {
     expect(missedReps(set(1, 6, 8))).toBe(2)
     expect(missedReps(set(1, 9, 8))).toBe(0)
     expect(missedReps({ ...set(1, 6), targetReps: undefined })).toBe(0)
+  })
+
+  it('drops 10% after two sessions in a row with missed reps at the same weight', () => {
+    const partial = (session: string) => [set(1, 8), set(2, 7), set(3, 6)].map((entry) => ({ ...entry, sessionId: session }))
+    const stalled = nextSetTarget({ exercise: bench, last: partial('b'), previous: partial('a'), index: 0, all: [] })
+    expect(stalled).toMatchObject({ weight: 90, reps: 8 })
+    expect(stalled.note).toMatch(/two sessions in a row/)
+    expect(nextSetTarget({ exercise: dumbbell, last: partial('b').map((entry) => ({ ...entry, weight: 20 })), previous: partial('a').map((entry) => ({ ...entry, weight: 20 })), index: 0, all: [] }).weight).toBe(17.5)
+  })
+
+  it('does not call it a stall after one miss, after a weight change, or when the earlier session was clean', () => {
+    const partial = (session: string, weight = 100) => [set(1, 8), set(2, 7), set(3, 6)].map((entry) => ({ ...entry, sessionId: session, weight }))
+    expect(isStalled(partial('b'), [])).toBe(false)
+    expect(isStalled(partial('b'), partial('a', 95))).toBe(false)
+    expect(isStalled(partial('b'), hit)).toBe(false)
+    expect(isStalled(hit, partial('a'))).toBe(false)
+    expect(next(partial('b'), 0).weight).toBe(100)
   })
 
   it('drops the weight one step only when every set missed its reps', () => {
