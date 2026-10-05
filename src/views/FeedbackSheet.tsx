@@ -16,8 +16,8 @@ const sorenessChoices: { value: Soreness; label: string; effect: (group: string)
 ]
 const effortChoices: { value: Effort; label: string; effect: string }[] = [
   { value: 'easy', label: 'Easy', effect: 'A little more weight next time' },
-  { value: 'right', label: 'Just right', effect: 'Same weight next time' },
-  { value: 'hard', label: 'Too hard', effect: 'Same weight, no added reps' },
+  { value: 'right', label: 'Just right', effect: 'Same weight, one more rep' },
+  { value: 'hard', label: 'Too hard', effect: 'Same weight, one more rep, no extra set' },
 ]
 const pumpChoices: { value: Pump; label: string; effect: string }[] = [
   { value: 'low', label: 'Low', effect: 'Adds a rep next time' },

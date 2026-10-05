@@ -118,11 +118,11 @@ describe('what happens next, from what you actually did', () => {
     expect(next(hit, 0, answers({})).note).toMatch(/Add 1 rep/)
   })
 
-  it('easy adds one weight step (2.5 lb dumbbell, 5 lb otherwise); just right and too hard keep the weight', () => {
+  it('easy adds one weight step (2.5 lb dumbbell, 5 lb otherwise) and no rep; just right and too hard keep the weight and add a rep', () => {
     expect(next(hit, 0, answers({ effort: 'easy', pump: 'high' }))).toMatchObject({ weight: 105, reps: 8 })
     expect(next(hit, 0, answers({ effort: 'easy', pump: 'high' }), undefined, dumbbell)).toMatchObject({ weight: 102.5 })
-    expect(next(hit, 0, answers({ effort: 'right', pump: 'high' }))).toMatchObject({ weight: 100, reps: 8 })
-    expect(next(hit, 0, answers({ effort: 'hard', pump: 'high' }))).toMatchObject({ weight: 100, reps: 8 })
+    expect(next(hit, 0, answers({ effort: 'right', pump: 'high' }))).toMatchObject({ weight: 100, reps: 9 })
+    expect(next(hit, 0, answers({ effort: 'hard', pump: 'high' }))).toMatchObject({ weight: 100, reps: 9 })
   })
 
   it('never adds more than 5 lb in a week', () => {
@@ -132,13 +132,15 @@ describe('what happens next, from what you actually did', () => {
     }
   })
 
-  it('low pump adds a rep, two if the previous check was also low, and none if it was too hard', () => {
+  it('low pump adds a rep, two if the previous check was also low; too hard always adds exactly one', () => {
     const low = answers({ effort: 'right', pump: 'low' })
     expect(next(hit, 0, low)).toMatchObject({ weight: 100, reps: 9 })
     const earlier = fb({ sessionId: 'old', at: '1', pump: 'low', summaryDone: true })
     expect(next(hit, 0, low, [earlier, low])).toMatchObject({ reps: 10 })
-    expect(next(hit, 0, answers({ effort: 'hard', pump: 'low' }))).toMatchObject({ reps: 8 })
-    expect(next(hit, 0, answers({ effort: 'right', pump: 'high' }))).toMatchObject({ reps: 8 })
+    expect(next(hit, 0, answers({ effort: 'hard', pump: 'low' }))).toMatchObject({ weight: 100, reps: 9 })
+    expect(next(hit, 0, answers({ effort: 'hard', pump: 'low' }), [fb({ sessionId: 'old', at: '1', pump: 'low', summaryDone: true }), answers({ effort: 'hard', pump: 'low' })])).toMatchObject({ reps: 9 })
+    expect(next(hit, 0, answers({ effort: 'right', pump: 'high' }))).toMatchObject({ reps: 9 })
+    expect(next(hit, 0, answers({ effort: 'easy', pump: 'low' }))).toMatchObject({ weight: 105, reps: 9 })
   })
 
   it('goes up in weight and back to the bottom of the rep range only at the top of the range', () => {
@@ -260,5 +262,28 @@ describe('when the questions appear', () => {
     const strength = applyWorkoutSet(createBlock(3, 4), findWorkoutSet('strength-5x5')!)
     const linear = resolveWorkout(strength, findWorkout(strength, 'w1-d1')!, catalog)
     expect(nextPrompt({ workout: linear, sets: { 'barbell-squat': [done(), done(), done(), done(), done()] }, entries: [], trainedBefore: () => true, finishing: true })).toBeNull()
+  })
+})
+
+describe('too hard: no extra set next time', () => {
+  const early = (effort?: SessionFeedback['effort'], sessionId = 'a') => fb({ sessionId, at: sessionId, soreness: 'early', effort })
+
+  it('cancels the set added by "recovered early" when the same session was rated too hard', () => {
+    expect(setOffset([early('easy')], BLOCK, 'Chest')).toBe(1)
+    expect(setOffset([early('right')], BLOCK, 'Chest')).toBe(1)
+    expect(setOffset([early(undefined)], BLOCK, 'Chest')).toBe(1)
+    expect(setOffset([early('hard')], BLOCK, 'Chest')).toBe(0)
+  })
+
+  it('only cancels that session\'s addition, keeping earlier ones and never removing sets by itself', () => {
+    expect(setOffset([early('easy', 'a'), early('hard', 'b')], BLOCK, 'Chest')).toBe(1)
+    expect(setOffset([fb({ sessionId: 'a', at: '1', soreness: 'sore', effort: 'hard' })], BLOCK, 'Chest')).toBe(-1)
+    expect(setOffset([fb({ sessionId: 'a', at: '1', soreness: 'ontime', effort: 'hard' })], BLOCK, 'Chest')).toBe(0)
+  })
+
+  it('keeps next week\'s set count at the plan after recovered early + too hard', () => {
+    const workout = workoutFor(chestBlock(), 'w2-d1')
+    expect(tuneWorkoutSets(workout, [early('hard')], BLOCK).exercises.map((exercise) => exercise.sets)).toEqual([3, 3, 3])
+    expect(tuneWorkoutSets(workout, [early('right')], BLOCK).exercises.map((exercise) => exercise.sets)).toEqual([4, 4, 3])
   })
 })

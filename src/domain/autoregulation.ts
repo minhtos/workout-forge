@@ -38,7 +38,9 @@ const clamp = (value: number, low: number, high: number) => Math.min(high, Math.
 /** Net set change for a muscle group, accumulated over the current block. */
 export function setOffset(feedback: SessionFeedback[], blockId: string | null, group: MuscleGroup): number {
   if (!blockId) return 0
-  const total = feedback.filter((entry) => entry.blockId === blockId && entry.group === group && entry.soreness).reduce((sum, entry) => sum + sorenessDelta[entry.soreness as Soreness], 0)
+  // "Recovered early" adds a set, unless the same session was then rated too hard: no extra set for next time.
+  const delta = (entry: SessionFeedback) => (entry.soreness === 'early' && entry.effort === 'hard' ? 0 : sorenessDelta[entry.soreness as Soreness])
+  const total = feedback.filter((entry) => entry.blockId === blockId && entry.group === group && entry.soreness).reduce((sum, entry) => sum + delta(entry), 0)
   return clamp(total, -maxSetOffset, maxSetOffset)
 }
 
@@ -91,9 +93,10 @@ function previousFeedback(feedback: SessionFeedback[], current: SessionFeedback)
  * The target for one set next time, from last session's sets and the effort/pump answers given after it.
  *  1. Every set missed its reps: weight drops one step, same rep target.
  *  2. Some sets missed (workout completed): weight stays; short sets start from what you did plus one rep.
- *  3. Every set hit its target: easy adds one weight step; low pump adds a rep (two if the check before was also low,
- *     none if it was too hard). Past the top of the rep range the weight goes up one step and reps go back to the
- *     bottom. With no answers at all the default is one more rep.
+ *  3. Every set hit its target: easy adds one weight step (reps stay unless the pump was low); just right keeps the
+ *     weight and adds a rep (two if the pump was low twice in a row); too hard keeps the weight and still adds one
+ *     rep. Past the top of the rep range the weight goes up one step and reps go back to the bottom. With no answers
+ *     at all the default is one more rep.
  */
 export function nextSetTarget(args: { exercise: ExercisePrescription; last: CompletedSetRecord[]; index: number; fb?: SessionFeedback; all: SessionFeedback[] }): NextTarget {
   const { exercise, last, index, fb, all } = args
@@ -113,11 +116,19 @@ export function nextSetTarget(args: { exercise: ExercisePrescription; last: Comp
   let weight = base.weight
   let repGain = 1
   if (fb && answered) {
-    if (fb.effort === 'easy') { weight += step; notes.push(`Last time was easy: +${step} lb.`) }
-    else if (fb.effort === 'right') notes.push('Effort was just right: same weight.')
-    else if (fb.effort === 'hard') notes.push('Last time was too hard: same weight, no added reps.')
-    repGain = fb.pump === 'low' && fb.effort !== 'hard' ? (previousFeedback(all, fb)?.pump === 'low' ? 2 : 1) : 0
-    if (repGain > 0) notes.push(`Low pump: +${repGain} rep${repGain > 1 ? 's' : ''}.`)
+    const pumpGain = fb.pump === 'low' ? (previousFeedback(all, fb)?.pump === 'low' ? 2 : 1) : 0
+    if (fb.effort === 'easy') {
+      weight += step
+      repGain = pumpGain
+      notes.push(`Last time was easy: +${step} lb.`)
+    } else if (fb.effort === 'right') {
+      repGain = Math.max(1, pumpGain)
+      notes.push(`Effort was just right: same weight, +${repGain} rep${repGain > 1 ? 's' : ''}.`)
+    } else if (fb.effort === 'hard') {
+      repGain = 1
+      notes.push('Last time was too hard: same weight, +1 rep, and no extra set next time.')
+    } else repGain = pumpGain
+    if (pumpGain > 0 && fb.effort !== 'right' && fb.effort !== 'hard') notes.push(`Low pump: +${pumpGain} rep${pumpGain > 1 ? 's' : ''}.`)
   } else notes.push('Add 1 rep.')
   let reps = base.reps + repGain
   if (reps > exercise.repRange.max) {

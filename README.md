@@ -47,11 +47,11 @@ Each week has a target RIR (reps in reserve): 4 weeks go 3, 2, 1, 0 and 6 weeks 
 - The workout was completed but some sets were short: the weight stays, and each short set starts from what you actually did plus one rep.
 
 **When every set hit its reps**
-- **Effort** (after the last exercise of a muscle group): *easy* adds one weight step, *just right* and *too hard* keep the weight. Steps are 2.5 lb for dumbbell exercises and 5 lb for everything else, which is also the most the weight can rise in a week.
-- **Muscle pump** (same prompt): *low* adds a rep (two if the previous check was also low; none if the effort was too hard), *high* keeps reps. Reps only come back down when the weight goes up at the top of the rep range: the weight rises one step and reps return to the bottom of the range.
+- **Effort** (after the last exercise of a muscle group): *easy* adds one weight step (no extra rep), *just right* keeps the weight and adds a rep, *too hard* keeps the weight and still adds one rep. Steps are 2.5 lb for dumbbell exercises and 5 lb for everything else, which is also the most the weight can rise in a week.
+- **Muscle pump** (same prompt): *low* adds a rep (two if the previous check was also low, and it never stacks on top of the rep from "just right" or "too hard"), *high* adds nothing extra. Reps only come back down when the weight goes up at the top of the rep range: the weight rises one step and reps return to the bottom of the range.
 - If you skip both, the default is one more rep.
 
-**Recovery** (after the first exercise of a muscle group, only if you trained it before): *still sore* takes a set off every exercise for that muscle group, *just on time* changes nothing, *recovered early* adds a set. It applies to the unstarted exercises today and carries through the rest of the block (2 to 6 sets per exercise, at most 3 up or down in total). Sets are the only thing this changes.
+**Recovery** (after the first exercise of a muscle group, only if you trained it before): *still sore* takes a set off every exercise for that muscle group, *just on time* changes nothing, *recovered early* adds a set. It applies to the unstarted exercises today and carries through the rest of the block (2 to 6 sets per exercise, at most 3 up or down in total). Sets are the only thing this changes. If you answer *recovered early* and then rate the same muscle group *too hard*, the extra set is not carried to the next session.
 
 The deload week and StrongLifts 5x5 never ask. Answers are stored with the session and back up with the program.
 ## Hosting notes
