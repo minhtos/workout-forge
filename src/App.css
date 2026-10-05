@@ -132,7 +132,7 @@ select option { background: var(--surface-2); color: var(--ink); }
 .last-time { color: var(--ink-subtle); margin-top: 12px; font-variant-numeric: tabular-nums; }
 
 .set-table { margin-top: 16px; }
-.set-head, .set-row { display: grid; grid-template-columns: 52px 1.3fr 1fr 1fr 56px; gap: 10px; align-items: center; }
+.set-head, .set-row { display: grid; grid-template-columns: 52px 1.4fr 1fr 56px; gap: 10px; align-items: center; }
 .set-head { font: 500 11px var(--font-mono); letter-spacing: 0.06em; color: var(--ink-subtle); padding: 0 10px 8px; }
 .set-row { border: 1px solid transparent; border-radius: var(--radius-lg); padding: 8px 10px; margin-bottom: 4px; transition: background 0.15s, border-color 0.15s, opacity 0.15s; }
 .set-row > .set-no { font: 600 15px var(--font-mono); color: var(--ink-subtle); display: flex; flex-direction: column; font-variant-numeric: tabular-nums; }
@@ -214,7 +214,7 @@ select option { background: var(--surface-2); color: var(--ink); }
   .exercise-card { padding: 16px 12px; }
   .exercise-title { padding-bottom: 16px; }
   .exercise-title > div { grid-template-columns: 30px 1fr; column-gap: 6px; }
-  .set-head, .set-row { grid-template-columns: 30px 1.25fr 1fr 1fr 52px; gap: 6px; }
+  .set-head, .set-row { grid-template-columns: 30px 1.4fr 1fr 52px; gap: 6px; }
   .set-row { padding: 6px; }
   .set-row input { font-size: 22px; padding: 0 28px 0 8px; }
   .set-row select { font-size: 20px; padding: 0 4px; }

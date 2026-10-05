@@ -23,7 +23,7 @@ export function ProgressView({ history, finished, total }: Props) {
       <article><span>LOGGED SETS</span><strong>{history.length}</strong><p>all time</p></article>
       <article><span>TOTAL VOLUME</span><strong>{volume.toLocaleString()}<small> lb</small></strong><p>weight × reps, all time</p></article>
     </div>
-    <section className="progress-empty"><span>LATEST COMPLETED SET</span>{latest ? <><h2>{latest.exerciseName}: {latest.weight} lb × {latest.reps} · RIR {latest.rir}</h2><p>Week {latest.weekNumber} target was RIR {latest.targetRir}.</p></> : <><h2>Your first completed set starts the record.</h2><p>Start a workout and log weight, reps, and RIR.</p></>}</section>
-    {exercises.length > 0 && <section className="progress-empty"><span>BY EXERCISE</span><table className="exercise-table"><thead><tr><th>Exercise</th><th>Last set</th><th>Best set</th><th>Sets</th></tr></thead><tbody>{exercises.map((row) => <tr key={row.id}><td>{row.name}</td><td>{row.newest.weight}×{row.newest.reps} @{row.newest.rir}</td><td>{row.best.weight}×{row.best.reps}</td><td>{row.sets}</td></tr>)}</tbody></table></section>}
+    <section className="progress-empty"><span>LATEST COMPLETED SET</span>{latest ? <><h2>{latest.exerciseName}: {latest.weight} lb × {latest.reps}</h2><p>Week {latest.weekNumber}, target RIR {latest.targetRir}.</p></> : <><h2>Your first completed set starts the record.</h2><p>Start a workout and log weight and reps.</p></>}</section>
+    {exercises.length > 0 && <section className="progress-empty"><span>BY EXERCISE</span><table className="exercise-table"><thead><tr><th>Exercise</th><th>Last set</th><th>Best set</th><th>Sets</th></tr></thead><tbody>{exercises.map((row) => <tr key={row.id}><td>{row.name}</td><td>{row.newest.weight}×{row.newest.reps}</td><td>{row.best.weight}×{row.best.reps}</td><td>{row.sets}</td></tr>)}</tbody></table></section>}
   </section>
 }

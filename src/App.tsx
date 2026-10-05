@@ -248,7 +248,7 @@ function App() {
     }
     const parsed = parseEntry(entry)
     if ('error' in parsed) { setEntryError(parsed.error); return }
-    const record = { id, sessionId, workoutId: activeWorkout.id, exerciseId: exercise.id, exerciseName: exercise.name, setIndex: index + 1, ...parsed, weightUnit: 'lb' as const, completedAt: new Date().toISOString(), weekNumber: activeWorkout.weekNumber, repRange: exercise.repRange, targetRir: activeWorkout.target.targetRir }
+    const record = { id, sessionId, workoutId: activeWorkout.id, exerciseId: exercise.id, exerciseName: exercise.name, setIndex: index + 1, ...parsed, weightUnit: 'lb' as const, completedAt: new Date().toISOString(), weekNumber: activeWorkout.weekNumber, repRange: exercise.repRange, targetRir: activeWorkout.target.targetRir, targetReps: entry.targetReps }
     setState((current) => current.activeSession ? {
       ...current,
       history: current.history.some((set) => set.id === id) ? current.history : [...current.history, record],

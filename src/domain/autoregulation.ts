@@ -2,11 +2,14 @@ import type { ExercisePrescription, MuscleGroup, ScheduledWorkout } from './prog
 import type { CompletedSetRecord, SetEntry } from './storage'
 
 /**
- * Feedback-driven progression for RIR blocks. Three questions, three levers:
+ * Progression for RIR blocks. You pick a weight and reps that reach the week's target RIR; the app decides the next
+ * session from what you did and three optional questions:
  *  - Soreness (asked after the first exercise of a muscle group)  -> number of sets
  *  - Effort   (asked after the last exercise of a muscle group)   -> weight
  *  - Pump     (asked after the last exercise of a muscle group)   -> reps
- * Deload weeks and linear (5x5) blocks are never touched.
+ * Missed reps override the questions: weight only goes down when every set missed its reps, and a completed workout
+ * with a few short sets repeats the weight and builds one rep on what you did. Deload weeks and linear (5x5) blocks
+ * are never touched.
  */
 export type Soreness = 'sore' | 'ontime' | 'early'
 export type Effort = 'easy' | 'right' | 'hard'
@@ -28,7 +31,6 @@ export interface SessionFeedback {
 export const minSets = 2
 export const ceilingSets = 6
 export const maxSetOffset = 3
-export const weightStep = 2.5
 
 const sorenessDelta: Record<Soreness, number> = { sore: -1, ontime: 0, early: 1 }
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
@@ -73,49 +75,55 @@ export function mergeFeedback(a: SessionFeedback[], b: SessionFeedback[]): Sessi
   return [...merged.values()].sort((x, y) => x.at.localeCompare(y.at))
 }
 
-/** Weight change after a muscle group: easy +5% (+10% if you left 2+ reps in reserve beyond target), just right +2.5%, too hard 0%. */
-export function weightPercent(effort: Effort, averageRirOverTarget: number): number {
-  if (effort === 'hard') return 0
-  if (effort === 'right') return 0.025
-  return averageRirOverTarget >= 2 ? 0.1 : 0.05
-}
+/** Weight steps: 2.5 lb for dumbbell exercises, 5 lb for everything else. This is also the most weight added in a week. */
+export const weightIncrement = (exerciseName: string): number => (/dumbbell/i.test(exerciseName) ? 2.5 : 5)
 
-/** Applies a percentage to a weight in 2.5 lb steps. A positive change is always at least one step. */
-export function stepWeight(weight: number, percent: number): number {
-  if (percent <= 0) return weight
-  const stepped = Math.round((weight * (1 + percent)) / weightStep) * weightStep
-  return Math.max(stepped, weight + weightStep)
-}
+/** Reps short of the target the set was prefilled with. Records from before targets were stored count as hit. */
+export const missedReps = (set: CompletedSetRecord): number => Math.max(0, (set.targetReps ?? set.reps) - set.reps)
 
-export interface TunedSet { weight: number; reps: number }
-
-/** How hard the last session was compared with its RIR target, on average. Positive means easier than planned. */
-const rirOver = (last: CompletedSetRecord[]): number => last.reduce((sum, set) => sum + (set.rir - set.targetRir), 0) / Math.max(1, last.length)
+export interface NextTarget { weight: number; reps: number; note: string }
 
 function previousFeedback(feedback: SessionFeedback[], current: SessionFeedback): SessionFeedback | undefined {
   return feedback.filter((entry) => entry.group === current.group && entry.at < current.at).sort((x, y) => y.at.localeCompare(x.at))[0]
 }
 
 /**
- * Next session's target for one set, from last session's matching set and the feedback given after it.
- * Without an effort answer the weight falls back to the standard RIR suggestion. Low pump adds a rep
- * (two if the previous check was also low); past the top of the rep range it adds weight and starts over at the bottom.
+ * The target for one set next time, from last session's sets and the effort/pump answers given after it.
+ *  1. Every set missed its reps: weight drops one step, same rep target.
+ *  2. Some sets missed (workout completed): weight stays; short sets start from what you did plus one rep.
+ *  3. Every set hit its target: easy adds one weight step; low pump adds a rep (two if the check before was also low,
+ *     none if it was too hard). Past the top of the rep range the weight goes up one step and reps go back to the
+ *     bottom. With no answers at all the default is one more rep.
  */
-export function tunedPrefill(args: { exercise: ExercisePrescription; base: CompletedSetRecord; last: CompletedSetRecord[]; fb: SessionFeedback; all: SessionFeedback[]; fallbackWeight: number }): TunedSet & { note: string } {
-  const { exercise, base, last, fb, all, fallbackWeight } = args
-  const percent = fb.effort ? weightPercent(fb.effort, rirOver(last)) : null
-  let weight = percent === null ? fallbackWeight : stepWeight(base.weight, percent)
-  const repGain = fb.pump === 'low' ? (previousFeedback(all, fb)?.pump === 'low' ? 2 : 1) : 0
-  let reps = base.reps + repGain
+export function nextSetTarget(args: { exercise: ExercisePrescription; last: CompletedSetRecord[]; index: number; fb?: SessionFeedback; all: SessionFeedback[] }): NextTarget {
+  const { exercise, last, index, fb, all } = args
+  const base = last[index] ?? last[last.length - 1]
+  const step = weightIncrement(exercise.name)
+
+  if (last.every((set) => missedReps(set) > 0)) {
+    return { weight: Math.max(0, base.weight - step), reps: base.targetReps ?? base.reps, note: `You missed reps on every set last time: weight drops ${step} lb.` }
+  }
+  if (last.some((set) => missedReps(set) > 0)) {
+    const short = missedReps(base) > 0
+    return { weight: base.weight, reps: short ? base.reps + 1 : base.reps, note: 'You fell short on some sets last time: weight stays, and those sets start from what you did plus a rep.' }
+  }
+
+  const answered = !!(fb?.effort || fb?.pump)
   const notes: string[] = []
-  if (fb.effort === 'easy') notes.push(percent === 0.1 ? 'Last time was easy: +10% weight.' : 'Last time was easy: +5% weight.')
-  else if (fb.effort === 'right') notes.push('Effort was just right: +2.5% weight.')
-  else if (fb.effort === 'hard') notes.push('Last time was too hard: weight stays the same.')
-  if (repGain > 0) notes.push(`Low pump: +${repGain} rep${repGain > 1 ? 's' : ''}.`)
+  let weight = base.weight
+  let repGain = 1
+  if (fb && answered) {
+    if (fb.effort === 'easy') { weight += step; notes.push(`Last time was easy: +${step} lb.`) }
+    else if (fb.effort === 'right') notes.push('Effort was just right: same weight.')
+    else if (fb.effort === 'hard') notes.push('Last time was too hard: same weight, no added reps.')
+    repGain = fb.pump === 'low' && fb.effort !== 'hard' ? (previousFeedback(all, fb)?.pump === 'low' ? 2 : 1) : 0
+    if (repGain > 0) notes.push(`Low pump: +${repGain} rep${repGain > 1 ? 's' : ''}.`)
+  } else notes.push('Add 1 rep.')
+  let reps = base.reps + repGain
   if (reps > exercise.repRange.max) {
     reps = exercise.repRange.min
-    weight = Math.max(weight, stepWeight(base.weight, Math.max(percent ?? 0, 0.025)))
-    notes.push(`Top of the rep range: more weight, back to ${reps} reps.`)
+    weight = Math.max(weight, base.weight + step)
+    notes.push(`Top of the rep range: +${step} lb, back to ${reps} reps.`)
   }
   return { weight, reps, note: notes.join(' ') }
 }
@@ -127,7 +135,7 @@ export function resizeEntries(entries: SetEntry[], count: number, maxSets = 10):
   if (target === entries.length) return entries
   if (target < entries.length) return entries.slice(0, Math.max(target, finished))
   const last = entries[entries.length - 1]
-  return [...entries, ...Array.from({ length: target - entries.length }, (): SetEntry => ({ weight: last?.weight ?? '', reps: last?.reps ?? '8', rir: last?.rir ?? '2', complete: false }))]
+  return [...entries, ...Array.from({ length: target - entries.length }, (): SetEntry => ({ weight: last?.weight ?? '', reps: last?.reps ?? '8', rir: last?.rir ?? '2', complete: false, targetReps: last?.targetReps }))]
 }
 
 export type FeedbackPrompt = { kind: 'soreness'; group: MuscleGroup } | { kind: 'summary'; group: MuscleGroup }

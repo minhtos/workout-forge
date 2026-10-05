@@ -77,7 +77,6 @@ describe('Workout Forge gym flow', () => {
     expect(savedState().history).toHaveLength(0)
 
     fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '135' } })
-    fireEvent.change(screen.getByLabelText('Set 1 RIR'), { target: { value: '0' } })
     fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
     expect(savedState().history).toHaveLength(1)
 
@@ -315,7 +314,7 @@ describe('Workout Forge gym flow', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     expect((screen.getByLabelText('Set 1 weight') as HTMLInputElement).value).toBe('105')
-    expect(screen.getAllByText(/last time was easy: \+5% weight\. low pump: \+1 rep/i)).toHaveLength(2)
+    expect(screen.getAllByText(/last time was easy: \+5 lb\. low pump: \+1 rep/i)).toHaveLength(2)
     expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('10')
     expect(screen.getByLabelText('Set 2 weight')).toBeTruthy()
     expect(screen.queryByLabelText('Set 3 weight')).toBeNull()
@@ -335,5 +334,25 @@ describe('Workout Forge gym flow', () => {
     const saved = JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}') as { feedback: Record<string, unknown>[] }
     expect(saved.feedback[0]).toMatchObject({ group: 'Chest', summaryDone: true })
     expect(saved.feedback[0].effort).toBeUndefined()
+  })
+
+  it('has no per-set RIR box, and remembers the rep target so a short set can be recognised later', () => {
+    let block = createBlock(2, 4)
+    for (const day of [0, 1]) block = addExerciseToDay(block, day, 'barbell-bench-press')
+    block = { ...block, locked: true, startedAt: '2026-09-28T09:00:00.000Z', completedIds: ['w1-d1'] }
+    const sessionId = '550e8400-e29b-41d4-a716-446655440000'
+    const history = [1, 2, 3].map((n) => ({ id: `${sessionId}-barbell-bench-press-${n}`, sessionId, workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex: n, weight: 100, reps: 8, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3 }))
+    window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history }))
+
+    render(<App />)
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    expect(screen.queryByLabelText('Set 1 RIR')).toBeNull()
+    expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('9')
+
+    fireEvent.change(screen.getByLabelText('Set 1 reps'), { target: { value: '7' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+    const saved = JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}') as { history: { setIndex: number; reps: number; targetReps?: number; rir: number }[] }
+    const set = saved.history.find((entry) => entry.setIndex === 1 && entry.reps === 7)
+    expect(set).toMatchObject({ reps: 7, targetReps: 9, rir: 3 })
   })
 })

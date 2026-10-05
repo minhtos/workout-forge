@@ -21,10 +21,12 @@ export interface CompletedSetRecord {
   weekNumber: number
   repRange: RepRange
   targetRir: number
+  /** The rep target the set was prefilled with; reps below it count as missed. Older records do not have it. */
+  targetReps?: number
 }
 
 /** Values are strings while typing; a set is only recorded in history when it is marked complete. */
-export interface SetEntry { reps: string; weight: string; rir: string; complete: boolean }
+export interface SetEntry { reps: string; weight: string; rir: string; complete: boolean; /** The prefilled rep target, kept even if the reps box is edited. */ targetReps?: number }
 export interface ActiveSession { workoutId: string; sessionId: string; sets: Record<string, SetEntry[]> }
 
 export interface SavedWorkoutState {

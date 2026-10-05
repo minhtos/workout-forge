@@ -1,6 +1,6 @@
 import type { ExercisePrescription, ScheduledWorkout } from './program'
-import { feedbackFor, setOffset, tunedPrefill, tunedSets, usesFeedback, type SessionFeedback } from './autoregulation'
-import { deloadLoad, getNextSetSuggestion, linearIncrement } from './progression'
+import { feedbackFor, missedReps, nextSetTarget, setOffset, tunedSets, usesFeedback, type SessionFeedback } from './autoregulation'
+import { deloadLoad, linearIncrement } from './progression'
 import type { CompletedSetRecord, SetEntry } from './storage'
 
 /** Sets from the most recent earlier session that included this exercise. */
@@ -22,6 +22,9 @@ export function linearNext(exercise: ExercisePrescription, last: CompletedSetRec
 /** Feedback the engine uses to tune a session: what was answered after earlier sessions, and which block it belongs to. */
 export interface TuneContext { feedback: SessionFeedback[]; blockId: string | null }
 
+/** A fresh set. The rep target is remembered so a set that falls short can be recognised later. */
+const entryFor = (weight: number | string, reps: number, targetRir: string): SetEntry => ({ weight: String(weight), reps: String(reps), rir: targetRir, complete: false, targetReps: reps })
+
 export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSetRecord[], sessionId: string, tune?: TuneContext): Record<string, SetEntry[]> {
   const targetRir = String(workout.target.targetRir)
   const tuning = tune && usesFeedback(workout) ? tune : undefined
@@ -31,42 +34,35 @@ export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSe
     const fb = tuning && last.length ? feedbackFor(tuning.feedback, last[0].sessionId, exercise.category) : undefined
     const entries = Array.from({ length: count }, (_, index): SetEntry => {
       const base = last[index] ?? last[last.length - 1]
-      if (!base) return { weight: '', reps: String(exercise.repRange.min), rir: targetRir, complete: false }
-      if (workout.target.kind === 'deload') return { weight: String(deloadLoad(Math.max(...last.map((set) => set.weight)), workout.target.loadMultiplier)), reps: String(base.reps), rir: targetRir, complete: false }
+      if (!base) return entryFor('', exercise.repRange.min, targetRir)
+      if (workout.target.kind === 'deload') return entryFor(deloadLoad(Math.max(...last.map((set) => set.weight)), workout.target.loadMultiplier), base.reps, targetRir)
       if (workout.progression === 'linear') {
         const next = linearNext(exercise, last)
-        return { weight: String(next.weight), reps: String(next.reps), rir: targetRir, complete: false }
+        return entryFor(next.weight, next.reps, targetRir)
       }
-      const next = getNextSetSuggestion({ weight: base.weight, reps: base.reps, rir: base.rir, targetRir: workout.target.targetRir, repRange: exercise.repRange })
-      if (fb && tuning) {
-        const tuned = tunedPrefill({ exercise, base, last, fb, all: tuning.feedback, fallbackWeight: next.weight })
-        return { weight: String(tuned.weight), reps: String(tuned.reps), rir: targetRir, complete: false }
-      }
-      return { weight: String(next.weight), reps: String(next.reps), rir: targetRir, complete: false }
+      const next = nextSetTarget({ exercise, last, index, fb, all: tuning?.feedback ?? [] })
+      return entryFor(next.weight, next.reps, targetRir)
     })
     return [exercise.id, entries]
   }))
 }
 
+/** Last session's sets, flagging any that fell short of the rep target. */
 export function describeLastSession(sets: CompletedSetRecord[]): string {
-  return sets.map((set) => `${set.weight}×${set.reps} @${set.rir}`).join(' · ')
+  return sets.map((set) => (missedReps(set) > 0 ? `${set.weight}×${set.reps} (target ${set.targetReps})` : `${set.weight}×${set.reps}`)).join(' · ')
 }
 
 export function suggestionText(exercise: ExercisePrescription, workout: ScheduledWorkout, last: CompletedSetRecord[], tune?: TuneContext): string {
   const base = last[last.length - 1]
-  if (!base) return workout.progression === 'linear' ? 'First time: start light and add weight each session.' : `First time: pick a controlled load and stop at ${workout.target.targetRir} RIR.`
+  if (!base) return workout.progression === 'linear' ? 'First time: start light and add weight each session.' : `First time: pick a weight and reps that leave about ${workout.target.targetRir} in reserve.`
   if (workout.target.kind === 'deload') return `Deload: ${deloadLoad(Math.max(...last.map((set) => set.weight)), workout.target.loadMultiplier)} lb for ${base.reps} reps (half your last load).`
   if (workout.progression === 'linear') {
     const next = linearNext(exercise, last)
     return next.added ? `Hit every rep last time. Add weight: ${next.weight} lb × ${next.reps}.` : `Missed reps last time. Repeat ${next.weight} lb × ${next.reps}.`
   }
-  const next = getNextSetSuggestion({ weight: base.weight, reps: base.reps, rir: base.rir, targetRir: workout.target.targetRir, repRange: exercise.repRange })
   const fb = tune && usesFeedback(workout) ? feedbackFor(tune.feedback, base.sessionId, exercise.category) : undefined
-  if (fb && tune) {
-    const tuned = tunedPrefill({ exercise, base, last, fb, all: tune.feedback, fallbackWeight: next.weight })
-    return `Aim for ${tuned.weight} lb × ${tuned.reps}. ${tuned.note || 'Same as last time.'}`.trim()
-  }
-  return `Aim for ${next.weight} lb × ${next.reps}. ${next.reason}`
+  const next = nextSetTarget({ exercise, last, index: last.length - 1, fb, all: tune?.feedback ?? [] })
+  return `Aim for ${next.weight} lb × ${next.reps}. ${next.note}`
 }
 
 /**
@@ -89,7 +85,7 @@ export const maxSetsPerExercise = 10
 export function addSetEntry(entries: SetEntry[]): SetEntry[] {
   if (entries.length >= maxSetsPerExercise) return entries
   const last = entries[entries.length - 1]
-  return [...entries, { weight: last?.weight ?? '', reps: last?.reps ?? '8', rir: last?.rir ?? '2', complete: false }]
+  return [...entries, { weight: last?.weight ?? '', reps: last?.reps ?? '8', rir: last?.rir ?? '2', complete: false, targetReps: last?.targetReps }]
 }
 
 /**

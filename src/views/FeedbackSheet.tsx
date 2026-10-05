@@ -15,9 +15,9 @@ const sorenessChoices: { value: Soreness; label: string; effect: (group: string)
   { value: 'early', label: 'Recovered early', effect: (group) => `Adds a set to your ${group} exercises` },
 ]
 const effortChoices: { value: Effort; label: string; effect: string }[] = [
-  { value: 'easy', label: 'Easy', effect: 'More weight next time' },
-  { value: 'right', label: 'Just right', effect: 'Small weight increase' },
-  { value: 'hard', label: 'Too hard', effect: 'Weight stays the same' },
+  { value: 'easy', label: 'Easy', effect: 'A little more weight next time' },
+  { value: 'right', label: 'Just right', effect: 'Same weight next time' },
+  { value: 'hard', label: 'Too hard', effect: 'Same weight, no added reps' },
 ]
 const pumpChoices: { value: Pump; label: string; effect: string }[] = [
   { value: 'low', label: 'Low', effect: 'Adds a rep next time' },

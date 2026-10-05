@@ -17,15 +17,15 @@ describe('session helpers', () => {
   it('starts empty on first exposure, asking for a weight', () => {
     const sets = buildInitialSets(week(1), [], 'new')['barbell-bench-press']
     expect(sets).toHaveLength(3)
-    expect(sets[0]).toEqual({ weight: '', reps: '6', rir: '3', complete: false })
+    expect(sets[0]).toEqual({ weight: '', reps: '6', rir: '3', complete: false, targetReps: 6 })
   })
 
-  it('prefills each set from the matching set last time using the progression rule', () => {
+  it('prefills each set from the matching set last time, adding a rep when every set hit its target', () => {
     const history = [logged('a', 1, 100, 8, 3, '2026-10-01T10:00:00Z'), logged('a', 2, 100, 8, 1, '2026-10-01T10:05:00Z')]
     const sets = buildInitialSets(week(2), history, 'new')['barbell-bench-press']
-    expect(sets[0]).toMatchObject({ weight: '105', reps: '8', rir: '2' })
-    expect(sets[1]).toMatchObject({ weight: '100', reps: '8' })
-    expect(sets[2]).toMatchObject({ weight: '100', reps: '8' })
+    expect(sets[0]).toMatchObject({ weight: '100', reps: '9', rir: '2', targetReps: 9 })
+    expect(sets[1]).toMatchObject({ weight: '100', reps: '9' })
+    expect(sets[2]).toMatchObject({ weight: '100', reps: '9' })
   })
 
   it('halves the load in the final deload week', () => {

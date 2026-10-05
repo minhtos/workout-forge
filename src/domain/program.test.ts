@@ -18,7 +18,7 @@ describe('blocks', () => {
   it('lists days × (weeks + deload) workouts with the right RIR', () => {
     expect(listWorkouts(createBlock(2, 4))).toHaveLength(10)
     expect(listWorkouts(createBlock(4, 6))).toHaveLength(28)
-    expect(listWorkouts(createBlock(3, 6)).filter((workout) => workout.dayIndex === 0).map((workout) => workout.target.kind === 'deload' ? 'deload' : workout.target.targetRir)).toEqual([3, 3, 2, 2, 1, 0, 'deload'])
+    expect(listWorkouts(createBlock(3, 6)).filter((workout) => workout.dayIndex === 0).map((workout) => workout.target.kind === 'deload' ? 'deload' : workout.target.targetRir)).toEqual([3, 2, 2, 1, 1, 0, 'deload'])
     expect(listWorkouts(createBlock(3, 4)).at(-1)?.target.kind).toBe('deload')
   })
 

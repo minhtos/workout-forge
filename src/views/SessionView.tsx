@@ -4,7 +4,6 @@ import type { ExercisePrescription, ScheduledWorkout } from '../domain/program'
 import type { ActiveSession, CompletedSetRecord, SetEntry } from '../domain/storage'
 
 const repOptions = Array.from({ length: 30 }, (_, index) => index + 1)
-const rirOptions = Array.from({ length: 11 }, (_, index) => index)
 
 interface Props {
   workout: ScheduledWorkout
@@ -40,12 +39,11 @@ export function SessionView({ workout, session, history, syncLabel, restTimer, t
         {last.length > 0 && <p className="last-time">Last time: {describeLastSession(last)}</p>}
         <p className="suggestion">{suggestionText(exercise, workout, last, tune)}</p>
         <div className="set-table set-table-rir" role="table" aria-label={`${exercise.name} set log`}>
-          <div className="set-head" role="row"><span>SET</span><span>WEIGHT</span><span>REPS</span><span>RIR</span><span>DONE</span></div>
+          <div className="set-head" role="row"><span>SET</span><span>WEIGHT</span><span>REPS</span><span>DONE</span></div>
           {rows.map((set, index) => <div className={set.complete ? 'set-row is-done' : index === current ? 'set-row is-current' : 'set-row'} role="row" key={index}>
             <span className="set-no">{index + 1}{set.complete && last[index] && Number(set.weight) > last[index].weight && <small className="delta" aria-label={`${Number(set.weight) - last[index].weight} lb more than last time`}>+{Number(set.weight) - last[index].weight}</small>}</span>
             <label><input aria-label={`${prefix}Set ${index + 1} weight`} value={set.weight} inputMode="decimal" placeholder="0" disabled={set.complete} onChange={(event) => onUpdate(exercise.id, index, { weight: event.target.value })} /><em>lb</em></label>
             <select aria-label={`${prefix}Set ${index + 1} reps`} value={set.reps} disabled={set.complete} onChange={(event) => onUpdate(exercise.id, index, { reps: event.target.value })}>{repOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select>
-            <select aria-label={`${prefix}Set ${index + 1} RIR`} value={set.rir} disabled={set.complete} onChange={(event) => onUpdate(exercise.id, index, { rir: event.target.value })}>{rirOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select>
             <button className={set.complete ? 'check done' : 'check'} aria-pressed={set.complete} aria-label={set.complete ? `Undo ${prefix}set ${index + 1}` : `Complete ${prefix}set ${index + 1}`} onClick={() => onToggle(exercise, index)}>{set.complete ? '✓' : ''}</button>
           </div>)}
         </div>

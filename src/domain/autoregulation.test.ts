@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest'
-import { feedbackFor, mergeFeedback, nextPrompt, resizeEntries, setOffset, stepWeight, tuneWorkoutSets, tunedPrefill, tunedSets, upsertFeedback, weightPercent, type SessionFeedback } from './autoregulation'
+import { feedbackFor, mergeFeedback, missedReps, nextPrompt, nextSetTarget, resizeEntries, setOffset, tuneWorkoutSets, tunedSets, upsertFeedback, weightIncrement, type SessionFeedback } from './autoregulation'
 import { addExerciseToDay, createBlock, findWorkout, mergeCatalog, resolveWorkout, type Block } from './program'
 import { applyWorkoutSet, findWorkoutSet } from './workoutSets'
-import { buildInitialSets, suggestionText } from './session'
+import { buildInitialSets, describeLastSession, suggestionText } from './session'
 import type { CompletedSetRecord, SetEntry } from './storage'
 
 const catalog = mergeCatalog([])
@@ -39,10 +39,15 @@ describe('soreness changes sets', () => {
     expect(tunedSets(8, 0)).toBe(8)
   })
 
+  it('adds a set to every exercise in the muscle group, and leaves other groups alone', () => {
+    const block = chestBlock()
+    const entries = [fb({ sessionId: 'a', at: '1', soreness: 'early' })]
+    expect(tuneWorkoutSets(workoutFor(block, 'w1-d1'), entries, BLOCK).exercises.map((exercise) => exercise.sets)).toEqual([4, 4, 3])
+  })
+
   it('tunes RIR work weeks only, never deloads or 5x5 blocks', () => {
     const block = chestBlock()
     const entries = [fb({ sessionId: 'a', at: '1', soreness: 'early' })]
-    expect(tuneWorkoutSets(workoutFor(block, 'w1-d1'), entries, BLOCK).exercises.map((exercise) => exercise.sets)).toEqual([4, 4, 3 + 0])
     const deload = workoutFor(block, 'w5-d1')
     expect(deload.target.kind).toBe('deload')
     expect(tuneWorkoutSets(deload, entries, BLOCK).exercises.map((exercise) => exercise.sets)).toEqual([3, 3, 3])
@@ -55,55 +60,98 @@ describe('soreness changes sets', () => {
     expect(resizeEntries([open(), open(), open()], 2)).toHaveLength(2)
     expect(resizeEntries([done(), open(), open()], 1)).toHaveLength(1)
     expect(resizeEntries([done(), done(), open()], 1)).toHaveLength(2)
-    const grown = resizeEntries([open('135'), open('135')], 4)
+    const grown = resizeEntries([{ ...open('135'), targetReps: 8 }, { ...open('135'), targetReps: 8 }], 4)
     expect(grown).toHaveLength(4)
-    expect(grown[3]).toEqual({ weight: '135', reps: '8', rir: '3', complete: false })
+    expect(grown[3]).toEqual({ weight: '135', reps: '8', rir: '3', complete: false, targetReps: 8 })
   })
 })
 
-describe('effort changes weight', () => {
-  it('maps easy, just right and too hard to 5-10%, 2.5% and 0%', () => {
-    expect(weightPercent('easy', 0)).toBe(0.05)
-    expect(weightPercent('easy', 2)).toBe(0.1)
-    expect(weightPercent('right', 0)).toBe(0.025)
-    expect(weightPercent('hard', 3)).toBe(0)
-  })
-
-  it('moves in 2.5 lb steps and always adds at least one step when increasing', () => {
-    expect(stepWeight(135, 0.05)).toBe(142.5)
-    expect(stepWeight(100, 0.025)).toBe(102.5)
-    expect(stepWeight(40, 0.025)).toBe(42.5)
-    expect(stepWeight(200, 0)).toBe(200)
+describe('weight steps', () => {
+  it('is 2.5 lb for dumbbell exercises and 5 lb for everything else', () => {
+    expect(weightIncrement('Dumbbell Incline Bench Press')).toBe(2.5)
+    expect(weightIncrement('Dumbbell RDL')).toBe(2.5)
+    expect(weightIncrement('Barbell Bench Press')).toBe(5)
+    expect(weightIncrement('Cable Pushdown')).toBe(5)
+    expect(weightIncrement('Hack Squat')).toBe(5)
   })
 })
 
-describe('pump changes reps, and the tuned prefill ties it together', () => {
-  const exercise = resolveWorkout(chestBlock(), findWorkout(chestBlock(), 'w1-d1')!, catalog).exercises[0]
-  const set = (reps: number, rir = 3): CompletedSetRecord => ({ id: `s-${reps}`, sessionId: 'prev', workoutId: 'w1-d1', exerciseId: exercise.id, exerciseName: exercise.name, setIndex: 1, weight: 100, reps, rir, weightUnit: 'lb', completedAt: '2026-10-05T10:05:00.000Z', weekNumber: 1, repRange: exercise.repRange, targetRir: 3 })
-  const args = (feedback: SessionFeedback, reps = 8, rir = 3, all: SessionFeedback[] = [feedback]) => ({ exercise, base: set(reps, rir), last: [set(reps, rir)], fb: feedback, all, fallbackWeight: 100 })
+describe('what happens next, from what you actually did', () => {
+  const bench = resolveWorkout(chestBlock(), findWorkout(chestBlock(), 'w1-d1')!, catalog).exercises[0]
+  const dumbbell = { ...bench, id: 'dumbbell-fly', name: 'Dumbbell Fly' }
+  const set = (index: number, reps: number, target = 8, weight = 100): CompletedSetRecord => ({ id: `s-${index}`, sessionId: 'prev', workoutId: 'w1-d1', exerciseId: bench.id, exerciseName: bench.name, setIndex: index, weight, reps, rir: 3, weightUnit: 'lb', completedAt: `2026-10-05T10:0${index}:00.000Z`, weekNumber: 1, repRange: bench.repRange, targetRir: 3, targetReps: target })
+  const hit = [set(1, 8), set(2, 8), set(3, 8)]
+  const next = (last: CompletedSetRecord[], index: number, feedback?: SessionFeedback, all: SessionFeedback[] = feedback ? [feedback] : [], exercise = bench) => nextSetTarget({ exercise, last, index, fb: feedback, all })
+  const answers = (patch: Partial<SessionFeedback>) => fb({ sessionId: 'prev', at: '2', summaryDone: true, ...patch })
 
-  it('low pump adds a rep, two if the previous check was also low, high pump adds none', () => {
-    const low = fb({ sessionId: 'prev', at: '2', effort: 'hard', pump: 'low', summaryDone: true })
-    expect(tunedPrefill(args(low))).toMatchObject({ weight: 100, reps: 9 })
+  it('counts a set as missed only when reps fall below the rep target it started with', () => {
+    expect(missedReps(set(1, 6, 8))).toBe(2)
+    expect(missedReps(set(1, 9, 8))).toBe(0)
+    expect(missedReps({ ...set(1, 6), targetReps: undefined })).toBe(0)
+  })
+
+  it('drops the weight one step only when every set missed its reps', () => {
+    const missedAll = [set(1, 7), set(2, 6), set(3, 5)]
+    expect(next(missedAll, 0)).toMatchObject({ weight: 95, reps: 8 })
+    expect(next(missedAll, 2)).toMatchObject({ weight: 95, reps: 8 })
+    expect(next(missedAll.map((entry) => ({ ...entry, weight: 50 })), 0, undefined, [], dumbbell)).toMatchObject({ weight: 47.5 })
+    expect(next(missedAll, 0, answers({ effort: 'easy', pump: 'low' })).weight).toBe(95)
+  })
+
+  it('never lowers the weight if even one set was completed', () => {
+    for (const reps of [[8, 7, 7], [8, 8, 5], [7, 8, 8]]) {
+      const last = reps.map((value, index) => set(index + 1, value))
+      for (let index = 0; index < 3; index += 1) expect(next(last, index).weight).toBe(100)
+    }
+  })
+
+  it('after a short finish, keeps the weight and starts the short sets from what you did plus one rep', () => {
+    const last = [set(1, 8), set(2, 7), set(3, 6)]
+    expect(next(last, 0)).toMatchObject({ weight: 100, reps: 8 })
+    expect(next(last, 1)).toMatchObject({ weight: 100, reps: 8 })
+    expect(next(last, 2)).toMatchObject({ weight: 100, reps: 7 })
+    expect(next(last, 2, answers({ effort: 'easy', pump: 'low' })).weight).toBe(100)
+  })
+
+  it('with no answers, adds a rep when every set was hit', () => {
+    expect(next(hit, 0)).toMatchObject({ weight: 100, reps: 9 })
+    expect(next(hit, 0, answers({})).note).toMatch(/Add 1 rep/)
+  })
+
+  it('easy adds one weight step (2.5 lb dumbbell, 5 lb otherwise); just right and too hard keep the weight', () => {
+    expect(next(hit, 0, answers({ effort: 'easy', pump: 'high' }))).toMatchObject({ weight: 105, reps: 8 })
+    expect(next(hit, 0, answers({ effort: 'easy', pump: 'high' }), undefined, dumbbell)).toMatchObject({ weight: 102.5 })
+    expect(next(hit, 0, answers({ effort: 'right', pump: 'high' }))).toMatchObject({ weight: 100, reps: 8 })
+    expect(next(hit, 0, answers({ effort: 'hard', pump: 'high' }))).toMatchObject({ weight: 100, reps: 8 })
+  })
+
+  it('never adds more than 5 lb in a week', () => {
+    for (const name of ['Barbell Bench Press', 'Dumbbell Fly', 'Hack Squat']) {
+      const result = next(hit, 0, answers({ effort: 'easy', pump: 'low' }), undefined, { ...bench, name })
+      expect(result.weight - 100).toBeLessThanOrEqual(5)
+    }
+  })
+
+  it('low pump adds a rep, two if the previous check was also low, and none if it was too hard', () => {
+    const low = answers({ effort: 'right', pump: 'low' })
+    expect(next(hit, 0, low)).toMatchObject({ weight: 100, reps: 9 })
     const earlier = fb({ sessionId: 'old', at: '1', pump: 'low', summaryDone: true })
-    expect(tunedPrefill(args(low, 8, 3, [earlier, low]))).toMatchObject({ reps: 10 })
-    expect(tunedPrefill(args(fb({ sessionId: 'prev', at: '2', effort: 'hard', pump: 'high', summaryDone: true })))).toMatchObject({ weight: 100, reps: 8 })
+    expect(next(hit, 0, low, [earlier, low])).toMatchObject({ reps: 10 })
+    expect(next(hit, 0, answers({ effort: 'hard', pump: 'low' }))).toMatchObject({ reps: 8 })
+    expect(next(hit, 0, answers({ effort: 'right', pump: 'high' }))).toMatchObject({ reps: 8 })
   })
 
-  it('applies the effort percentage to weight, with the bigger jump when you clearly undershot effort', () => {
-    expect(tunedPrefill(args(fb({ sessionId: 'prev', at: '2', effort: 'easy', pump: 'high' })))).toMatchObject({ weight: 105, reps: 8 })
-    expect(tunedPrefill(args(fb({ sessionId: 'prev', at: '2', effort: 'easy', pump: 'high' }), 8, 5))).toMatchObject({ weight: 110 })
-    expect(tunedPrefill(args(fb({ sessionId: 'prev', at: '2', effort: 'right', pump: 'high' })))).toMatchObject({ weight: 102.5 })
-  })
-
-  it('falls back to the normal RIR weight when effort was skipped', () => {
-    expect(tunedPrefill({ ...args(fb({ sessionId: 'prev', at: '2', pump: 'low' })), fallbackWeight: 107.5 })).toMatchObject({ weight: 107.5, reps: 9 })
-  })
-
-  it('past the top of the rep range it adds weight and starts again at the bottom', () => {
-    const result = tunedPrefill(args(fb({ sessionId: 'prev', at: '2', effort: 'hard', pump: 'low' }), exercise.repRange.max))
-    expect(result).toMatchObject({ reps: exercise.repRange.min, weight: 102.5 })
+  it('goes up in weight and back to the bottom of the rep range only at the top of the range', () => {
+    const top = Array.from({ length: 3 }, (_, index) => set(index + 1, bench.repRange.max, bench.repRange.max))
+    const result = next(top, 0, answers({ effort: 'right', pump: 'low' }))
+    expect(result).toMatchObject({ weight: 105, reps: bench.repRange.min })
     expect(result.note).toMatch(/Top of the rep range/)
+    expect(next(top, 0)).toMatchObject({ weight: 105, reps: bench.repRange.min })
+    expect(next(hit, 0, answers({ effort: 'right', pump: 'low' })).reps).toBe(9)
+  })
+
+  it('shows sets that fell short in last session\'s summary', () => {
+    expect(describeLastSession([set(1, 8), set(2, 6)])).toBe('100×8 · 100×6 (target 8)')
   })
 })
 
@@ -126,27 +174,33 @@ describe('feedback bookkeeping', () => {
   })
 })
 
-describe('using feedback when building the next session', () => {
+describe('building the next session', () => {
   const block = chestBlock()
-  const prior = (weight: number, reps: number): CompletedSetRecord[] => ['barbell-bench-press', 'barbell-incline-bench-press'].flatMap((id) => [1, 2, 3].map((n) => ({ id: `prev-${id}-${n}`, sessionId: 'prev', workoutId: 'w1-d1', exerciseId: id, exerciseName: id, setIndex: n, weight, reps, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-10-05T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3 })))
+  const prior = (weight: number, reps: number, target = reps): CompletedSetRecord[] => ['barbell-bench-press', 'barbell-incline-bench-press'].flatMap((id) => [1, 2, 3].map((n) => ({ id: `prev-${id}-${n}`, sessionId: 'prev', workoutId: 'w1-d1', exerciseId: id, exerciseName: id === 'barbell-bench-press' ? 'Barbell Bench Press' : 'Barbell Incline Bench Press', setIndex: n, weight, reps, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-10-05T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3, targetReps: target })))
   const week2 = workoutFor(block, 'w2-d1')
   const entries = [fb({ sessionId: 'prev', at: '2026-10-05T11:00:00.000Z', soreness: 'sore', effort: 'easy', pump: 'low', summaryDone: true })]
 
-  it('applies the answers: fewer sets, more weight, more reps', () => {
+  it('applies the answers: fewer sets, one more weight step, one more rep', () => {
     const sets = buildInitialSets(week2, prior(100, 8), 'now', { feedback: entries, blockId: BLOCK })
     expect(sets['barbell-bench-press']).toHaveLength(2)
-    expect(sets['barbell-bench-press'][0]).toMatchObject({ weight: '105', reps: '9' })
+    expect(sets['barbell-bench-press'][0]).toMatchObject({ weight: '105', reps: '9', targetReps: 9 })
     expect(sets['cable-pushdown']).toHaveLength(3)
   })
 
-  it('without any answers it behaves exactly as before (the existing RIR rule: more in reserve than target adds 5 lb)', () => {
+  it('without any answers it adds a rep and keeps the weight', () => {
     const sets = buildInitialSets(week2, prior(100, 8), 'now', { feedback: [], blockId: BLOCK })
     expect(sets['barbell-bench-press']).toHaveLength(3)
-    expect(sets['barbell-bench-press'][0]).toMatchObject({ weight: '105', reps: '8' })
-    expect(buildInitialSets(week2, prior(100, 8), 'now')['barbell-bench-press'][0]).toMatchObject({ weight: '105', reps: '8' })
+    expect(sets['barbell-bench-press'][0]).toMatchObject({ weight: '100', reps: '9' })
+    expect(buildInitialSets(week2, prior(100, 8), 'now')['barbell-bench-press'][0]).toMatchObject({ weight: '100', reps: '9' })
   })
 
-  it('leaves the deload week alone: half weight, same reps, planned sets, even with feedback', () => {
+  it('lowers the weight only after a session where every set was missed, whatever the answers were', () => {
+    const missed = prior(100, 6, 8)
+    expect(buildInitialSets(week2, missed, 'now', { feedback: entries, blockId: BLOCK })['barbell-bench-press'][0]).toMatchObject({ weight: '95', reps: '8' })
+    expect(buildInitialSets(week2, missed, 'now')['barbell-bench-press'][1]).toMatchObject({ weight: '95' })
+  })
+
+  it('leaves the deload week alone: half weight, same reps, planned sets, even with answers', () => {
     const sets = buildInitialSets(workoutFor(block, 'w5-d1'), prior(100, 8), 'now', { feedback: entries, blockId: BLOCK })
     expect(sets['barbell-bench-press']).toHaveLength(3)
     expect(sets['barbell-bench-press'][0]).toMatchObject({ weight: '50', reps: '8' })
@@ -156,7 +210,7 @@ describe('using feedback when building the next session', () => {
     const bench = week2.exercises[0]
     const text = suggestionText(bench, week2, prior(100, 8).filter((set) => set.exerciseId === bench.id), { feedback: entries, blockId: BLOCK })
     expect(text).toMatch(/Aim for 105 lb × 9/)
-    expect(text).toMatch(/easy: \+5% weight/)
+    expect(text).toMatch(/easy: \+5 lb/)
     expect(text).toMatch(/Low pump: \+1 rep/)
   })
 })

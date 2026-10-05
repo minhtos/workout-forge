@@ -6,7 +6,7 @@
 
 1. **Pick a block** — 2, 3 or 4 training days per week, for 4 or 6 weeks. Every block ends with a deload week (50% load):
    - 4 weeks: RIR 3, 2, 1, 0, then deload
-   - 6 weeks: RIR 3, 3, 2, 2, 1, 0, then deload
+   - 6 weeks: RIR 3, 2, 2, 1, 1, 0, then deload
 2. **Plan each day** — start from a **Workout Set** or build it yourself. Sets predefine muscle groups and you pick one exercise per slot: Push | Pull | Legs (3 days), Push | Pull A/B (4 days), Whole Body (2 days). **StrongLifts 5x5** (3 days): workouts A/B alternate, lifts are prefilled, and weight goes up 5 lb per session (10 lb deadlift) once every rep is hit. Or add exercises from a menu (filter by muscle group, create your own), set 1–5 sets each, and reorder.
 3. **Start the block** — exercises lock until the block is complete.
 4. **Train** — the Workout tab shows only the next workout. Each set auto-saves on this device and, when signed in, to Supabase. Progress is suggested from last session's matching set.
@@ -40,13 +40,20 @@ npm run lint
 
 ## How progression works (RIR blocks)
 
-The weekly target RIR steps down through the block (4 weeks: 3, 2, 1, 0; 6 weeks: 3, 3, 2, 2, 1, 0) and the last week is a deload (50% of the last working weight, same reps, planned sets). Three quick questions then steer each muscle group, and every answer can be skipped:
+Each week has a target RIR (reps in reserve): 4 weeks go 3, 2, 1, 0 and 6 weeks go 3, 2, 2, 1, 1, 0, then a deload week (50% of the last working weight, same reps, planned sets). You pick a weight and reps that get you to that week's target; there is no per-set RIR box to fill in. The app then decides the next session from what you did, plus three quick questions that can all be skipped.
 
-- **Recovery** (after the first exercise of a muscle group, only if you trained it before): *still sore* takes a set off every exercise for that muscle group, *just on time* changes nothing, *recovered early* adds a set. It applies to the unstarted exercises today and carries through the rest of the block (2 to 6 sets per exercise, at most 3 up or down in total). Sets are the only thing this changes.
-- **Effort** (after the last exercise of a muscle group): *easy* adds 5% to the weight next time (10% if you logged 2+ reps in reserve beyond the target), *just right* adds 2.5%, *too hard* keeps the weight. Weights move in 2.5 lb steps. Weight is the only thing this changes.
-- **Muscle pump** (same prompt): *low* adds a rep next time (two if the previous check was also low), *high* keeps reps. Past the top of the rep range it adds weight and goes back to the bottom of the range. Reps are the only thing this changes.
+**Missed reps come first**
+- Every set missed its reps: the weight drops one step. This is the only time weight goes down.
+- The workout was completed but some sets were short: the weight stays, and each short set starts from what you actually did plus one rep.
 
-If you skip a question the standard RIR rule is used instead. The deload week and StrongLifts 5x5 never ask. Answers are stored with the session and back up with the program.
+**When every set hit its reps**
+- **Effort** (after the last exercise of a muscle group): *easy* adds one weight step, *just right* and *too hard* keep the weight. Steps are 2.5 lb for dumbbell exercises and 5 lb for everything else, which is also the most the weight can rise in a week.
+- **Muscle pump** (same prompt): *low* adds a rep (two if the previous check was also low; none if the effort was too hard), *high* keeps reps. Reps only come back down when the weight goes up at the top of the rep range: the weight rises one step and reps return to the bottom of the range.
+- If you skip both, the default is one more rep.
+
+**Recovery** (after the first exercise of a muscle group, only if you trained it before): *still sore* takes a set off every exercise for that muscle group, *just on time* changes nothing, *recovered early* adds a set. It applies to the unstarted exercises today and carries through the rest of the block (2 to 6 sets per exercise, at most 3 up or down in total). Sets are the only thing this changes.
+
+The deload week and StrongLifts 5x5 never ask. Answers are stored with the session and back up with the program.
 ## Hosting notes
 
 - Production is https://workoutforge.app (Vercel, auto-deploys from `main`). `vercel.json` forwards the old `workout-forge-iota.vercel.app` address to it; add `?keep=1` to the old address to reach the old site (for example to export data saved there).
