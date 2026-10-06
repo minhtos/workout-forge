@@ -40,12 +40,12 @@ const definitions: WorkoutSet[] = [
   },
   {
     id: 'upper-lower-x2', name: 'Upper | Lower x2', recommendedDays: 4, progression: 'rir', rotation: false,
-    summary: 'Upper, lower, upper, lower: every muscle twice a week. Upper days add one arm slot (triceps, then biceps); lower days finish with calves and core.',
+    summary: 'Upper A is chest, back and arms; Lower A is squat-focused (quads, calves, core); Upper B is shoulders, back and arms; Lower B is hinge-focused (hamstrings, glutes, core).',
     days: [
-      { title: 'Upper A', slots: slots(['Chest', 2], ['Back', 2], ['Shoulders', 1], ['Triceps', 1]) },
-      { title: 'Lower A', slots: slots(['Quads', 2], ['Hamstrings', 1], ['Calves', 1], ['Core', 1]) },
-      { title: 'Upper B', slots: slots(['Chest', 2], ['Back', 2], ['Shoulders', 1], ['Biceps', 1]) },
-      { title: 'Lower B', slots: slots(['Quads', 2], ['Hamstrings', 1], ['Calves', 1], ['Core', 1]) },
+      { title: 'Upper A', slots: slots(['Chest', 2], ['Back', 2], ['Triceps', 1], ['Biceps', 1]) },
+      { title: 'Lower A', slots: slots(['Quads', 3], ['Calves', 1], ['Core', 1]) },
+      { title: 'Upper B', slots: slots(['Shoulders', 2], ['Back', 2], ['Triceps', 1], ['Biceps', 1]) },
+      { title: 'Lower B', slots: slots(['Hamstrings', 2], ['Glutes', 2], ['Core', 1]) },
     ],
   },
   {

@@ -15,11 +15,11 @@ describe('Workout Sets', () => {
     ])
   })
 
-  it('builds Upper | Lower x2 as two upper and two lower days', () => {
+  it('builds Upper | Lower x2 as squat, hinge, push and pull focused days', () => {
     const counts = (id: string) => applied(id).templates.map((day) => [day.title, day.exercises.length, Object.entries(day.exercises.reduce<Record<string, number>>((acc, entry) => ({ ...acc, [entry.category!]: (acc[entry.category!] ?? 0) + 1 }), {})).map(([group, n]) => `${n} ${group}`).join(', ')])
     expect(counts('upper-lower-x2')).toEqual([
-      ['Upper A', 6, '2 Chest, 2 Back, 1 Shoulders, 1 Triceps'], ['Lower A', 5, '2 Quads, 1 Hamstrings, 1 Calves, 1 Core'],
-      ['Upper B', 6, '2 Chest, 2 Back, 1 Shoulders, 1 Biceps'], ['Lower B', 5, '2 Quads, 1 Hamstrings, 1 Calves, 1 Core'],
+      ['Upper A', 6, '2 Chest, 2 Back, 1 Triceps, 1 Biceps'], ['Lower A', 5, '3 Quads, 1 Calves, 1 Core'],
+      ['Upper B', 6, '2 Shoulders, 2 Back, 1 Triceps, 1 Biceps'], ['Lower B', 5, '2 Hamstrings, 2 Glutes, 1 Core'],
     ])
     expect(counts('ppl-accessory')).toEqual([
       ['Push', 5, '2 Chest, 2 Shoulders, 1 Triceps'], ['Pull', 5, '3 Back, 1 Biceps, 1 Shoulders'],
