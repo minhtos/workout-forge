@@ -78,7 +78,7 @@ select option { background: var(--surface-2); color: var(--ink); }
 .workspace-heading { display: flex; justify-content: space-between; align-items: flex-end; gap: 20px; }
 .plan-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; margin-top: 40px; align-items: start; }
 .plan-grid .setup-card h2 { margin-bottom: 16px; }
-.plan-slot { display: grid; grid-template-columns: 1fr 92px; gap: 8px; align-items: center; padding: 10px 0; border-top: 1px solid var(--hairline); }
+.plan-slot { display: grid; grid-template-columns: 1fr 92px; gap: 8px; align-items: end; padding: 10px 0; border-top: 1px solid var(--hairline); }
 .slot-label { font: 12px var(--font-mono); color: var(--ink-subtle); text-transform: uppercase; }
 .slot-name { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
 .slot-name strong { font-weight: 500; font-size: 15px; }

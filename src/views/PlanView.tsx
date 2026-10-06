@@ -9,6 +9,7 @@ interface Props {
   /** Exercises turned off in the library; they are left out of the menus. */
   hiddenIds: string[]
   onApplySet: (set: WorkoutSet) => void
+  onCustomPlan: () => void
   onRename: (dayIndex: number, title: string) => void
   onAdd: (dayIndex: number, exerciseId: string) => void
   onChoose: (dayIndex: number, position: number, exerciseId: string | null) => void
@@ -22,7 +23,7 @@ interface Props {
 
 type Filter = MuscleGroup | 'All'
 
-export function PlanView({ block, catalog, hiddenIds, onApplySet, onRename, onAdd, onChoose, onCreate, onRemove, onMove, onSets, onBack, onStart }: Props) {
+export function PlanView({ block, catalog, hiddenIds, onApplySet, onCustomPlan, onRename, onAdd, onChoose, onCreate, onRemove, onMove, onSets, onBack, onStart }: Props) {
   const [pickerDay, setPickerDay] = useState<number | null>(null)
   const [filter, setFilter] = useState<Filter>('All')
   const [newName, setNewName] = useState('')
@@ -44,7 +45,14 @@ export function PlanView({ block, catalog, hiddenIds, onApplySet, onRename, onAd
         <h2>{set.name}</h2>
         <p>{set.summary}</p>
         <button className="secondary-button" aria-label={`Use ${set.name}`} onClick={() => onApplySet(set)}>{set.id === block.workoutSetId ? 'Applied' : 'Use this set'}</button>
-      </article>)}</div>
+      </article>)}
+        <article className={block.workoutSetId === null ? 'set-card selected' : 'set-card'}>
+          <span className="badge">Your choice</span>
+          <h2>Create my custom plan</h2>
+          <p>Name each day, pick every exercise yourself, or create your own exercises.</p>
+          <button className="secondary-button" aria-label="Create my custom plan" disabled={block.workoutSetId === null} onClick={onCustomPlan}>{block.workoutSetId === null ? 'Applied' : 'Build my own'}</button>
+        </article>
+      </div>
     </section>
 
     <div className="plan-grid">{block.templates.map((day, dayIndex) => {

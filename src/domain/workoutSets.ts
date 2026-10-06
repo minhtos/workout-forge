@@ -1,4 +1,4 @@
-import { type Block, type MuscleGroup, type PlanExercise, type TrainingDaysPerWeek } from './program'
+import { createBlock, type Block, type MuscleGroup, type PlanExercise, type TrainingDaysPerWeek } from './program'
 import type { Progression } from './progression'
 
 /** A slot fixes a muscle group; the user picks the exercise. Programs like 5x5 also prefill the lift and rep target. */
@@ -74,6 +74,11 @@ export function applyWorkoutSet(block: Block, set: WorkoutSet): Block {
       exercises: day.slots.map((slot): PlanExercise => ({ exerciseId: slot.exerciseId ?? null, category: slot.category, sets: slot.sets ?? 3, ...(slot.reps ? { reps: slot.reps } : {}) })),
     })),
   }
+}
+
+/** Back to a blank custom plan: the same days and weeks, no Workout Set, and every day empty for the user to fill. */
+export function clearWorkoutSet(block: Block): Block {
+  return { ...block, templates: createBlock(block.trainingDays, block.durationWeeks).templates, progression: 'rir', rotation: false, workoutSetId: null }
 }
 
 /** True when the plan holds choices worth confirming before they are replaced: edits to a Workout Set, or exercises picked without one. */

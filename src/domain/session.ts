@@ -1,5 +1,5 @@
 import { roundWeight } from './weights'
-import type { ExercisePrescription, MuscleGroup, ScheduledWorkout } from './program'
+import { listWorkouts, type Block, type ExercisePrescription, type MuscleGroup, type ScheduledWorkout } from './program'
 import { feedbackFor, missedReps, nextSetTarget, setOffset, tunedSets, usesFeedback, type SessionFeedback } from './autoregulation'
 import { deloadLoad, linearIncrement } from './progression'
 import { carryOverFor } from './transition'
@@ -67,7 +67,25 @@ export function describeLastSession(sets: CompletedSetRecord[]): string {
   return sets.map((set) => (missedReps(set) > 0 ? `${set.weight}×${set.reps} (target ${set.targetReps})` : `${set.weight}×${set.reps}`)).join(' · ')
 }
 
-export function suggestionText(exercise: ExercisePrescription, workout: ScheduledWorkout, last: CompletedSetRecord[], tune?: TuneContext, previous: CompletedSetRecord[] = []): string {
+/**
+ * True when this exercise was scheduled in a workout the user finished, after the last session that logged it (so it was
+ * skipped or left unlogged). Sessions from an earlier block do not count.
+ */
+export function skippedSinceLast(block: Block, exerciseId: string, last: CompletedSetRecord[], currentWorkoutId: string): boolean {
+  if (!last.length || (block.startedAt && last[0].completedAt < block.startedAt)) return false
+  const order = listWorkouts(block)
+  const from = order.findIndex((workout) => workout.id === last[0].workoutId)
+  const to = order.findIndex((workout) => workout.id === currentWorkoutId)
+  if (from < 0 || to <= from) return false
+  return order.slice(from + 1, to).some((workout) => block.completedIds.includes(workout.id) && block.templates[workout.templateIndex].exercises.some((entry) => entry.exerciseId === exerciseId))
+}
+
+export function suggestionText(exercise: ExercisePrescription, workout: ScheduledWorkout, last: CompletedSetRecord[], tune?: TuneContext, previous: CompletedSetRecord[] = [], skippedLast = false): string {
+  const text = baseSuggestion(exercise, workout, last, tune, previous)
+  return skippedLast && last.length ? `${text} You skipped this last time, so the target repeats.` : text
+}
+
+function baseSuggestion(exercise: ExercisePrescription, workout: ScheduledWorkout, last: CompletedSetRecord[], tune: TuneContext | undefined, previous: CompletedSetRecord[]): string {
   const base = last[last.length - 1]
   if (!base) return workout.progression === 'linear' ? 'First time: start light and add weight each session.' : `First time: pick a weight and reps that leave about ${workout.target.targetRir} in reserve.`
   if (workout.target.kind === 'deload') return `Deload: ${deloadLoad(Math.max(...last.map((set) => set.weight)), workout.target.loadMultiplier)} lb for ${base.reps} reps (half your last load).`

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import { addExerciseToDay, createBlock, findWorkout, mergeCatalog, resolveWorkout } from './program'
-import { addSetEntry, applyEntryPatch, buildInitialSets, lastSessionSets, maxSetsPerExercise, previousSessionSets, parseEntry, removeLastSetEntry } from './session'
+import { addSetEntry, applyEntryPatch, buildInitialSets, lastSessionSets, maxSetsPerExercise, previousSessionSets, skippedSinceLast, suggestionText, parseEntry, removeLastSetEntry } from './session'
 import type { CompletedSetRecord } from './storage'
 
 const catalog = mergeCatalog([])
@@ -88,5 +88,32 @@ describe('previousSessionSets', () => {
     expect(previousSessionSets(history, 'barbell-bench-press', 'c').map((set) => set.sessionId)).toEqual(['a'])
     expect(previousSessionSets(history, 'barbell-bench-press', '').map((set) => set.sessionId)).toEqual(['b'])
     expect(previousSessionSets(history.slice(0, 1), 'barbell-bench-press', '')).toEqual([])
+  })
+})
+
+describe('skippedSinceLast', () => {
+  const last = [logged('a', 1, 100, 8, 3, '2026-10-06T10:00:00.000Z')]
+  const finished = (ids: string[], startedAt: string | null = null) => ({ ...block, completedIds: ids, startedAt })
+
+  it('is true when a finished workout that schedules the exercise came after its last logged session', () => {
+    expect(skippedSinceLast(finished(['w1-d1', 'w2-d1']), 'barbell-bench-press', last, 'w3-d1')).toBe(true)
+  })
+
+  it('is false when the in-between workout was never finished, is not between, or does not schedule the exercise', () => {
+    expect(skippedSinceLast(finished(['w1-d1']), 'barbell-bench-press', last, 'w3-d1')).toBe(false)
+    expect(skippedSinceLast(finished(['w1-d1', 'w2-d1']), 'barbell-bench-press', last, 'w2-d1')).toBe(false)
+    expect(skippedSinceLast(finished(['w1-d1', 'w2-d1']), 'barbell-squat', last, 'w3-d1')).toBe(false)
+    expect(skippedSinceLast(finished(['w1-d1', 'w2-d1']), 'barbell-bench-press', [], 'w3-d1')).toBe(false)
+  })
+
+  it('ignores sessions from an earlier block', () => {
+    expect(skippedSinceLast(finished(['w1-d1', 'w2-d1'], '2026-10-20T00:00:00.000Z'), 'barbell-bench-press', last, 'w3-d1')).toBe(false)
+  })
+
+  it('adds a note to the suggestion only when it was skipped', () => {
+    const exercise = week(3).exercises[0]
+    expect(suggestionText(exercise, week(3), last, undefined, [], true)).toMatch(/You skipped this last time, so the target repeats\./)
+    expect(suggestionText(exercise, week(3), last, undefined, [], false)).not.toMatch(/skipped/)
+    expect(suggestionText(exercise, week(3), [], undefined, [], true)).not.toMatch(/skipped/)
   })
 })

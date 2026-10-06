@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { createBlock, findWorkout, listWorkouts, mergeCatalog, nextWorkout, planProblem, resolveWorkout, setSlotExercise } from './program'
 import { buildInitialSets, linearNext, suggestionText } from './session'
 import type { CompletedSetRecord } from './storage'
-import { applyWorkoutSet, findWorkoutSet, isPlanCustomized, workoutSets } from './workoutSets'
+import { applyWorkoutSet, clearWorkoutSet, findWorkoutSet, isPlanCustomized, workoutSets } from './workoutSets'
 
 const catalog = mergeCatalog([])
 const set = (id: string) => findWorkoutSet(id)!
@@ -133,5 +133,16 @@ describe('isPlanCustomized', () => {
   it('without a set, is true only when an exercise is chosen', () => {
     expect(isPlanCustomized(createBlock(3, 4))).toBe(false)
     expect(isPlanCustomized(setSlotExercise({ ...applied('whole-body'), workoutSetId: null }, 0, 0, 'barbell-bench-press'))).toBe(true)
+  })
+})
+
+describe('clearWorkoutSet', () => {
+  it('goes back to blank, free-form days and drops the set, keeping the days and weeks', () => {
+    const cleared = clearWorkoutSet(applied('strength-5x5', 6))
+    expect(cleared.workoutSetId).toBeNull()
+    expect(cleared.rotation).toBe(false)
+    expect(cleared.progression).toBe('rir')
+    expect(cleared.durationWeeks).toBe(6)
+    expect(cleared.templates.map((day) => [day.title, day.exercises.length])).toEqual([['Day 1', 0], ['Day 2', 0], ['Day 3', 0]])
   })
 })

@@ -5,10 +5,10 @@ import { applyProgramSnapshot, runProgramSync } from './domain/programSync'
 import { addCustomExercise, deleteCustomExercise, enabledCatalog, exerciseInUse, mergeCustomExercises, setExerciseEnabled, setGroupEnabled, updateCustomExercise } from './domain/exercises'
 import { totalWeeks, type ProgramDurationWeeks } from './domain/progression'
 import { mergeFeedback, nextPrompt, resizeEntries, setOffset, tuneWorkoutSets, tunedSets, upsertFeedback, usesFeedback, type Effort, type Pump, type SessionFeedback, type Soreness } from './domain/autoregulation'
-import { addSetEntry, applyEntryPatch, buildInitialSets, lastSessionSets, maxSetsPerExercise, parseEntry, removeLastSetEntry, type TuneContext } from './domain/session'
+import { addSetEntry, applyEntryPatch, buildInitialSets, lastSessionSets, maxSetsPerExercise, parseEntry, removeLastSetEntry, skippedSinceLast, type TuneContext } from './domain/session'
 import { adjustRepsForWeightEdit, historicalOneRepMax, type RepNotice } from './domain/repAdjust'
 import { carryOverFor, previousBlockId, startingOffsets } from './domain/transition'
-import { applyWorkoutSet, isPlanCustomized, type WorkoutSet } from './domain/workoutSets'
+import { applyWorkoutSet, clearWorkoutSet, isPlanCustomized, type WorkoutSet } from './domain/workoutSets'
 import { archiveWorkoutState, emptyState, exportWorkoutState, loadWorkoutState, parseImportedState, saveWorkoutState, type SavedWorkoutState, type SetEntry } from './domain/storage'
 import { loadRestTimerEnabled, saveRestTimerEnabled } from './domain/settings'
 import { backupSession, restoreSessions } from './domain/sync'
@@ -198,6 +198,10 @@ function App() {
   function applySet(set: WorkoutSet) {
     if (block && isPlanCustomized(block) && !window.confirm(`Replace your current plan with ${set.name}?`)) return
     editPlan((current) => applyWorkoutSet(current, set))
+  }
+  function customPlan() {
+    if (block && isPlanCustomized(block) && !window.confirm('Replace your current plan with a blank custom plan?')) return
+    editPlan(clearWorkoutSet)
   }
   /** Adds a custom exercise to the catalog (or reuses an existing one with the same name) and puts it on the day. */
   function createExercise(dayIndex: number, name: string, category: MuscleGroup, compound = false): string | null {
@@ -417,9 +421,9 @@ function App() {
       <span className="local-badge"><i /> {owned ? (state.pendingSessionIds.length ? 'Syncing' : 'Backed up') : 'Local-first'}</span></header>
     {saveFailed && <p className="form-error banner" role="alert">This device could not save your data (storage full or blocked). Export your data from Settings now.</p>}
     {view === 'setup' && <SetupView days={setupDays} weeks={setupWeeks} hasHistory={history.length > 0} onDays={setSetupDays} onWeeks={setSetupWeeks} onContinue={() => { setState({ ...state, block: createBlock(setupDays, setupWeeks) }); setView('plan') }} />}
-    {view === 'plan' && block && <PlanView block={block} catalog={catalog} hiddenIds={state.hiddenExerciseIds} onApplySet={applySet} onChoose={(day, position, id) => editPlan((current) => setSlotExercise(current, day, position, id))} onRename={(day, title) => editPlan((current) => renameDay(current, day, title))} onAdd={(day, id) => editPlan((current) => addExerciseToDay(current, day, id))} onCreate={createExercise} onRemove={(day, position) => editPlan((current) => removeExerciseFromDay(current, day, position))} onMove={(day, position, delta) => editPlan((current) => moveExercise(current, day, position, delta))} onSets={(day, position, sets) => editPlan((current) => setExerciseSets(current, day, position, sets))} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
+    {view === 'plan' && block && <PlanView block={block} catalog={catalog} hiddenIds={state.hiddenExerciseIds} onApplySet={applySet} onCustomPlan={customPlan} onChoose={(day, position, id) => editPlan((current) => setSlotExercise(current, day, position, id))} onRename={(day, title) => editPlan((current) => renameDay(current, day, title))} onAdd={(day, id) => editPlan((current) => addExerciseToDay(current, day, id))} onCreate={createExercise} onRemove={(day, position) => editPlan((current) => removeExerciseFromDay(current, day, position))} onMove={(day, position, delta) => editPlan((current) => moveExercise(current, day, position, delta))} onSets={(day, position, sets) => editPlan((current) => setExerciseSets(current, day, position, sets))} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
     {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} carriedCount={carriedCount} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onNewBlock={newBlock} />}
-    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} repNotices={repNotices} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} onSkip={(id) => setExerciseSkipped(id, true)} onRestore={(id) => setExerciseSkipped(id, false)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
+    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} repNotices={repNotices} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} skippedLast={(id) => !!block && skippedSinceLast(block, id, lastSessionSets(history, id, activeSession.sessionId), activeSession.workoutId)} onSkip={(id) => setExerciseSkipped(id, true)} onRestore={(id) => setExerciseSkipped(id, false)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
     {prompt && <FeedbackSheet key={`${prompt.kind}-${prompt.group}`} prompt={prompt} onSoreness={(value) => answerSoreness(prompt.group, value)} onSummary={(effort, pump) => answerSummary(prompt.group, { effort, pump })} onSkip={skipPrompt} />}
     {view === 'progress' && <ProgressView history={history} catalog={catalog} finished={finished} total={total} />}
     {view === 'library' && <LibraryView catalog={catalog} custom={state.customExercises} hidden={state.hiddenExerciseIds} inUse={(id) => exerciseInUse(block, id)} onToggle={toggleExercise} onToggleGroup={toggleGroup} onAdd={addToLibrary} onUpdate={updateInLibrary} onDelete={deleteFromLibrary} onBack={() => setView('settings')} />}

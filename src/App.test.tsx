@@ -621,6 +621,23 @@ describe('Workout Forge gym flow', () => {
   })
 })
 
+describe('plan screen', () => {
+  it('can go from a Workout Set back to a blank custom plan, and then add exercises', () => {
+    openPlanner()
+    const custom = screen.getByRole('button', { name: 'Create my custom plan' }) as HTMLButtonElement
+    expect(custom.disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Use Whole Body' }))
+    expect(screen.getByLabelText('Day 1 exercise 1 choice')).toBeTruthy()
+    expect(custom.disabled).toBe(false)
+    fireEvent.click(custom)
+    expect(screen.queryByLabelText('Day 1 exercise 1 choice')).toBeNull()
+    expect((screen.getByLabelText('Day 1 name') as HTMLInputElement).value).toBe('Day 1')
+    expect(custom.disabled).toBe(true)
+    addToDay(1, 'Barbell Bench Press')
+    expect(screen.getByText('Barbell Bench Press')).toBeTruthy()
+  })
+})
+
 describe('landing page', () => {
   it('greets a first-time visitor and opens setup without an account', () => {
     render(<App />)
