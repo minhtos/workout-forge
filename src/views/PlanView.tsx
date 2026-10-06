@@ -69,7 +69,7 @@ export function PlanView({ block, catalog, hiddenIds, onApplySet, onCustomPlan, 
           const name = item?.name ?? entry.category ?? 'exercise'
           const label = `Day ${dayIndex + 1} exercise ${position + 1}`
           const isSlot = entry.category !== undefined
-          const choices = enabledCatalog(catalog, hiddenIds, [entry.exerciseId]).filter((candidate) => candidate.category === entry.category)
+          const choices = enabledCatalog(catalog, hiddenIds, [entry.exerciseId]).filter((candidate) => candidate.category === entry.category || candidate.id === entry.exerciseId)
           return <div className="plan-slot" key={position}>
             {isSlot
               ? <div className="slot-name"><span className="slot-label">{entry.category}</span>

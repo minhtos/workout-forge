@@ -38,6 +38,9 @@ describe('Workout Sets', () => {
       expect(catalog.find((item) => item.id === entry.exerciseId)?.category).toBe(entry.category)
       expect(catalog.find((item) => item.id === entry.exerciseId)?.compound).toBe(true)
     }
+    // Deadlift lives in Back, so Back & Biceps is a true 4 Back + 2 Biceps
+    expect(catalog.find((item) => item.id === 'barbell-deadlift')?.category).toBe('Back')
+    expect(block.templates[1].exercises.map((entry) => entry.category)).toEqual(['Back', 'Back', 'Back', 'Back', 'Biceps', 'Biceps'])
     expect(isPlanCustomized(block)).toBe(false)
   })
 

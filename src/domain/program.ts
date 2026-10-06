@@ -43,13 +43,13 @@ export const maxExercisesPerDay = 12
 
 const names: Record<MuscleGroup, string[]> = {
   Chest: ['Barbell Bench Press', 'Barbell Incline Bench Press', 'Dumbbell Incline Bench Press', 'Machine Incline Press', 'Machine Chest Press', 'Machine Fly', 'Dumbbell Fly'],
-  Back: ['Pull-ups', 'Assisted Pull-ups', 'Pull-down', 'Row Machine', 'TBar Row', 'Barbell Row'],
+  Back: ['Pull-ups', 'Assisted Pull-ups', 'Pull-down', 'Row Machine', 'TBar Row', 'Barbell Row', 'Barbell Deadlift'],
   Shoulders: ['Barbell Overhead Press', 'Dumbbell Shoulder Press', 'Lateral Raise', 'Rear Delt Fly', 'Face Pull'],
   Triceps: ['Dumbbell Tricep Extension', 'Cable Pushdown', 'Cable Single Arm Pulldown', 'Cable Pulldown', 'Cable Overhead Extension'],
   Biceps: ['Incline Dumbbell Curls', 'Cable Curls', 'Barbell Curls'],
   Forearms: ['Barbell Wrist Curl', 'Reverse Wrist Curl', 'Reverse Barbell Curl', 'Cable Wrist Curl', 'Farmers Carry'],
   Quads: ['Leg Extension', 'Barbell Squat', 'Leg Press Machine', 'Hack Squat'],
-  Hamstrings: ['Good Mornings', 'Dumbbell RDL', 'Seated Leg Curl', 'Lying Leg Curl', 'Barbell Deadlift'],
+  Hamstrings: ['Good Mornings', 'Dumbbell RDL', 'Seated Leg Curl', 'Lying Leg Curl'],
   Glutes: ['Barbell Hip Thrust', 'Machine Hip Thrust', 'Machine Glute Kickback', 'Cable Pull-Through', 'Dumbbell Walking Lunge'],
   Calves: ['Standing Calf Raise', 'Seated Calf Raise', 'Leg Press Calf Raise', 'Smith Machine Calf Raise', 'Donkey Calf Raise'],
   Core: ['Cable Crunch', 'Hanging Leg Raise', 'Ab Wheel Rollout', 'Decline Sit-up', 'Machine Crunch'],

@@ -65,7 +65,7 @@ const definitions: WorkoutSet[] = [
     summary: 'One muscle group a day: chest and triceps, back and biceps, shoulders and abs, then legs. Each day starts with its main compound lift, prefilled (you can swap it).',
     days: [
       { title: 'Chest & Triceps', slots: [main('Chest', 'barbell-bench-press'), ...slots(['Chest', 3], ['Triceps', 2])] },
-      { title: 'Back & Biceps', slots: [main('Hamstrings', 'barbell-deadlift'), ...slots(['Back', 3], ['Biceps', 2])] },
+      { title: 'Back & Biceps', slots: [main('Back', 'barbell-deadlift'), ...slots(['Back', 3], ['Biceps', 2])] },
       { title: 'Shoulders & Abs', slots: [main('Shoulders', 'dumbbell-shoulder-press'), ...slots(['Shoulders', 3], ['Core', 1])] },
       { title: 'Legs & Calves', slots: [main('Quads', 'barbell-squat'), ...slots(['Quads', 1], ['Hamstrings', 2], ['Calves', 1])] },
     ],
@@ -83,7 +83,7 @@ const definitions: WorkoutSet[] = [
     summary: 'Workouts A and B alternate (A/B/A, then B/A/B). 5 sets of 5, adding weight every session.',
     days: [
       { title: 'Workout A', slots: [lift('Quads', 'barbell-squat'), lift('Chest', 'barbell-bench-press'), lift('Back', 'barbell-row')] },
-      { title: 'Workout B', slots: [lift('Quads', 'barbell-squat'), lift('Shoulders', 'barbell-overhead-press'), lift('Hamstrings', 'barbell-deadlift', 1, 5)] },
+      { title: 'Workout B', slots: [lift('Quads', 'barbell-squat'), lift('Shoulders', 'barbell-overhead-press'), lift('Back', 'barbell-deadlift', 1, 5)] },
     ],
   },
 ]
