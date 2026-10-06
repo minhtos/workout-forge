@@ -94,8 +94,10 @@ export function PlanView({ block, catalog, hiddenIds, onApplySet, onCustomPlan, 
           <form className="add-exercise-form" onSubmit={(event) => { event.preventDefault(); if (!newName.trim()) return; const problem = onCreate(dayIndex, newName.trim(), newCategory, newCompound); setCreateError(problem ?? ''); if (!problem) { setNewName(''); setNewCompound(false) } }}>
             <input aria-label="New exercise name" value={newName} onChange={(event) => setNewName(event.target.value)} placeholder="Not listed? Name a new exercise" />
             <select aria-label="New exercise muscle group" value={newCategory} onChange={(event) => setNewCategory(event.target.value as MuscleGroup)}>{muscleGroups.map((group) => <option key={group}>{group}</option>)}</select>
-            <label className="check-row"><input type="checkbox" aria-label="New exercise is a large compound lift" checked={newCompound} onChange={(event) => setNewCompound(event.target.checked)} />Large compound lift (12 rep max, otherwise 15)</label>
-            <button className="secondary-button" type="submit">Create & add</button>
+            <div className="add-row">
+              <button className="secondary-button" type="submit">Create & add</button>
+              <label className="check-row"><input type="checkbox" aria-label="New exercise is a large compound lift" checked={newCompound} onChange={(event) => setNewCompound(event.target.checked)} />Large compound lift (12 rep max, otherwise 15)</label>
+            </div>
           </form>{createError && <p className="form-error" role="alert">{createError}</p>}
         </div>}
       </article>
