@@ -16,6 +16,8 @@ export interface WorkoutSet {
 }
 
 const slots = (...groups: [MuscleGroup, number][]): WorkoutSetSlot[] => groups.flatMap(([category, count]) => Array.from({ length: count }, () => ({ category })))
+/** A slot prefilled with its main lift. The sets and reps stay up to the plan, and the exercise can still be swapped. */
+const main = (category: MuscleGroup, exerciseId: string): WorkoutSetSlot => ({ category, exerciseId })
 const lift = (category: MuscleGroup, exerciseId: string, sets = 5, reps = 5): WorkoutSetSlot => ({ category, exerciseId, sets, reps })
 
 const definitions: WorkoutSet[] = [
@@ -56,6 +58,16 @@ const definitions: WorkoutSet[] = [
       { title: 'Pull', slots: slots(['Back', 3], ['Biceps', 1], ['Shoulders', 1]) },
       { title: 'Legs', slots: slots(['Quads', 2], ['Hamstrings', 1], ['Calves', 1]) },
       { title: 'Accessory', slots: slots(['Triceps', 1], ['Shoulders', 2], ['Core', 1], ['Forearms', 1]) },
+    ],
+  },
+  {
+    id: 'bro-split', name: 'The Bro Split', recommendedDays: 4, progression: 'rir', rotation: false,
+    summary: 'One muscle group a day: chest and triceps, back and biceps, shoulders and abs, then legs. Each day starts with its main compound lift, prefilled (you can swap it).',
+    days: [
+      { title: 'Chest & Triceps', slots: [main('Chest', 'barbell-bench-press'), ...slots(['Chest', 3], ['Triceps', 2])] },
+      { title: 'Back & Biceps', slots: [main('Hamstrings', 'barbell-deadlift'), ...slots(['Back', 3], ['Biceps', 2])] },
+      { title: 'Shoulders & Abs', slots: [main('Shoulders', 'dumbbell-shoulder-press'), ...slots(['Shoulders', 3], ['Core', 1])] },
+      { title: 'Legs & Calves', slots: [main('Quads', 'barbell-squat'), ...slots(['Quads', 1], ['Hamstrings', 2], ['Calves', 1])] },
     ],
   },
   {

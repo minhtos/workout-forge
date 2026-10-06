@@ -9,9 +9,9 @@ const set = (id: string) => findWorkoutSet(id)!
 const applied = (id: string, weeks: 4 | 6 = 4) => applyWorkoutSet(createBlock(3, weeks), set(id))
 
 describe('Workout Sets', () => {
-  it('offers the six sets ordered from 2 to 4 days', () => {
+  it('offers the seven sets ordered from 2 to 4 days', () => {
     expect(workoutSets.map((entry) => [entry.name, entry.recommendedDays])).toEqual([
-      ['Whole Body', 2], ['Push | Pull | Legs', 3], ['StrongLifts 5x5', 3], ['Push | Pull A/B Split', 4], ['Upper | Lower x2', 4], ['PPL + Accessory Day', 4],
+      ['Whole Body', 2], ['Push | Pull | Legs', 3], ['StrongLifts 5x5', 3], ['Push | Pull A/B Split', 4], ['Upper | Lower x2', 4], ['PPL + Accessory Day', 4], ['The Bro Split', 4],
     ])
   })
 
@@ -25,6 +25,20 @@ describe('Workout Sets', () => {
       ['Push', 5, '2 Chest, 2 Shoulders, 1 Triceps'], ['Pull', 5, '3 Back, 1 Biceps, 1 Shoulders'],
       ['Legs', 4, '2 Quads, 1 Hamstrings, 1 Calves'], ['Accessory', 5, '1 Triceps, 2 Shoulders, 1 Core, 1 Forearms'],
     ])
+  })
+
+  it('builds The Bro Split with each day opening on its main compound lift', () => {
+    const block = applied('bro-split')
+    expect(block.templates.map((day) => [day.title, day.exercises[0].exerciseId, day.exercises.length])).toEqual([
+      ['Chest & Triceps', 'barbell-bench-press', 6], ['Back & Biceps', 'barbell-deadlift', 6], ['Shoulders & Abs', 'dumbbell-shoulder-press', 5], ['Legs & Calves', 'barbell-squat', 5],
+    ])
+    expect(block.templates.map((day) => day.exercises.slice(1).every((entry) => entry.exerciseId === null))).toEqual([true, true, true, true])
+    // every prefilled lift belongs to its slot's muscle group, so it shows in that slot's menu
+    for (const entry of block.templates.flatMap((day) => day.exercises.filter((slot) => slot.exerciseId))) {
+      expect(catalog.find((item) => item.id === entry.exerciseId)?.category).toBe(entry.category)
+      expect(catalog.find((item) => item.id === entry.exerciseId)?.compound).toBe(true)
+    }
+    expect(isPlanCustomized(block)).toBe(false)
   })
 
   it('has enough different exercises in the library for every slot of every set', () => {
