@@ -41,8 +41,10 @@ export function LibraryView({ catalog, custom, hidden, inUse, onToggle, onToggle
       <form className="add-exercise-form" onSubmit={(event) => { event.preventDefault(); run(onAdd(name, category, compound), () => { setName(''); setCompound(false) }) }}>
         <input aria-label="Exercise name" value={name} maxLength={40} onChange={(event) => setName(event.target.value)} placeholder="Exercise name" />
         <select aria-label="Muscle group" value={category} onChange={(event) => setCategory(event.target.value as MuscleGroup)}>{muscleGroups.map((group) => <option key={group}>{group}</option>)}</select>
-        <button className="secondary-button" type="submit">Add</button>
-        <label className="check-row"><input type="checkbox" checked={compound} onChange={(event) => setCompound(event.target.checked)} />{compoundLabel}</label>
+        <div className="add-row">
+          <button className="secondary-button" type="submit">Add</button>
+          <label className="check-row"><input type="checkbox" checked={compound} onChange={(event) => setCompound(event.target.checked)} />{compoundLabel}</label>
+        </div>
       </form>
     </section>
     {error && <p className="form-error" role="alert">{error}</p>}

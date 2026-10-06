@@ -278,7 +278,11 @@ select option { background: var(--surface-2); color: var(--ink); }
 
 /* ---------- Compound checkbox and rep max label ---------- */
 .check-row { display: flex; align-items: center; gap: 10px; flex: 1 1 100%; min-height: 44px; color: var(--ink-muted); font-size: 14px; }
-.check-row input { width: 20px; height: 20px; accent-color: var(--primary); }
+.check-row input { width: 20px; height: 20px; accent-color: var(--primary); flex: none; }
+/* Add button and the compound-lift checkbox share one row, the text right beside the button. */
+.add-row { display: flex; align-items: center; gap: 14px; flex: 1 1 100%; }
+.add-row .secondary-button { flex: none; }
+.add-row .check-row { flex: 1 1 0; min-width: 0; }
 .rep-max { font: 11px var(--font-mono); letter-spacing: 0.04em; color: var(--ink-subtle); }
 
 /* ---------- Progress charts ---------- */
