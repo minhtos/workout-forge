@@ -44,7 +44,7 @@ export const maxExercisesPerDay = 12
 const names: Record<MuscleGroup, string[]> = {
   Chest: ['Barbell Bench Press', 'Barbell Incline Bench Press', 'Dumbbell Incline Bench Press', 'Machine Incline Press', 'Machine Chest Press', 'Machine Fly', 'Dumbbell Fly'],
   Back: ['Pull-ups', 'Assisted Pull-ups', 'Pull-down', 'Row Machine', 'TBar Row', 'Barbell Row'],
-  Shoulders: ['Barbell Overhead Press', 'Dumbbell Shoulder Press', 'Lateral Raise'],
+  Shoulders: ['Barbell Overhead Press', 'Dumbbell Shoulder Press', 'Lateral Raise', 'Rear Delt Fly', 'Face Pull'],
   Triceps: ['Dumbbell Tricep Extension', 'Cable Pushdown', 'Cable Single Arm Pulldown', 'Cable Pulldown', 'Cable Overhead Extension'],
   Biceps: ['Incline Dumbbell Curls', 'Cable Curls', 'Barbell Curls'],
   Forearms: ['Barbell Wrist Curl', 'Reverse Wrist Curl', 'Reverse Barbell Curl', 'Cable Wrist Curl', 'Farmers Carry'],

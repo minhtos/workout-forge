@@ -9,10 +9,31 @@ const set = (id: string) => findWorkoutSet(id)!
 const applied = (id: string, weeks: 4 | 6 = 4) => applyWorkoutSet(createBlock(3, weeks), set(id))
 
 describe('Workout Sets', () => {
-  it('offers the four sets ordered from 2 to 4 days', () => {
+  it('offers the six sets ordered from 2 to 4 days', () => {
     expect(workoutSets.map((entry) => [entry.name, entry.recommendedDays])).toEqual([
-      ['Whole Body', 2], ['Push | Pull | Legs', 3], ['StrongLifts 5x5', 3], ['Push | Pull A/B Split', 4],
+      ['Whole Body', 2], ['Push | Pull | Legs', 3], ['StrongLifts 5x5', 3], ['Push | Pull A/B Split', 4], ['Upper | Lower x2', 4], ['PPL + Accessory Day', 4],
     ])
+  })
+
+  it('builds Upper | Lower x2 as two upper and two lower days', () => {
+    const counts = (id: string) => applied(id).templates.map((day) => [day.title, day.exercises.length, Object.entries(day.exercises.reduce<Record<string, number>>((acc, entry) => ({ ...acc, [entry.category!]: (acc[entry.category!] ?? 0) + 1 }), {})).map(([group, n]) => `${n} ${group}`).join(', ')])
+    expect(counts('upper-lower-x2')).toEqual([
+      ['Upper A', 6, '2 Chest, 2 Back, 1 Shoulders, 1 Triceps'], ['Lower A', 5, '2 Quads, 1 Hamstrings, 1 Calves, 1 Core'],
+      ['Upper B', 6, '2 Chest, 2 Back, 1 Shoulders, 1 Biceps'], ['Lower B', 5, '2 Quads, 1 Hamstrings, 1 Calves, 1 Core'],
+    ])
+    expect(counts('ppl-accessory')).toEqual([
+      ['Push', 5, '2 Chest, 2 Shoulders, 1 Triceps'], ['Pull', 5, '3 Back, 1 Biceps, 1 Shoulders'],
+      ['Legs', 4, '2 Quads, 1 Hamstrings, 1 Calves'], ['Accessory', 5, '1 Triceps, 2 Shoulders, 1 Core, 1 Forearms'],
+    ])
+  })
+
+  it('has enough different exercises in the library for every slot of every set', () => {
+    for (const entry of workoutSets) for (const day of entry.days) {
+      for (const category of new Set(day.slots.map((slot) => slot.category))) {
+        const needed = day.slots.filter((slot) => slot.category === category).length
+        expect(catalog.filter((item) => item.category === category).length, `${entry.name} / ${day.title} / ${category}`).toBeGreaterThanOrEqual(needed)
+      }
+    }
   })
 
   it('predefines muscle groups only, leaving each slot for the user to fill', () => {

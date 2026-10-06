@@ -39,6 +39,26 @@ const definitions: WorkoutSet[] = [
     ],
   },
   {
+    id: 'upper-lower-x2', name: 'Upper | Lower x2', recommendedDays: 4, progression: 'rir', rotation: false,
+    summary: 'Upper, lower, upper, lower: every muscle twice a week. Upper days add one arm slot (triceps, then biceps); lower days finish with calves and core.',
+    days: [
+      { title: 'Upper A', slots: slots(['Chest', 2], ['Back', 2], ['Shoulders', 1], ['Triceps', 1]) },
+      { title: 'Lower A', slots: slots(['Quads', 2], ['Hamstrings', 1], ['Calves', 1], ['Core', 1]) },
+      { title: 'Upper B', slots: slots(['Chest', 2], ['Back', 2], ['Shoulders', 1], ['Biceps', 1]) },
+      { title: 'Lower B', slots: slots(['Quads', 2], ['Hamstrings', 1], ['Calves', 1], ['Core', 1]) },
+    ],
+  },
+  {
+    id: 'ppl-accessory', name: 'PPL + Accessory Day', recommendedDays: 4, progression: 'rir', rotation: false,
+    summary: 'Push, pull and legs, plus a fourth day for arms, lateral and rear delts, core and forearms. Rear delts are a Shoulders slot.',
+    days: [
+      { title: 'Push', slots: slots(['Chest', 2], ['Shoulders', 2], ['Triceps', 1]) },
+      { title: 'Pull', slots: slots(['Back', 3], ['Biceps', 1], ['Shoulders', 1]) },
+      { title: 'Legs', slots: slots(['Quads', 2], ['Hamstrings', 1], ['Calves', 1]) },
+      { title: 'Accessory', slots: slots(['Triceps', 1], ['Shoulders', 2], ['Core', 1], ['Forearms', 1]) },
+    ],
+  },
+  {
     id: 'whole-body', name: 'Whole Body', recommendedDays: 2, progression: 'rir', rotation: false,
     summary: 'Every major muscle group twice a week, one slot per muscle each day.',
     days: [

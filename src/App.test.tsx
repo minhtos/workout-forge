@@ -114,7 +114,7 @@ describe('Workout Forge gym flow', () => {
 
   it('builds a plan from a Workout Set by choosing one exercise per muscle slot', () => {
     openPlanner('3', '4')
-    expect(screen.getAllByText(/Recommended for \d-day program/i)).toHaveLength(4)
+    expect(screen.getAllByText(/Recommended for \d-day program/i)).toHaveLength(6)
     fireEvent.click(screen.getByRole('button', { name: 'Use Push | Pull | Legs' }))
     const start = screen.getByRole('button', { name: /start block/i }) as HTMLButtonElement
     expect(start.disabled).toBe(true)
