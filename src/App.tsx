@@ -86,7 +86,7 @@ function App() {
   const activeWorkout = block && activeRef ? resolveWorkout(block, activeRef, catalog) : null
   const sessionEntries = activeSession ? state.feedback.filter((entry) => entry.sessionId === activeSession.sessionId) : []
   const trainedBefore = (group: MuscleGroup) => !!activeSession && history.some((set) => set.sessionId !== activeSession.sessionId && catalog.find((item) => item.id === set.exerciseId)?.category === group)
-  const prompt = view === 'session' && activeWorkout && activeSession ? nextPrompt({ workout: activeWorkout, sets: activeSession.sets, entries: sessionEntries, trainedBefore, finishing }) : null
+  const prompt = view === 'session' && activeWorkout && activeSession ? nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: sessionEntries, trainedBefore, finishing }) : null
   const total = block ? listWorkouts(block).length : 0
   const finished = block ? block.completedIds.length + block.skippedIds.length : 0
 
@@ -273,6 +273,15 @@ function App() {
   function resizeSets(exerciseId: string, resize: (entries: SetEntry[]) => SetEntry[]) {
     setState((current) => current.activeSession ? { ...current, activeSession: { ...current.activeSession, sets: { ...current.activeSession.sets, [exerciseId]: resize(current.activeSession.sets[exerciseId]) } } } : current)
   }
+  /** Leave an exercise out of this session (or put it back). Only possible before any of its sets are checked off. */
+  function setExerciseSkipped(exerciseId: string, skip: boolean) {
+    setState((current) => {
+      const session = current.activeSession
+      if (!session || (skip && session.sets[exerciseId]?.some((entry) => entry.complete))) return current
+      const rest = (session.skipped ?? []).filter((id) => id !== exerciseId)
+      return { ...current, activeSession: { ...session, skipped: skip ? [...rest, exerciseId] : rest } }
+    })
+  }
   function toggleSet(exercise: ExercisePrescription, index: number) {
     if (!activeSession || !activeWorkout) return
     const { sessionId } = activeSession
@@ -304,7 +313,7 @@ function App() {
   /** Finishing asks any unanswered effort and pump questions first (each can be skipped). */
   function finishWorkout() {
     if (!block || !activeSession || !activeWorkout) return
-    const pending = nextPrompt({ workout: activeWorkout, sets: activeSession.sets, entries: sessionEntries, trainedBefore, finishing: true })
+    const pending = nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: sessionEntries, trainedBefore, finishing: true })
     if (pending) setFinishing(true)
     else completeWorkout(state.feedback)
   }
@@ -331,7 +340,7 @@ function App() {
   function answerSummary(group: MuscleGroup, patch: { effort?: Effort; pump?: Pump }) {
     if (!activeSession || !activeWorkout || !block?.startedAt) return
     const feedback = upsertFeedback(state.feedback, { sessionId: activeSession.sessionId, blockId: block.startedAt, group }, { ...patch, summaryDone: true }, new Date().toISOString())
-    const more = finishing && nextPrompt({ workout: activeWorkout, sets: activeSession.sets, entries: feedback.filter((entry) => entry.sessionId === activeSession.sessionId), trainedBefore, finishing: true })
+    const more = finishing && nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: feedback.filter((entry) => entry.sessionId === activeSession.sessionId), trainedBefore, finishing: true })
     if (finishing && !more) completeWorkout(feedback)
     else setState({ ...state, feedback })
   }
@@ -410,7 +419,7 @@ function App() {
     {view === 'setup' && <SetupView days={setupDays} weeks={setupWeeks} hasHistory={history.length > 0} onDays={setSetupDays} onWeeks={setSetupWeeks} onContinue={() => { setState({ ...state, block: createBlock(setupDays, setupWeeks) }); setView('plan') }} />}
     {view === 'plan' && block && <PlanView block={block} catalog={catalog} hiddenIds={state.hiddenExerciseIds} onApplySet={applySet} onChoose={(day, position, id) => editPlan((current) => setSlotExercise(current, day, position, id))} onRename={(day, title) => editPlan((current) => renameDay(current, day, title))} onAdd={(day, id) => editPlan((current) => addExerciseToDay(current, day, id))} onCreate={createExercise} onRemove={(day, position) => editPlan((current) => removeExerciseFromDay(current, day, position))} onMove={(day, position, delta) => editPlan((current) => moveExercise(current, day, position, delta))} onSets={(day, position, sets) => editPlan((current) => setExerciseSets(current, day, position, sets))} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
     {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} carriedCount={carriedCount} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onNewBlock={newBlock} />}
-    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} repNotices={repNotices} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
+    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} repNotices={repNotices} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} onSkip={(id) => setExerciseSkipped(id, true)} onRestore={(id) => setExerciseSkipped(id, false)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
     {prompt && <FeedbackSheet key={`${prompt.kind}-${prompt.group}`} prompt={prompt} onSoreness={(value) => answerSoreness(prompt.group, value)} onSummary={(effort, pump) => answerSummary(prompt.group, { effort, pump })} onSkip={skipPrompt} />}
     {view === 'progress' && <ProgressView history={history} catalog={catalog} finished={finished} total={total} />}
     {view === 'library' && <LibraryView catalog={catalog} custom={state.customExercises} hidden={state.hiddenExerciseIds} inUse={(id) => exerciseInUse(block, id)} onToggle={toggleExercise} onToggleGroup={toggleGroup} onAdd={addToLibrary} onUpdate={updateInLibrary} onDelete={deleteFromLibrary} onBack={() => setView('settings')} />}

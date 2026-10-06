@@ -29,7 +29,13 @@ export interface CompletedSetRecord {
 
 /** Values are strings while typing; a set is only recorded in history when it is marked complete. */
 export interface SetEntry { reps: string; weight: string; rir: string; complete: boolean; /** The prefilled rep target, kept even if the reps box is edited. */ targetReps?: number }
-export interface ActiveSession { workoutId: string; sessionId: string; sets: Record<string, SetEntry[]> }
+export interface ActiveSession {
+  workoutId: string
+  sessionId: string
+  sets: Record<string, SetEntry[]>
+  /** Exercises left out of this session; nothing is logged for them and they can be restored until the workout ends. */
+  skipped?: string[]
+}
 
 export interface SavedWorkoutState {
   version: 3

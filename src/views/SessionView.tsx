@@ -21,13 +21,16 @@ interface Props {
   onToggle: (exercise: ExercisePrescription, index: number) => void
   onAddSet: (exerciseId: string) => void
   onRemoveSet: (exerciseId: string) => void
+  onSkip: (exerciseId: string) => void
+  onRestore: (exerciseId: string) => void
   onFinish: () => void
   onDiscard: () => void
 }
 
-export function SessionView({ workout, session, history, syncLabel, restTimer, tune, repNotices, error, onBack, onUpdate, onToggle, onAddSet, onRemoveSet, onFinish, onDiscard }: Props) {
+export function SessionView({ workout, session, history, syncLabel, restTimer, tune, repNotices, error, onBack, onUpdate, onToggle, onAddSet, onRemoveSet, onSkip, onRestore, onFinish, onDiscard }: Props) {
   const linear = workout.progression === 'linear'
-  const entries = Object.values(session.sets).flat()
+  const skipped = session.skipped ?? []
+  const entries = Object.entries(session.sets).filter(([id]) => !skipped.includes(id)).flatMap(([, rows]) => rows)
   const done = entries.filter((entry) => entry.complete).length
   return <section className="session-view" aria-labelledby="session-title">
     <button className="back-link" onClick={onBack}>← Back</button>
@@ -37,6 +40,10 @@ export function SessionView({ workout, session, history, syncLabel, restTimer, t
       const rows = session.sets[exercise.id] ?? []
       const current = rows.findIndex((row) => !row.complete)
       const prefix = exerciseIndex === 0 ? '' : `${exercise.name} `
+      if (skipped.includes(exercise.id)) return <article className="exercise-card is-skipped" key={exercise.id}>
+        <div className="exercise-title"><div><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><h2>{exercise.name}</h2><p>Skipped for this session. Nothing is logged for it.</p></div></div>
+        <div className="set-actions"><button className="add-set" aria-label={`Restore ${exercise.name}`} onClick={() => onRestore(exercise.id)}>Restore exercise</button></div>
+      </article>
       return <article className="exercise-card" key={exercise.id}>
         <div className="exercise-title"><div><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><h2>{exercise.name}</h2><p>{rows.length || exercise.sets} {(rows.length || exercise.sets) === 1 ? 'set' : 'sets'} × {exercise.repRange.min === exercise.repRange.max ? exercise.repRange.min : `${exercise.repRange.min}–${exercise.repRange.max}`} reps{linear ? '' : ` · RIR ${workout.target.targetRir}`}</p></div></div>
         {last.length > 0 && <p className="last-time">Last time: {describeLastSession(last)}</p>}
@@ -54,6 +61,7 @@ export function SessionView({ workout, session, history, syncLabel, restTimer, t
         <div className="set-actions">
           <button className="add-set" aria-label={`Add set to ${exercise.name}`} disabled={(session.sets[exercise.id]?.length ?? 0) >= maxSetsPerExercise} onClick={() => onAddSet(exercise.id)}>+ Add set</button>
           <button className="add-set remove" aria-label={`Remove last set from ${exercise.name}`} title="Undo the last set first if it is already checked off" disabled={(session.sets[exercise.id]?.length ?? 0) <= 1 || session.sets[exercise.id]?.at(-1)?.complete === true} onClick={() => onRemoveSet(exercise.id)}>− Remove last set</button>
+          <button className="add-set remove" aria-label={`Skip ${exercise.name}`} title="Leave this exercise out of today's workout. Undo any checked sets first." disabled={rows.some((row) => row.complete)} onClick={() => onSkip(exercise.id)}>Skip exercise</button>
         </div>
       </article>
     })}

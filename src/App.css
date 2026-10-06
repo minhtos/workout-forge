@@ -150,7 +150,7 @@ select option { background: var(--surface-2); color: var(--ink); }
 .check.done { background: var(--success); border-color: var(--success); }
 .check:not(.done)::before { content: '✓'; opacity: 0.45; }
 .is-current .check:not(.done)::before { opacity: 1; }
-.set-actions { display: flex; gap: 18px; margin-top: 6px; }
+.set-actions { display: flex; flex-wrap: wrap; gap: 0 18px; margin-top: 6px; }
 .add-set { margin-top: 14px; border: 0; background: none; color: var(--primary-text); padding: 4px 2px; font-size: 14px; min-height: 44px; }
 .add-set:disabled { opacity: 0.35; cursor: not-allowed; }
 .add-set.remove { color: var(--ink-subtle); }
@@ -386,3 +386,4 @@ select option { background: var(--surface-2); color: var(--ink); }
 .preview-card:has(.auth-card) { flex-direction: column; align-items: stretch; }
 .preview-card .auth-card { max-width: 440px; }
 .session-footer > button:only-child { margin-left: auto; }
+.exercise-card.is-skipped { opacity: 0.72; }

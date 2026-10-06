@@ -177,6 +177,24 @@ describe('Workout Forge gym flow', () => {
     expect(savedState().history).toHaveLength(0)
   })
 
+  it('lets you skip an exercise, and restore it, until a set is checked off', () => {
+    planTwoDays()
+    fireEvent.click(screen.getByRole('button', { name: /start block/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    const skipBench = () => screen.getByRole('button', { name: 'Skip Barbell Bench Press' }) as HTMLButtonElement
+    fireEvent.click(skipBench())
+    expect(screen.getByText(/skipped for this session/i)).toBeTruthy()
+    expect(screen.queryByLabelText('Set 1 weight')).toBeNull()
+    expect(screen.getByText(/0 \/ 3 sets saved/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Restore Barbell Bench Press' }))
+    expect((screen.getByLabelText('Set 1 weight') as HTMLInputElement).value).toBeDefined()
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '135' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+    expect(skipBench().disabled).toBe(true)
+    fireEvent.click(screen.getByRole('button', { name: 'Undo set 1' }))
+    expect(skipBench().disabled).toBe(false)
+  })
+
   it('shows the rest timer only when it is switched on in Settings, and remembers the choice', () => {
     planTwoDays()
     fireEvent.click(screen.getByRole('button', { name: /start block/i }))

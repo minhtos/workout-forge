@@ -170,7 +170,7 @@ export type FeedbackPrompt = { kind: 'soreness'; group: MuscleGroup } | { kind: 
 /**
  * The next question to ask, if any. Soreness comes after the first exercise of a group is finished (only if that
  * muscle group was trained before). Effort and pump come after the whole group is finished, or, when
- * `finishing`, for any group with at least one finished set.
+ * `finishing`, for any group with at least one finished set. Skipped exercises are ignored, so they never hold up a group.
  */
 export function nextPrompt(args: {
   workout: ScheduledWorkout
@@ -178,14 +178,16 @@ export function nextPrompt(args: {
   entries: SessionFeedback[]
   trainedBefore: (group: MuscleGroup) => boolean
   finishing: boolean
+  skipped?: string[]
 }): FeedbackPrompt | null {
-  const { workout, sets, entries, trainedBefore, finishing } = args
+  const { workout, sets, entries, trainedBefore, finishing, skipped = [] } = args
   if (!usesFeedback(workout)) return null
   const groups = [...new Set(workout.exercises.map((exercise) => exercise.category))]
   const done = (id: string) => (sets[id]?.length ?? 0) > 0 && sets[id].every((entry) => entry.complete)
   const some = (id: string) => (sets[id] ?? []).some((entry) => entry.complete)
   for (const group of groups) {
-    const exercises = workout.exercises.filter((exercise) => exercise.category === group)
+    const exercises = workout.exercises.filter((exercise) => exercise.category === group && !skipped.includes(exercise.id))
+    if (!exercises.length) continue
     const entry = entries.find((item) => item.group === group)
     if (done(exercises[0].id) && trainedBefore(group) && !entry?.soreness) return { kind: 'soreness', group }
     const groupDone = exercises.every((exercise) => done(exercise.id))

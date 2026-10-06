@@ -252,6 +252,18 @@ describe('when the questions appear', () => {
     expect(ask(progress, [fb({ sessionId: 's', at: '1', soreness: 'ontime' })])).toBeNull()
   })
 
+  it('ignores skipped exercises, so they never hold up their muscle group', () => {
+    const answered = [fb({ sessionId: 's', at: '1', soreness: 'ontime' })]
+    const base = { workout, entries: answered, trainedBefore: () => true, finishing: false, skipped: ['barbell-incline-bench-press'] }
+    expect(nextPrompt({ ...base, sets: sets({ 'barbell-bench-press': [done(), done(), done()] }) })).toEqual({ kind: 'summary', group: 'Chest' })
+    expect(nextPrompt({ ...base, sets: sets({}) })).toBeNull()
+    // the first exercise skipped: soreness is asked after the next one is done
+    const noEntries = { ...base, entries: [], skipped: ['barbell-bench-press'] }
+    expect(nextPrompt({ ...noEntries, sets: sets({ 'barbell-incline-bench-press': [done(), done(), done()] }) })).toEqual({ kind: 'soreness', group: 'Chest' })
+    // every Chest exercise skipped: nothing to ask about Chest
+    expect(nextPrompt({ ...noEntries, skipped: ['barbell-bench-press', 'barbell-incline-bench-press'], sets: sets({}) })).toBeNull()
+  })
+
   it('asks effort and pump after the last exercise of the group, not before', () => {
     const answered = [fb({ sessionId: 's', at: '1', soreness: 'ontime' })]
     expect(ask({ 'barbell-bench-press': [done(), done(), done()], 'barbell-incline-bench-press': [done(), done(), open()] }, answered)).toBeNull()
