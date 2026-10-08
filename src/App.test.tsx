@@ -112,13 +112,27 @@ describe('Workout Forge gym flow', () => {
     expect(within(screen.getByRole('region', { name: /progress/i })).getByText(/barbell bench press: 135 lb × 6/i)).toBeTruthy()
   })
 
-  it('builds a plan from a Workout Set by choosing one exercise per muscle slot', () => {
+  it('starts a Workout Set with a default exercise in every slot, which can be swapped', () => {
     openPlanner('3', '4')
     expect(screen.getAllByText(/Recommended for \d-day program/i)).toHaveLength(7)
     fireEvent.click(screen.getByRole('button', { name: 'Use Push | Pull | Legs' }))
     const start = screen.getByRole('button', { name: /start block/i }) as HTMLButtonElement
-    expect(start.disabled).toBe(true)
-    expect(screen.getByText(/choose an exercise for every slot on push/i)).toBeTruthy()
+    expect(start.disabled).toBe(false)
+    expect(screen.queryByText(/choose an exercise for every slot/i)).toBeNull()
+    const first = screen.getByLabelText('Day 1 exercise 1 choice') as HTMLSelectElement
+    expect(first.value).toBe('barbell-bench-press')
+    fireEvent.change(first, { target: { value: 'barbell-incline-bench-press' } })
+    expect(first.value).toBe('barbell-incline-bench-press')
+    fireEvent.click(start)
+    expect(screen.getByText(/week 1 of 5 · day 1 of 3/i)).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Push' })).toBeTruthy()
+    expect(screen.getByRole('heading', { name: 'Barbell Incline Bench Press' })).toBeTruthy()
+  })
+
+  it('still lets you choose every slot yourself', () => {
+    openPlanner('3', '4')
+    fireEvent.click(screen.getByRole('button', { name: 'Use Push | Pull | Legs' }))
+    const start = screen.getByRole('button', { name: /start block/i }) as HTMLButtonElement
 
     const days = [['Barbell Bench Press', 'Barbell Incline Bench Press', 'Dumbbell Incline Bench Press', 'Machine Incline Press', 'Cable Pushdown', 'Cable Pulldown'], ['Pull-ups', 'Pull-down', 'Row Machine', 'Barbell Row', 'Cable Curls', 'Barbell Curls'], ['Barbell Squat', 'Hack Squat', 'Leg Press Machine', 'Dumbbell RDL', 'Seated Leg Curl', 'Lying Leg Curl']]
     const idFor = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-')

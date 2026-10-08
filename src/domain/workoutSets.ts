@@ -1,7 +1,7 @@
-import { createBlock, type Block, type MuscleGroup, type PlanExercise, type TrainingDaysPerWeek } from './program'
+import { baseExercises, createBlock, type Block, type MuscleGroup, type PlanExercise, type TrainingDaysPerWeek } from './program'
 import type { Progression } from './progression'
 
-/** A slot fixes a muscle group; the user picks the exercise. Programs like 5x5 also prefill the lift and rep target. */
+/** A slot fixes a muscle group and starts with a default exercise the user can swap. Programs like 5x5 also fix the rep target. */
 export interface WorkoutSetSlot { category: MuscleGroup; sets?: number; reps?: number; exerciseId?: string }
 export interface WorkoutSetDay { title: string; slots: WorkoutSetSlot[] }
 export interface WorkoutSet {
@@ -15,67 +15,71 @@ export interface WorkoutSet {
   days: WorkoutSetDay[]
 }
 
-const slots = (...groups: [MuscleGroup, number][]): WorkoutSetSlot[] => groups.flatMap(([category, count]) => Array.from({ length: count }, () => ({ category })))
-/** A slot prefilled with its main lift. The sets and reps stay up to the plan, and the exercise can still be swapped. */
-const main = (category: MuscleGroup, exerciseId: string): WorkoutSetSlot => ({ category, exerciseId })
+const idOf = (name: string): string => {
+  const item = baseExercises.find((exercise) => exercise.name === name)
+  if (!item) throw new Error(`Workout Sets: no library exercise named "${name}"`)
+  return item.id
+}
+/** One muscle group's slots, each prefilled with a beginner-friendly exercise (by library name). The user can still swap any of them. */
+const fill = (category: MuscleGroup, ...names: string[]): WorkoutSetSlot[] => names.map((name) => ({ category, exerciseId: idOf(name) }))
 const lift = (category: MuscleGroup, exerciseId: string, sets = 5, reps = 5): WorkoutSetSlot => ({ category, exerciseId, sets, reps })
 
 const definitions: WorkoutSet[] = [
   {
     id: 'push-pull-legs', name: 'Push | Pull | Legs', recommendedDays: 3, progression: 'rir', rotation: false,
-    summary: 'Chest and triceps, back and biceps, then legs. Pick an exercise for each muscle slot.',
+    summary: 'Chest and triceps, back and biceps, then legs. Each day opens with a barbell lift; every slot can be swapped.',
     days: [
-      { title: 'Push', slots: slots(['Chest', 4], ['Triceps', 2]) },
-      { title: 'Pull', slots: slots(['Back', 4], ['Biceps', 2]) },
-      { title: 'Legs', slots: slots(['Quads', 3], ['Hamstrings', 3]) },
+      { title: 'Push', slots: [...fill('Chest', 'Barbell Bench Press', 'Machine Chest Press', 'Dumbbell Incline Bench Press', 'Machine Fly'), ...fill('Triceps', 'Cable Pushdown', 'Cable Overhead Extension')] },
+      { title: 'Pull', slots: [...fill('Back', 'Barbell Row', 'Pull-down', 'Row Machine', 'Assisted Pull-ups'), ...fill('Biceps', 'Cable Curls', 'Incline Dumbbell Curls')] },
+      { title: 'Legs', slots: [...fill('Quads', 'Barbell Squat', 'Leg Press Machine', 'Leg Extension'), ...fill('Hamstrings', 'Seated Leg Curl', 'Dumbbell RDL', 'Lying Leg Curl')] },
     ],
   },
   {
     id: 'push-pull-ab', name: 'Push | Pull A/B Split', recommendedDays: 4, progression: 'rir', rotation: false,
-    summary: 'Two push and two pull days. Quads ride along with the push days and hamstrings with the pull days.',
+    summary: 'Two push and two pull days. Quads ride along with the push days and hamstrings with the pull days. Machines and dumbbells to start; every slot can be swapped.',
     days: [
-      { title: 'Push A', slots: slots(['Chest', 2], ['Triceps', 2], ['Quads', 2]) },
-      { title: 'Pull A', slots: slots(['Back', 2], ['Biceps', 2], ['Hamstrings', 2]) },
-      { title: 'Push B', slots: slots(['Chest', 3], ['Triceps', 2], ['Quads', 1]) },
-      { title: 'Pull B', slots: slots(['Back', 3], ['Biceps', 2], ['Hamstrings', 1]) },
+      { title: 'Push A', slots: [...fill('Chest', 'Machine Chest Press', 'Dumbbell Incline Bench Press'), ...fill('Triceps', 'Cable Pushdown', 'Cable Overhead Extension'), ...fill('Quads', 'Leg Press Machine', 'Leg Extension')] },
+      { title: 'Pull A', slots: [...fill('Back', 'Pull-down', 'Row Machine'), ...fill('Biceps', 'Cable Curls', 'Incline Dumbbell Curls'), ...fill('Hamstrings', 'Seated Leg Curl', 'Dumbbell RDL')] },
+      { title: 'Push B', slots: [...fill('Chest', 'Dumbbell Incline Bench Press', 'Machine Chest Press', 'Machine Fly'), ...fill('Triceps', 'Dumbbell Tricep Extension', 'Cable Pushdown'), ...fill('Quads', 'Hack Squat')] },
+      { title: 'Pull B', slots: [...fill('Back', 'Assisted Pull-ups', 'Row Machine', 'TBar Row'), ...fill('Biceps', 'Incline Dumbbell Curls', 'Cable Curls'), ...fill('Hamstrings', 'Lying Leg Curl')] },
     ],
   },
   {
     id: 'upper-lower-x2', name: 'Upper | Lower x2', recommendedDays: 4, progression: 'rir', rotation: false,
-    summary: 'Upper A is chest, back and arms; Lower A is squat-focused (quads, calves, core); Upper B is shoulders, back and arms; Lower B is hinge-focused (hamstrings, glutes, core).',
+    summary: 'Upper A is chest, back and arms; Lower A is squat-focused (quads, calves, core); Upper B is shoulders, back and arms; Lower B is hinge-focused (hamstrings, glutes, core). Every slot can be swapped.',
     days: [
-      { title: 'Upper A', slots: slots(['Chest', 2], ['Back', 2], ['Triceps', 1], ['Biceps', 1]) },
-      { title: 'Lower A', slots: slots(['Quads', 3], ['Calves', 1], ['Core', 1]) },
-      { title: 'Upper B', slots: slots(['Shoulders', 2], ['Back', 2], ['Triceps', 1], ['Biceps', 1]) },
-      { title: 'Lower B', slots: slots(['Hamstrings', 2], ['Glutes', 2], ['Core', 1]) },
+      { title: 'Upper A', slots: [...fill('Chest', 'Machine Chest Press', 'Dumbbell Incline Bench Press'), ...fill('Back', 'Pull-down', 'Row Machine'), ...fill('Triceps', 'Cable Pushdown'), ...fill('Biceps', 'Cable Curls')] },
+      { title: 'Lower A', slots: [...fill('Quads', 'Leg Press Machine', 'Hack Squat', 'Leg Extension'), ...fill('Calves', 'Standing Calf Raise'), ...fill('Core', 'Cable Crunch')] },
+      { title: 'Upper B', slots: [...fill('Shoulders', 'Dumbbell Shoulder Press', 'Lateral Raise'), ...fill('Back', 'Assisted Pull-ups', 'TBar Row'), ...fill('Triceps', 'Cable Overhead Extension'), ...fill('Biceps', 'Incline Dumbbell Curls')] },
+      { title: 'Lower B', slots: [...fill('Hamstrings', 'Dumbbell RDL', 'Seated Leg Curl'), ...fill('Glutes', 'Machine Hip Thrust', 'Cable Pull-Through'), ...fill('Core', 'Machine Crunch')] },
     ],
   },
   {
     id: 'ppl-accessory', name: 'PPL + Accessory Day', recommendedDays: 4, progression: 'rir', rotation: false,
-    summary: 'Push, pull and legs, plus a fourth day for arms, lateral and rear delts, core and forearms. Rear delts are a Shoulders slot.',
+    summary: 'Push, pull and legs, plus a fourth day for arms, lateral and rear delts, core and forearms. Rear delts are a Shoulders slot. Every slot can be swapped.',
     days: [
-      { title: 'Push', slots: slots(['Chest', 2], ['Shoulders', 2], ['Triceps', 1]) },
-      { title: 'Pull', slots: slots(['Back', 3], ['Biceps', 1], ['Shoulders', 1]) },
-      { title: 'Legs', slots: slots(['Quads', 2], ['Hamstrings', 1], ['Calves', 1]) },
-      { title: 'Accessory', slots: slots(['Triceps', 1], ['Shoulders', 2], ['Core', 1], ['Forearms', 1]) },
+      { title: 'Push', slots: [...fill('Chest', 'Barbell Bench Press', 'Machine Chest Press'), ...fill('Shoulders', 'Dumbbell Shoulder Press', 'Lateral Raise'), ...fill('Triceps', 'Cable Pushdown')] },
+      { title: 'Pull', slots: [...fill('Back', 'Barbell Row', 'Pull-down', 'Row Machine'), ...fill('Biceps', 'Cable Curls'), ...fill('Shoulders', 'Rear Delt Fly')] },
+      { title: 'Legs', slots: [...fill('Quads', 'Barbell Squat', 'Leg Press Machine'), ...fill('Hamstrings', 'Seated Leg Curl'), ...fill('Calves', 'Standing Calf Raise')] },
+      { title: 'Accessory', slots: [...fill('Triceps', 'Cable Overhead Extension'), ...fill('Shoulders', 'Lateral Raise', 'Rear Delt Fly'), ...fill('Core', 'Cable Crunch'), ...fill('Forearms', 'Cable Wrist Curl')] },
     ],
   },
   {
     id: 'bro-split', name: 'The Bro Split', recommendedDays: 4, progression: 'rir', rotation: false,
-    summary: 'One muscle group a day: chest and triceps, back and biceps, shoulders and abs, then legs. Each day starts with its main compound lift, prefilled (you can swap it).',
+    summary: 'One muscle group a day: chest and triceps, back and biceps, shoulders and abs, then legs. Each day starts with its main compound lift, then machines and cables. Every slot can be swapped.',
     days: [
-      { title: 'Chest & Triceps', slots: [main('Chest', 'barbell-bench-press'), ...slots(['Chest', 3], ['Triceps', 2])] },
-      { title: 'Back & Biceps', slots: [main('Back', 'barbell-deadlift'), ...slots(['Back', 3], ['Biceps', 2])] },
-      { title: 'Shoulders & Abs', slots: [main('Shoulders', 'dumbbell-shoulder-press'), ...slots(['Shoulders', 3], ['Core', 1])] },
-      { title: 'Legs & Calves', slots: [main('Quads', 'barbell-squat'), ...slots(['Quads', 1], ['Hamstrings', 2], ['Calves', 1])] },
+      { title: 'Chest & Triceps', slots: [...fill('Chest', 'Barbell Bench Press', 'Machine Chest Press', 'Dumbbell Incline Bench Press', 'Machine Fly'), ...fill('Triceps', 'Cable Pushdown', 'Cable Overhead Extension')] },
+      { title: 'Back & Biceps', slots: [...fill('Back', 'Barbell Deadlift', 'Pull-down', 'Row Machine', 'Assisted Pull-ups'), ...fill('Biceps', 'Cable Curls', 'Incline Dumbbell Curls')] },
+      { title: 'Shoulders & Abs', slots: [...fill('Shoulders', 'Dumbbell Shoulder Press', 'Lateral Raise', 'Rear Delt Fly', 'Face Pull'), ...fill('Core', 'Cable Crunch')] },
+      { title: 'Legs & Calves', slots: [...fill('Quads', 'Barbell Squat', 'Leg Press Machine'), ...fill('Hamstrings', 'Seated Leg Curl', 'Dumbbell RDL'), ...fill('Calves', 'Standing Calf Raise')] },
     ],
   },
   {
     id: 'whole-body', name: 'Whole Body', recommendedDays: 2, progression: 'rir', rotation: false,
-    summary: 'Every major muscle group twice a week, one slot per muscle each day.',
+    summary: 'Every major muscle group twice a week, one slot per muscle each day. Machines, cables and dumbbells to start; every slot can be swapped.',
     days: [
-      { title: 'Whole Body A', slots: slots(['Chest', 1], ['Triceps', 1], ['Back', 1], ['Biceps', 1], ['Quads', 1], ['Hamstrings', 1]) },
-      { title: 'Whole Body B', slots: slots(['Back', 1], ['Biceps', 1], ['Chest', 1], ['Triceps', 1], ['Hamstrings', 1], ['Quads', 1]) },
+      { title: 'Whole Body A', slots: [...fill('Chest', 'Machine Chest Press'), ...fill('Triceps', 'Cable Pushdown'), ...fill('Back', 'Pull-down'), ...fill('Biceps', 'Cable Curls'), ...fill('Quads', 'Leg Press Machine'), ...fill('Hamstrings', 'Seated Leg Curl')] },
+      { title: 'Whole Body B', slots: [...fill('Back', 'Row Machine'), ...fill('Biceps', 'Incline Dumbbell Curls'), ...fill('Chest', 'Dumbbell Incline Bench Press'), ...fill('Triceps', 'Cable Overhead Extension'), ...fill('Hamstrings', 'Dumbbell RDL'), ...fill('Quads', 'Leg Extension')] },
     ],
   },
   {

@@ -32,11 +32,12 @@ describe('Workout Sets', () => {
     expect(block.templates.map((day) => [day.title, day.exercises[0].exerciseId, day.exercises.length])).toEqual([
       ['Chest & Triceps', 'barbell-bench-press', 6], ['Back & Biceps', 'barbell-deadlift', 6], ['Shoulders & Abs', 'dumbbell-shoulder-press', 5], ['Legs & Calves', 'barbell-squat', 5],
     ])
-    expect(block.templates.map((day) => day.exercises.slice(1).every((entry) => entry.exerciseId === null))).toEqual([true, true, true, true])
-    // every prefilled lift belongs to its slot's muscle group, so it shows in that slot's menu
-    for (const entry of block.templates.flatMap((day) => day.exercises.filter((slot) => slot.exerciseId))) {
-      expect(catalog.find((item) => item.id === entry.exerciseId)?.category).toBe(entry.category)
-      expect(catalog.find((item) => item.id === entry.exerciseId)?.compound).toBe(true)
+    expect(block.templates.every((day) => day.exercises.every((entry) => entry.exerciseId !== null))).toBe(true)
+    // each day's main lift is a large compound lift in its slot's muscle group, so it shows in that slot's menu
+    for (const day of block.templates) {
+      const main = catalog.find((item) => item.id === day.exercises[0].exerciseId)
+      expect(main?.category).toBe(day.exercises[0].category)
+      expect(main?.compound).toBe(true)
     }
     // Deadlift lives in Back, so Back & Biceps is a true 4 Back + 2 Biceps
     expect(catalog.find((item) => item.id === 'barbell-deadlift')?.category).toBe('Back')
@@ -53,12 +54,29 @@ describe('Workout Sets', () => {
     }
   })
 
-  it('predefines muscle groups only, leaving each slot for the user to fill', () => {
+  it('prefills every slot with a default exercise from the slot muscle group, never repeating one within a day', () => {
     const block = applied('push-pull-legs')
     expect(block.templates.map((day) => day.title)).toEqual(['Push', 'Pull', 'Legs'])
     expect(block.templates[0].exercises.map((entry) => entry.category)).toEqual(['Chest', 'Chest', 'Chest', 'Chest', 'Triceps', 'Triceps'])
-    expect(block.templates.flatMap((day) => day.exercises).every((entry) => entry.exerciseId === null)).toBe(true)
-    expect(planProblem(block, catalog)).toMatch(/Choose an exercise for every slot on Push/)
+    for (const entry of workoutSets) {
+      const plan = applyWorkoutSet(createBlock(3, 4), entry)
+      expect(planProblem(plan, catalog), entry.name).toBeNull()
+      for (const day of plan.templates) {
+        expect(new Set(day.exercises.map((slot) => slot.exerciseId)).size, `${entry.name} / ${day.title}`).toBe(day.exercises.length)
+        for (const slot of day.exercises) expect(catalog.find((item) => item.id === slot.exerciseId)?.category, `${entry.name} / ${day.title}`).toBe(slot.category)
+      }
+    }
+  })
+
+  it('uses the chosen beginner defaults', () => {
+    const names = (id: string) => applied(id).templates.map((day) => day.exercises.map((slot) => catalog.find((item) => item.id === slot.exerciseId)?.name))
+    expect(names('whole-body')).toEqual([
+      ['Machine Chest Press', 'Cable Pushdown', 'Pull-down', 'Cable Curls', 'Leg Press Machine', 'Seated Leg Curl'],
+      ['Row Machine', 'Incline Dumbbell Curls', 'Dumbbell Incline Bench Press', 'Cable Overhead Extension', 'Dumbbell RDL', 'Leg Extension'],
+    ])
+    expect(names('push-pull-legs').map((day) => day[0])).toEqual(['Barbell Bench Press', 'Barbell Row', 'Barbell Squat'])
+    expect(names('ppl-accessory')[1]).toEqual(['Barbell Row', 'Pull-down', 'Row Machine', 'Cable Curls', 'Rear Delt Fly'])
+    expect(names('ppl-accessory')[3]).toEqual(['Cable Overhead Extension', 'Lateral Raise', 'Rear Delt Fly', 'Cable Crunch', 'Cable Wrist Curl'])
   })
 
   it('takes the set\'s day count and keeps weeks', () => {
@@ -76,8 +94,8 @@ describe('Workout Sets', () => {
     expect(planProblem(block, catalog)).toBeNull()
     const twice = setSlotExercise(createBlock(2, 4), 0, 0, null)
     expect(twice.templates[0].exercises).toEqual([])
-    const blockWithDup = setSlotExercise(applied('push-pull-legs'), 0, 0, 'barbell-bench-press')
-    expect(setSlotExercise(blockWithDup, 0, 1, 'barbell-bench-press').templates[0].exercises[1].exerciseId).toBeNull()
+    const blockWithDup = setSlotExercise(applied('push-pull-legs'), 0, 1, 'dumbbell-fly')
+    expect(setSlotExercise(blockWithDup, 0, 0, 'dumbbell-fly').templates[0].exercises[0].exerciseId).toBe('barbell-bench-press')
   })
 })
 
