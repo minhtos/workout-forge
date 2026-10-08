@@ -1,4 +1,4 @@
-import { getWeekTarget, totalWeeks, type Progression, type ProgramDurationWeeks, type RepRange, type WeekTarget } from './progression'
+import { getWeekTarget, totalWeeks, type Progression, type ProgramDurationWeeks, type ProgramParts, type RepRange, type WeekTarget } from './progression'
 
 export type { Progression, ProgramDurationWeeks }
 export type TrainingDaysPerWeek = 2 | 3 | 4
@@ -18,6 +18,10 @@ export interface Block {
   trainingDays: TrainingDaysPerWeek
   /** Training weeks; a deload week is added after them. */
   durationWeeks: ProgramDurationWeeks
+  /** 2 chains two blocks of `durationWeeks` back to back (12 weeks = 2 × 6); each part ends with its own deload. Missing means 1. */
+  parts?: ProgramParts
+  /** Which part is under way. Missing means 1. */
+  part?: ProgramParts
   templates: DayTemplate[]
   progression: Progression
   /** When true the templates (e.g. workouts A and B) alternate across the week's training days and carry over between weeks. */
@@ -87,9 +91,9 @@ export function mergeCatalog(custom: ExerciseCatalogItem[]): ExerciseCatalogItem
 }
 
 /** An empty block: the user decides what to train on each day (or applies a Workout Set). */
-export function createBlock(trainingDays: TrainingDaysPerWeek, durationWeeks: ProgramDurationWeeks): Block {
+export function createBlock(trainingDays: TrainingDaysPerWeek, durationWeeks: ProgramDurationWeeks, parts: ProgramParts = 1): Block {
   return {
-    trainingDays, durationWeeks, progression: 'rir', rotation: false, workoutSetId: null, locked: false, startedAt: null, completedIds: [], skippedIds: [],
+    trainingDays, durationWeeks, ...(parts === 2 ? { parts, part: 1 as ProgramParts } : {}), progression: 'rir', rotation: false, workoutSetId: null, locked: false, startedAt: null, completedIds: [], skippedIds: [],
     templates: Array.from({ length: trainingDays }, (_, index) => ({ title: `Day ${index + 1}`, exercises: [] })),
   }
 }

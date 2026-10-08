@@ -1,6 +1,6 @@
 import { roundWeight } from './weights'
 import { feedbackFor, setOffset, weightIncrement, type SessionFeedback } from './autoregulation'
-import type { ExercisePrescription, MuscleGroup } from './program'
+import type { Block, ExercisePrescription, MuscleGroup } from './program'
 import type { CompletedSetRecord } from './storage'
 
 /**
@@ -45,6 +45,17 @@ export function carryOverFor(args: { exercise: ExercisePrescription; last: Compl
 export function previousBlockId(feedback: SessionFeedback[], currentBlockId: string): string | null {
   const earlier = feedback.filter((entry) => entry.blockId !== currentBlockId).sort((a, b) => b.at.localeCompare(a.at))
   return earlier[0]?.blockId ?? null
+}
+
+/** Whether a chained block (12 weeks = 2 × 6) has finished its first part and is waiting for the second. */
+export const awaitingNextPart = (block: Block, finishedAll: boolean): boolean => block.locked && block.parts === 2 && (block.part ?? 1) === 1 && finishedAll
+
+/**
+ * Part 2 of a chained block: the same exercises, progress cleared, and a fresh start time, so it is treated like a new
+ * block (Week 1 carries over from part 1's 0 RIR week, and sets carry over minus one).
+ */
+export function startNextPart(block: Block, feedback: SessionFeedback[], startedAt: string): Block {
+  return { ...block, part: 2, locked: true, startedAt, startOffsets: startingOffsets(feedback, previousBlockId(feedback, startedAt)), completedIds: [], skippedIds: [] }
 }
 
 /** Starting set offset per muscle group for a new block: last block's final change minus one, never below the plan. */

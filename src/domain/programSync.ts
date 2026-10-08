@@ -20,7 +20,9 @@ const group = z.enum(muscleGroups as [string, ...string[]])
 const planExercise = z.object({ exerciseId: z.string().min(1).nullable(), category: group.optional(), sets: z.number().int().min(1).max(10), reps: z.number().int().min(1).max(100).optional() })
 const blockSchema = z.object({
   trainingDays: z.union([z.literal(2), z.literal(3), z.literal(4)]),
-  durationWeeks: z.union([z.literal(4), z.literal(6)]),
+  durationWeeks: z.union([z.literal(4), z.literal(6), z.literal(8)]),
+  parts: z.union([z.literal(1), z.literal(2)]).optional(),
+  part: z.union([z.literal(1), z.literal(2)]).optional(),
   templates: z.array(z.object({ title: z.string().max(60), exercises: z.array(planExercise).max(12) })).min(1).max(4),
   progression: z.enum(['rir', 'linear']),
   rotation: z.boolean(),

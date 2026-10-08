@@ -4,9 +4,11 @@
 
 ## How it works
 
-1. **Pick a block** — 2, 3 or 4 training days per week, for 4 or 6 weeks. Every block ends with a deload week (50% load):
+1. **Pick a block** — 2, 3 or 4 training days per week, for 4, 6, 8 or 12 weeks. Every block ends with a deload week (50% load):
    - 4 weeks: RIR 3, 2, 1, 0, then deload
    - 6 weeks: RIR 3, 2, 2, 1, 1, 0, then deload
+   - 8 weeks: RIR 3, 3, 2, 2, 1, 1, 0, 0, then deload
+   - 12 weeks: two 6-week parts back to back (6 weeks, deload, 6 weeks, deload). When part 1 is done the app offers part 2, which runs like a new block: the same exercises, Week 1 starting from your last 0 RIR numbers, reps back at the bottom of the range, and sets carried over minus one.
 2. **Plan each day** — start from a **Workout Set** or build it yourself. Sets predefine muscle groups and you pick one exercise per slot: Whole Body (2 days), Push | Pull | Legs (3 days), Push | Pull A/B, Upper | Lower x2, PPL + Accessory Day and The Bro Split (4 days each; the Bro Split opens each day with its main compound lift prefilled). **StrongLifts 5x5** (3 days): workouts A/B alternate, lifts are prefilled, and weight goes up 5 lb per session (10 lb deadlift) once every rep is hit. Or add exercises from a menu (filter by muscle group, create your own), set 1–5 sets each, and reorder.
 3. **Start the block** — exercises lock until the block is complete.
 4. **Train** — the Workout tab shows only the next workout. Each set auto-saves on this device and, when signed in, to Supabase. Progress is suggested from last session's matching set.
@@ -40,7 +42,7 @@ npm run lint
 
 ## How progression works (RIR blocks)
 
-Each week has a target RIR (reps in reserve): 4 weeks go 3, 2, 1, 0 and 6 weeks go 3, 2, 2, 1, 1, 0, then a deload week (50% of the last working weight, same reps, planned sets). You pick a weight and reps that get you to that week's target; there is no per-set RIR box to fill in. The app then decides the next session from what you did, plus three quick questions that can all be skipped.
+Each week has a target RIR (reps in reserve): 4 weeks go 3, 2, 1, 0, 6 weeks go 3, 2, 2, 1, 1, 0 and 8 weeks go 3, 3, 2, 2, 1, 1, 0, 0 (a 12-week program is two 6-week parts), then a deload week (50% of the last working weight, same reps, planned sets). You pick a weight and reps that get you to that week's target; there is no per-set RIR box to fill in. The app then decides the next session from what you did, plus three quick questions that can all be skipped.
 
 **Missed reps come first**
 - **Stall:** missed reps in two sessions in a row at the same weight takes about 10% off that exercise (at least one step, rounded to 2.5 lb), same rep target, without waiting for the deload week. A change of weight resets the count, so it never drops twice in a row.

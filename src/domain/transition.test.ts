@@ -3,7 +3,7 @@ import type { SessionFeedback } from './autoregulation'
 import { addExerciseToDay, createBlock, findWorkout, mergeCatalog, resolveWorkout } from './program'
 import { buildInitialSets, lastSessionSets, suggestionText } from './session'
 import type { CompletedSetRecord } from './storage'
-import { carryOverFor, estimateOneRepMax, previousBlockId, startingOffsets, startingWeight } from './transition'
+import { awaitingNextPart, carryOverFor, estimateOneRepMax, previousBlockId, startNextPart, startingOffsets, startingWeight } from './transition'
 
 const catalog = mergeCatalog([])
 const OLD_BLOCK = '2026-09-01T09:00:00.000Z'
@@ -132,5 +132,37 @@ describe('Week 1 of a new block', () => {
   it('does not touch 5x5 blocks', () => {
     const strengthLast = [record({ sessionId: 'old', setIndex: 1, weight: 135, reps: 5, completedAt: '2026-09-22T10:00:00.000Z', targetRir: 2 })]
     expect(carryOverFor({ exercise: bench, last: strengthLast, blockId: NEW_BLOCK, feedback: [] })).toBeNull()
+  })
+})
+
+describe('chained blocks (12 weeks = 2 × 6)', () => {
+  const chained = () => {
+    let block = createBlock(2, 6, 2)
+    for (const day of [0, 1]) block = addExerciseToDay(block, day, 'barbell-bench-press')
+    return { ...block, locked: true, startedAt: OLD_BLOCK, completedIds: ['w1-d1', 'w1-d2'] }
+  }
+
+  it('starts at part 1 and waits for part 2 only once every workout of part 1 is done', () => {
+    expect(chained().parts).toBe(2)
+    expect(chained().part).toBe(1)
+    expect(awaitingNextPart(chained(), false)).toBe(false)
+    expect(awaitingNextPart(chained(), true)).toBe(true)
+    expect(awaitingNextPart({ ...chained(), part: 2 }, true)).toBe(false)
+    expect(awaitingNextPart(createBlock(2, 6), true)).toBe(false)
+  })
+
+  it('part 2 keeps the exercises, clears progress, restarts the clock and carries sets over minus one', () => {
+    const feedback = [effort('right'), { ...effort(undefined, { sessionId: 's2' }), soreness: 'early' as const }, { ...effort(undefined, { sessionId: 's3' }), soreness: 'early' as const }]
+    const next = startNextPart(chained(), feedback, NEW_BLOCK)
+    expect(next).toMatchObject({ part: 2, parts: 2, durationWeeks: 6, locked: true, startedAt: NEW_BLOCK, completedIds: [], skippedIds: [] })
+    expect(next.templates).toEqual(chained().templates)
+    expect(next.startOffsets).toEqual({ Chest: 1 })
+  })
+
+  it('part 2 week 1 starts from the 0 RIR week of part 1, like any new block', () => {
+    const next = startNextPart(chained(), [], NEW_BLOCK)
+    const workout = resolveWorkout(next, findWorkout(next, 'w1-d1')!, catalog)
+    const sets = buildInitialSets(workout, [...failureWeek, ...deloadWeek], 'new', { feedback: [], blockId: NEW_BLOCK })
+    expect(sets['barbell-bench-press'][0]).toMatchObject({ weight: '185', reps: '6' })
   })
 })

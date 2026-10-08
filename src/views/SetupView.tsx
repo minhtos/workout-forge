@@ -1,12 +1,12 @@
 import { dayOptions, type TrainingDaysPerWeek } from '../domain/program'
-import { durationOptions, totalWeeks, type ProgramDurationWeeks } from '../domain/progression'
+import { lengthLabel, lengthOptions, shapeOf, totalWeeks, type ProgramLength } from '../domain/progression'
 
 interface Props {
   days: TrainingDaysPerWeek
-  weeks: ProgramDurationWeeks
+  weeks: ProgramLength
   hasHistory: boolean
   onDays: (days: TrainingDaysPerWeek) => void
-  onWeeks: (weeks: ProgramDurationWeeks) => void
+  onWeeks: (weeks: ProgramLength) => void
   onContinue: () => void
 }
 
@@ -20,9 +20,9 @@ export function SetupView({ days, weeks, hasHistory, onDays, onWeeks, onContinue
         <div className="choice-grid" aria-label="Training days per week">{dayOptions.map((value) => <button key={value} className={days === value ? 'choice selected' : 'choice'} aria-label={`${value} days per week`} aria-pressed={days === value} onClick={() => onDays(value)}><strong>{value}</strong><span>days / week</span></button>)}</div>
       </section>
       <section className="setup-card"><div className="step-label">02 — Block length</div><h2>How many weeks?</h2>
-        <div className="choice-grid two" aria-label="Program duration">{durationOptions.map((value) => <button key={value} className={weeks === value ? 'choice selected' : 'choice'} aria-label={`${value} weeks`} aria-pressed={weeks === value} onClick={() => onWeeks(value)}><strong>{value}</strong><span>weeks + deload</span></button>)}</div>
+        <div className="choice-grid two" aria-label="Program duration">{lengthOptions.map((value) => <button key={value} className={weeks === value ? 'choice selected' : 'choice'} aria-label={`${value} weeks`} aria-pressed={weeks === value} onClick={() => onWeeks(value)}><strong>{value}</strong><span>{value === 12 ? 'weeks · 2 deloads' : 'weeks + deload'}</span></button>)}</div>
       </section>
     </div>
-    <section className="preview-card" aria-label="Program preview"><div><span className="preview-label">YOUR BLOCK</span><h2>{days} days × {weeks} weeks + deload</h2><p>{days * totalWeeks(weeks)} sessions · RIR-driven progression</p></div><button className="primary-button" onClick={onContinue}>Choose exercises <span>→</span></button></section>
+    <section className="preview-card" aria-label="Program preview"><div><span className="preview-label">YOUR BLOCK</span><h2>{days} days × {lengthLabel(weeks)}</h2><p>{days * totalWeeks(shapeOf(weeks).durationWeeks) * shapeOf(weeks).parts} sessions · RIR-driven progression</p></div><button className="primary-button" onClick={onContinue}>Choose exercises <span>→</span></button></section>
   </section>
 }

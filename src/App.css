@@ -381,7 +381,9 @@ select option { background: var(--surface-2); color: var(--ink); }
 .landing-features { background: var(--surface-1); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
 .landing-inner { width: 100%; max-width: 1200px; margin: 0 auto; padding: clamp(40px, 6vw, 64px) clamp(20px, 4vw, 48px); }
 .landing-features h2 { margin: 0 0 32px; font-size: clamp(34px, 4vw, 44px); }
-.feature-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 24px; }
+.feature-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 24px; }
+@media (max-width: 1099px) { .feature-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 599px) { .feature-grid { grid-template-columns: 1fr; } }
 .feature-card { border: 1px solid var(--hairline); border-radius: 14px; padding: 28px; }
 .feature-number { font: 700 40px var(--font-display); color: var(--primary-text); }
 .feature-card h3 { margin: 8px 0 10px; font-size: 22px; font-weight: 700; }

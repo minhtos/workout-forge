@@ -29,10 +29,10 @@ const planTwoDays = () => { openPlanner(); addToDay(1, 'Barbell Bench Press', 'C
 const savedState = () => JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}') as { history?: unknown[] }
 
 describe('Workout Forge gym flow', () => {
-  it('offers 2, 3 and 4 days and 4 or 6 weeks with a deload, and nothing else', () => {
+  it('offers 2, 3 and 4 days and 4, 6, 8 or 12 weeks, and nothing else', () => {
     renderApp()
     expect(screen.getAllByRole('button', { name: /days per week/i }).map((button) => button.getAttribute('aria-label'))).toEqual(['2 days per week', '3 days per week', '4 days per week'])
-    expect(screen.getAllByRole('button', { name: /^\d+ weeks$/i }).map((button) => button.getAttribute('aria-label'))).toEqual(['4 weeks', '6 weeks'])
+    expect(screen.getAllByRole('button', { name: /^\d+ weeks$/i }).map((button) => button.getAttribute('aria-label'))).toEqual(['4 weeks', '6 weeks', '8 weeks', '12 weeks'])
     fireEvent.click(screen.getByRole('button', { name: /^2 days/i }))
     expect(screen.getByText(/2 days × 4 weeks \+ deload/i)).toBeTruthy()
     expect(screen.getByText(/10 sessions/)).toBeTruthy()
@@ -621,6 +621,33 @@ describe('Workout Forge gym flow', () => {
   })
 })
 
+describe('longer programs', () => {
+  it('previews 8 and 12 week programs, and 12 weeks is two 6-week parts', () => {
+    renderApp()
+    fireEvent.click(screen.getByRole('button', { name: /^2 days/i }))
+    fireEvent.click(screen.getByRole('button', { name: '8 weeks' }))
+    expect(screen.getByText(/2 days × 8 weeks \+ deload/i)).toBeTruthy()
+    expect(screen.getByText(/18 sessions/)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: '12 weeks' }))
+    expect(screen.getByText(/2 days × 12 weeks \(2 × 6, each with a deload\)/i)).toBeTruthy()
+    expect(screen.getByText(/28 sessions/)).toBeTruthy()
+  })
+
+  it('offers part 2 when part 1 of a 12-week program is done, then starts it fresh', () => {
+    let block = createBlock(2, 6, 2)
+    for (const day of [0, 1]) block = addExerciseToDay(block, day, 'barbell-bench-press')
+    const completedIds = Array.from({ length: 7 }, (_, week) => [`w${week + 1}-d1`, `w${week + 1}-d2`]).flat()
+    window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block: { ...block, locked: true, startedAt: '2026-10-01T09:00:00.000Z', completedIds } }))
+    render(<App />)
+    expect(screen.getByText(/part 1 of 2 complete/i)).toBeTruthy()
+    expect(screen.queryByRole('button', { name: /start workout/i })).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /start part 2/i }))
+    expect(screen.getByText(/part 2 of 2 · week 1 of 7 · day 1 of 2/i)).toBeTruthy()
+    expect(screen.getByRole('button', { name: /start workout/i })).toBeTruthy()
+    expect((JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}') as { block: { part: number; completedIds: string[] } }).block).toMatchObject({ part: 2, completedIds: [] })
+  })
+})
+
 describe('plan screen', () => {
   it('can go from a Workout Set back to a blank custom plan, and then add exercises', () => {
     openPlanner()
@@ -643,6 +670,7 @@ describe('landing page', () => {
     render(<App />)
     expect(screen.getByRole('heading', { level: 1, name: /train with a plan/i })).toBeTruthy()
     expect(screen.queryByRole('heading', { name: /set up your next block/i })).toBeNull()
+    expect(screen.getByRole('heading', { name: /what is a deload/i })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /get started free/i }))
     expect(screen.getByRole('heading', { name: /set up your next block/i })).toBeTruthy()
   })

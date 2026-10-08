@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { enabledCatalog } from '../domain/exercises'
 import { maxExercisesPerDay, muscleGroups, planProblem, setCountOptions, type Block, type ExerciseCatalogItem, type MuscleGroup } from '../domain/program'
+import { lengthLabel, lengthOf } from '../domain/progression'
 import { findWorkoutSet, workoutSets, type WorkoutSet } from '../domain/workoutSets'
 
 interface Props {
@@ -36,7 +37,7 @@ export function PlanView({ block, catalog, hiddenIds, onApplySet, onCustomPlan, 
   const available = enabledCatalog(catalog, hiddenIds)
 
   return <section className="workspace" aria-labelledby="plan-title">
-    <div className="workspace-heading"><div><div className="eyebrow">{block.durationWeeks} WEEKS + DELOAD · {block.trainingDays} DAYS / WEEK{activeSet ? ` · ${activeSet.name.toUpperCase()}` : ''}</div><h1 id="plan-title">Choose your exercises</h1><p>Start from a Workout Set, or build each day yourself. Your choices lock in once you start the block.</p></div><button className="secondary-button" onClick={onBack}>Back</button></div>
+    <div className="workspace-heading"><div><div className="eyebrow">{lengthLabel(lengthOf(block)).toUpperCase()} · {block.trainingDays} DAYS / WEEK{activeSet ? ` · ${activeSet.name.toUpperCase()}` : ''}</div><h1 id="plan-title">Choose your exercises</h1><p>Start from a Workout Set, or build each day yourself. Your choices lock in once you start the block.</p></div><button className="secondary-button" onClick={onBack}>Back</button></div>
 
     <section className="set-picker" aria-label="Workout Sets">
       <div className="step-label">Start from a Workout Set</div>

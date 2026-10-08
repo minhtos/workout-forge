@@ -110,7 +110,7 @@ export function applyWorkoutSet(block: Block, set: WorkoutSet): Block {
 
 /** Back to a blank custom plan: the same days and weeks, no Workout Set, and every day empty for the user to fill. */
 export function clearWorkoutSet(block: Block): Block {
-  return { ...block, templates: createBlock(block.trainingDays, block.durationWeeks).templates, progression: 'rir', rotation: false, workoutSetId: null }
+  return { ...block, templates: createBlock(block.trainingDays, block.durationWeeks, block.parts).templates, progression: 'rir', rotation: false, workoutSetId: null }
 }
 
 /** True when the plan holds choices worth confirming before they are replaced: edits to a Workout Set, or exercises picked without one. */
