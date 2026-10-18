@@ -15,6 +15,7 @@ import { backupSession, restoreSessions } from './domain/sync'
 import { supabase } from './lib/supabase'
 import { FeedbackSheet } from './views/FeedbackSheet'
 import { LibraryView } from './views/LibraryView'
+import { useForeground } from './lib/useForeground'
 import { PlanView } from './views/PlanView'
 import { LandingView } from './views/LandingView'
 import { ResetPasswordView } from './views/ResetPasswordView'
@@ -158,6 +159,8 @@ function App() {
     window.addEventListener('online', retry)
     return () => window.removeEventListener('online', retry)
   }, [])
+  // Coming back to the app (or tab) checks the cloud again: uploads anything waiting and picks up a newer plan from another device.
+  useForeground(() => setOnline((value) => value + 1))
 
   // Program sync: any change to the block, own exercises or library switches stamps a timestamp;
   // the newest copy (this device or the cloud) wins. A snapshot adopted from the cloud is not re-stamped.
