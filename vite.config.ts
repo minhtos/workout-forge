@@ -7,7 +7,7 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,woff2}'] },
+      workbox: { globPatterns: ['**/*.{js,css,html,svg,woff2}'], globIgnores: ['og-image.svg'] },
       manifest: {
         name: 'Workout Forge',
         short_name: 'Workout Forge',
