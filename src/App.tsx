@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mergeSets } from './domain/backup'
 import { standardRepMax, addExerciseToDay, createBlock, findWorkout, listWorkouts, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, setSlotExercise, type Block, type ExercisePrescription, type MuscleGroup, type TrainingDaysPerWeek } from './domain/program'
-import { applyProgramSnapshot, runProgramSync } from './domain/programSync'
+import { applyProgramSnapshot, hasProgramContent, runProgramSync } from './domain/programSync'
 import { addCustomExercise, deleteCustomExercise, enabledCatalog, exerciseInUse, mergeCustomExercises, setExerciseEnabled, setGroupEnabled, updateCustomExercise } from './domain/exercises'
 import { lengthOf, shapeOf, totalWeeks, type ProgramLength } from './domain/progression'
 import { mergeFeedback, nextPrompt, resizeEntries, setOffset, tuneWorkoutSets, tunedSets, upsertFeedback, usesFeedback, type Effort, type Pump, type SessionFeedback, type Soreness } from './domain/autoregulation'
@@ -178,7 +178,11 @@ function App() {
       setPlanStatus('')
     } else if (outcome.kind === 'adopted') {
       const next = applyProgramSnapshot(stateRef.current, outcome.snapshot)
-      if (signatureOf(next) !== signatureOf(stateRef.current)) adoptingRemote.current = true
+      if (signatureOf(next) !== signatureOf(stateRef.current)) {
+        adoptingRemote.current = true
+        // This device's own plan is about to be replaced by the cloud copy: keep a local copy of it first.
+        if (hasProgramContent(stateRef.current)) archiveWorkoutState(stateRef.current)
+      }
       setState((current) => applyProgramSnapshot(current, outcome.snapshot))
       setView((current) => settleView(current, outcome.snapshot.block))
       setPlanStatus('')

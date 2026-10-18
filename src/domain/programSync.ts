@@ -46,8 +46,12 @@ const snapshotSchema = z.object({
   feedback: z.array(feedbackSchema).max(2000).default([]),
 })
 
+/** A plan worth keeping: started, or with at least one exercise chosen. A blank plan (just opened the setup) is not. */
+const blockHasWork = (block: SavedWorkoutState['block']): boolean =>
+  block !== null && (block.locked || block.templates.some((day) => day.exercises.some((entry) => entry.exerciseId)))
+
 export const hasProgramContent = (state: Pick<SavedWorkoutState, 'block' | 'customExercises' | 'hiddenExerciseIds'>): boolean =>
-  state.block !== null || state.customExercises.length > 0 || state.hiddenExerciseIds.length > 0
+  blockHasWork(state.block) || state.customExercises.length > 0 || state.hiddenExerciseIds.length > 0
 
 export function parseProgramSnapshot(payload: unknown): ProgramSnapshot | null {
   const parsed = snapshotSchema.safeParse(payload)
@@ -58,9 +62,16 @@ export function parseProgramSnapshot(payload: unknown): ProgramSnapshot | null {
 
 export type SyncDecision = 'push' | 'adopt' | 'none'
 
-/** Last write wins. A device that has never synced (no timestamp) defers to what the cloud has. */
+/**
+ * Last write wins, with one hard rule: an empty program never replaces a real one, whichever copy it is and however new
+ * its timestamp. (A fresh device that opens the setup screen stamps itself "newer" than the cloud; that must not erase
+ * the program the cloud holds.) A device that has never synced (no timestamp) defers to what the cloud has.
+ */
 export function decideSync(localUpdatedAt: string | null, localHasContent: boolean, remote: ProgramSnapshot | null): SyncDecision {
   if (!remote) return localHasContent ? 'push' : 'none'
+  const remoteHasContent = hasProgramContent(remote)
+  if (localHasContent && !remoteHasContent) return 'push'
+  if (!localHasContent && remoteHasContent) return 'adopt'
   if (!localUpdatedAt) return 'adopt'
   const local = Date.parse(localUpdatedAt)
   const cloud = Date.parse(remote.updatedAt)

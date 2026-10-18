@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { addExerciseToDay, createBlock } from './program'
-import { applyProgramSnapshot, decideSync, parseProgramSnapshot, runProgramSync, type ProgramSnapshot } from './programSync'
+import { applyProgramSnapshot, decideSync, hasProgramContent, parseProgramSnapshot, runProgramSync, type ProgramSnapshot } from './programSync'
 import { emptyState, type SavedWorkoutState } from './storage'
 
 const T1 = '2026-10-05T10:00:00.000Z'
@@ -26,6 +26,19 @@ describe('deciding which copy wins', () => {
     expect(decideSync(null, false, null)).toBe('none')
   })
   it('a device that never synced defers to the cloud copy', () => expect(decideSync(null, true, snapshot(T1))).toBe('adopt'))
+  it('an empty program never replaces a real one, however new it looks', () => {
+    const empty = { block: null, customExercises: [], hiddenExerciseIds: [] }
+    expect(decideSync(T2, false, snapshot(T1))).toBe('adopt')
+    expect(decideSync(T1, true, snapshot(T2, empty))).toBe('push')
+    expect(decideSync(T2, false, snapshot(T1, empty))).toBe('push')
+  })
+  it('a blank plan with no exercises chosen counts as empty', () => {
+    const blank = createBlock(3, 4)
+    expect(hasProgramContent({ block: blank, customExercises: [], hiddenExerciseIds: [] })).toBe(false)
+    expect(hasProgramContent({ block: { ...blank, locked: true }, customExercises: [], hiddenExerciseIds: [] })).toBe(true)
+    expect(hasProgramContent({ block, customExercises: [], hiddenExerciseIds: [] })).toBe(true)
+    expect(hasProgramContent({ block: null, customExercises: [], hiddenExerciseIds: ['pull-ups'] })).toBe(true)
+  })
   it('newest timestamp wins, equal means nothing to do', () => {
     expect(decideSync(T1, true, snapshot(T2))).toBe('adopt')
     expect(decideSync(T2, true, snapshot(T1))).toBe('push')
@@ -78,6 +91,20 @@ describe('running a sync', () => {
     const applied = applyProgramSnapshot(emptyState(), snapshot(T2))
     expect(applied).toMatchObject({ block, hiddenExerciseIds: ['pull-ups'], programUpdatedAt: T2, customExercises: [{ id: 'custom-dips' }] })
     expect(applied.history).toEqual([])
+  })
+
+  it('a fresh device that stamped itself newer cannot wipe the cloud program', async () => {
+    const { client, upsert } = fakeClient(stored(snapshot(T1)))
+    const blankNewer = local({ block: createBlock(3, 4), programUpdatedAt: T2 })
+    expect(await runProgramSync(client, 'user-1', blankNewer, T2)).toEqual({ kind: 'adopted', snapshot: snapshot(T1) })
+    expect(upsert).not.toHaveBeenCalled()
+  })
+
+  it('restores a real program to an empty cloud copy that an old build overwrote', async () => {
+    const { client, upsert } = fakeClient(stored(snapshot(T2, { block: null, customExercises: [], hiddenExerciseIds: [] })))
+    const outcome = await runProgramSync(client, 'user-1', local({ programUpdatedAt: T1 }), T2)
+    expect(outcome).toEqual({ kind: 'pushed', updatedAt: T1 })
+    expect(upsert.mock.calls[0][0].payload).toMatchObject({ block })
   })
 
   it('waits to download while a workout is in progress', async () => {
