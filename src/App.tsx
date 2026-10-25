@@ -13,6 +13,7 @@ import { archiveWorkoutState, emptyState, exportWorkoutState, loadWorkoutState, 
 import { loadRestTimerEnabled, saveRestTimerEnabled } from './domain/settings'
 import { backupSession, restoreSessions } from './domain/sync'
 import { supabase } from './lib/supabase'
+import { submitFeedback } from './lib/feedback'
 import { FeedbackSheet } from './views/FeedbackSheet'
 import { LibraryView } from './views/LibraryView'
 import { useForeground } from './lib/useForeground'
@@ -421,7 +422,7 @@ function App() {
   const navigate = (next: View) => () => setView(next === 'today' && activeSession ? 'session' : next)
   const home = (): View => (!block ? 'setup' : block.locked ? 'today' : 'plan')
 
-  if (view === 'landing' && !recovering) return <LandingView cloudEnabled={!!supabase} onStart={() => setView('setup')} onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} />
+  if (view === 'landing' && !recovering) return <LandingView cloudEnabled={!!supabase} onStart={() => setView('setup')} onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} onFeedback={submitFeedback} />
   if (recovering) return <main className="app-shell"><ResetPasswordView onSubmit={saveNewPassword} /></main>
 
   return <main className="app-shell">
@@ -440,7 +441,7 @@ function App() {
     {prompt && <FeedbackSheet key={`${prompt.kind}-${prompt.group}`} prompt={prompt} onSoreness={(value) => answerSoreness(prompt.group, value)} onSummary={(effort, pump) => answerSummary(prompt.group, { effort, pump })} onSkip={skipPrompt} />}
     {view === 'progress' && <ProgressView history={history} catalog={catalog} finished={finished} total={total} />}
     {view === 'library' && <LibraryView catalog={catalog} custom={state.customExercises} hidden={state.hiddenExerciseIds} inUse={(id) => exerciseInUse(block, id)} onToggle={toggleExercise} onToggleGroup={toggleGroup} onAdd={addToLibrary} onUpdate={updateInLibrary} onDelete={deleteFromLibrary} onBack={() => setView('settings')} />}
-    {view === 'settings' && <SettingsView librarySummary={`${enabledCatalog(catalog, state.hiddenExerciseIds).length} of ${catalog.length} exercises on`} onOpenLibrary={() => setView('library')} restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} planStatus={planStatus} onRestore={() => { void restoreFromCloud(false); setOnline((value) => value + 1) }} onExport={exportData} onImport={importData} onNewBlock={newBlock} />}
+    {view === 'settings' && <SettingsView librarySummary={`${enabledCatalog(catalog, state.hiddenExerciseIds).length} of ${catalog.length} exercises on`} onOpenLibrary={() => setView('library')} restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} planStatus={planStatus} onRestore={() => { void restoreFromCloud(false); setOnline((value) => value + 1) }} onExport={exportData} onImport={importData} onNewBlock={newBlock} onFeedback={submitFeedback} />}
   </main>
 }
 
