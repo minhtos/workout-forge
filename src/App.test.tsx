@@ -695,3 +695,105 @@ describe('landing page', () => {
     expect(screen.queryByRole('button', { name: /get started free/i })).toBeNull()
   })
 })
+
+describe('navigation icons', () => {
+  it('draws every nav icon from the shared 24 grid, 1.8 stroke, round caps and joins', () => {
+    window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block: { ...createBlock(2, 4), locked: true, startedAt: '2026-09-28T09:00:00.000Z' } }))
+    render(<App />)
+    const icons = within(screen.getByRole('navigation', { name: /primary/i })).getAllByRole('button').map((button) => button.querySelector('svg'))
+    expect(icons).toHaveLength(3)
+    for (const icon of icons) {
+      expect(icon?.getAttribute('viewBox')).toBe('0 0 24 24')
+      expect(icon?.getAttribute('stroke-width')).toBe('1.8')
+      expect(icon?.getAttribute('stroke-linecap')).toBe('round')
+      expect(icon?.getAttribute('stroke-linejoin')).toBe('round')
+      expect(icon?.getAttribute('aria-hidden')).toBe('true')
+    }
+  })
+})
+
+describe('personal records and haptics', () => {
+  const priorId = '550e8400-e29b-41d4-a716-446655440000'
+  const prior = [1, 2, 3].map((n) => ({ id: `${priorId}-${n}`, sessionId: priorId, workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex: n, weight: 100, reps: 8, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3, targetReps: 8 }))
+  const lockedBlock = () => {
+    let block = createBlock(2, 4)
+    for (const day of [0, 1]) block = addExerciseToDay(block, day, 'barbell-bench-press')
+    return { ...block, locked: true, startedAt: '2026-09-28T09:00:00.000Z', completedIds: ['w1-d1'] }
+  }
+  const seed = (history: unknown[]) => window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block: lockedBlock(), history }))
+  const banner = () => document.querySelector('.pr-banner')
+  const startSession = () => { renderApp(); fireEvent.click(screen.getByRole('button', { name: /start workout/i })) }
+  const completeSet1At = (weight: string) => {
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: weight } })
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+  }
+  const vibrate = vi.fn()
+  beforeEach(() => { vibrate.mockClear(); Object.defineProperty(navigator, 'vibrate', { value: vibrate, configurable: true, writable: true }) })
+  afterEach(() => { Reflect.deleteProperty(navigator, 'vibrate') })
+
+  it('shows a dismissible banner under the set table when a set beats every earlier session, and keeps it dismissed across Back and Resume', () => {
+    seed(prior)
+    startSession()
+    expect(banner()).toBeNull()
+    completeSet1At('150')
+
+    const found = banner()
+    expect(found?.getAttribute('role')).toBe('status')
+    expect(found?.closest('.exercise-card')).not.toBeNull()
+    expect(found?.previousElementSibling?.getAttribute('role')).toBe('table')
+    expect(found?.textContent).toMatch(/personal record/i)
+    expect(found?.textContent).toMatch(/150 lb × \d+.*100 lb × 8/)
+
+    fireEvent.click(within(found as HTMLElement).getByRole('button', { name: /dismiss personal record/i }))
+    expect(banner()).toBeNull()
+
+    fireEvent.click(screen.getByRole('button', { name: /back/i }))
+    fireEvent.click(screen.getByRole('button', { name: /resume workout/i }))
+    expect(banner()).toBeNull()
+  })
+
+  it('shows no banner in the first session for an exercise', () => {
+    seed([])
+    startSession()
+    completeSet1At('150')
+    expect(banner()).toBeNull()
+    expect(vibrate).toHaveBeenCalledWith(10)
+  })
+
+  it('never celebrates a deload set', () => {
+    const history = prior.map((entry) => ({ ...entry, weekNumber: 4, workoutId: 'w4-d2', targetRir: 0, completedAt: entry.completedAt.replace('09-28', '09-22') }))
+    const completedIds = ['w1-d1', 'w1-d2', 'w2-d1', 'w2-d2', 'w3-d1', 'w3-d2', 'w4-d1', 'w4-d2']
+    window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block: { ...lockedBlock(), completedIds }, history }))
+    startSession()
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+    fireEvent.change(screen.getByLabelText('Set 2 weight'), { target: { value: '400' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 2' }))
+    expect((savedState().history as { weekNumber: number; deload?: boolean }[]).filter((entry) => entry.weekNumber === 5 && entry.deload)).toHaveLength(2)
+    expect(banner()).toBeNull()
+  })
+
+  it('gives a 10ms tick when a set is saved, and not on undo or when the set is rejected', () => {
+    seed(prior)
+    startSession()
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+    expect(screen.getByRole('alert').textContent).toMatch(/enter a weight/i)
+    expect(vibrate).not.toHaveBeenCalled()
+
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '100' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+    expect(vibrate).toHaveBeenCalledTimes(1)
+    expect(vibrate).toHaveBeenCalledWith(10)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Undo set 1' }))
+    expect(vibrate).toHaveBeenCalledTimes(1)
+  })
+
+  it('still saves the set when the device cannot vibrate', () => {
+    Reflect.deleteProperty(navigator, 'vibrate')
+    seed(prior)
+    startSession()
+    expect(() => completeSet1At('100')).not.toThrow()
+    expect(savedState().history).toHaveLength(4)
+  })
+})

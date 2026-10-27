@@ -69,6 +69,7 @@ function App() {
   const [planStatus, setPlanStatus] = useState('')
   const [finishing, setFinishing] = useState(false)
   const [repNotices, setRepNotices] = useState<Record<string, RepNotice | null>>({})
+  const [dismissedPrs, setDismissedPrs] = useState<Record<string, boolean>>({})
   const adoptingRemote = useRef(false)
   const stateRef = useRef(state)
   const flushing = useRef(false)
@@ -301,8 +302,9 @@ function App() {
       return { ...current, activeSession: { ...session, skipped: skip ? [...rest, exerciseId] : rest } }
     })
   }
-  function toggleSet(exercise: ExercisePrescription, index: number) {
-    if (!activeSession || !activeWorkout) return
+  /** Checks a set off or undoes it. Returns true only when a record was written (so the caller can give a haptic tick). */
+  function toggleSet(exercise: ExercisePrescription, index: number): boolean {
+    if (!activeSession || !activeWorkout) return false
     const { sessionId } = activeSession
     const entry = activeSession.sets[exercise.id][index]
     const id = `${sessionId}-${exercise.id}-${index + 1}`
@@ -310,10 +312,10 @@ function App() {
     if (entry.complete) {
       setState((current) => ({ ...current, history: current.history.filter((set) => set.id !== id), pendingSessionIds: addUnique(current.pendingSessionIds, sessionId) }))
       updateEntry(exercise.id, index, { complete: false })
-      return
+      return false
     }
     const parsed = parseEntry(entry)
-    if ('error' in parsed) { setEntryError(parsed.error); return }
+    if ('error' in parsed) { setEntryError(parsed.error); return false }
     const record = { id, sessionId, workoutId: activeWorkout.id, exerciseId: exercise.id, exerciseName: exercise.name, setIndex: index + 1, ...parsed, weightUnit: 'lb' as const, completedAt: new Date().toISOString(), weekNumber: activeWorkout.weekNumber, repRange: exercise.repRange, targetRir: activeWorkout.target.targetRir, targetReps: entry.targetReps, ...(activeWorkout.target.kind === 'deload' ? { deload: true } : {}) }
     setState((current) => current.activeSession ? {
       ...current,
@@ -321,12 +323,14 @@ function App() {
       pendingSessionIds: addUnique(current.pendingSessionIds, sessionId),
       activeSession: { ...current.activeSession, sets: { ...current.activeSession.sets, [exercise.id]: current.activeSession.sets[exercise.id].map((item, position) => position === index ? { ...item, complete: true } : item) } },
     } : current)
+    return true
   }
   function completeWorkout(feedback: SessionFeedback[]) {
     if (!block || !activeSession) return
     setState({ ...state, feedback, activeSession: null, block: { ...block, completedIds: addUnique(block.completedIds, activeSession.workoutId) } })
     setFinishing(false)
     setRepNotices({})
+    setDismissedPrs({})
     setView('today')
   }
   /** Finishing asks any unanswered effort and pump questions first (each can be skipped). */
@@ -341,6 +345,7 @@ function App() {
     const { sessionId } = activeSession
     setState((current) => ({ ...current, activeSession: null, history: current.history.filter((set) => set.sessionId !== sessionId), feedback: current.feedback.filter((entry) => entry.sessionId !== sessionId), pendingSessionIds: addUnique(current.pendingSessionIds, sessionId) }))
     setFinishing(false)
+    setDismissedPrs({})
     setView('today')
   }
 
@@ -438,7 +443,7 @@ function App() {
     {view === 'setup' && <SetupView days={setupDays} weeks={setupWeeks} hasHistory={history.length > 0} onDays={setSetupDays} onWeeks={setSetupWeeks} onContinue={() => { const shape = shapeOf(setupWeeks); setState({ ...state, block: createBlock(setupDays, shape.durationWeeks, shape.parts) }); setView('plan') }} />}
     {view === 'plan' && block && <PlanView block={block} catalog={catalog} hiddenIds={state.hiddenExerciseIds} onApplySet={applySet} onCustomPlan={customPlan} onChoose={(day, position, id) => editPlan((current) => setSlotExercise(current, day, position, id))} onRename={(day, title) => editPlan((current) => renameDay(current, day, title))} onAdd={(day, id) => editPlan((current) => addExerciseToDay(current, day, id))} onCreate={createExercise} onRemove={(day, position) => editPlan((current) => removeExerciseFromDay(current, day, position))} onMove={(day, position, delta) => editPlan((current) => moveExercise(current, day, position, delta))} onSets={(day, position, sets) => editPlan((current) => setExerciseSets(current, day, position, sets))} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
     {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} carriedCount={carriedCount} nextPart={awaitingNextPart(block, !upcoming)} partLabel={block.parts === 2 ? `PART ${block.part ?? 1} OF 2` : null} onNextPart={beginNextPart} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onNewBlock={newBlock} />}
-    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} repNotices={repNotices} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} skippedLast={(id) => !!block && skippedSinceLast(block, id, lastSessionSets(history, id, activeSession.sessionId), activeSession.workoutId)} onSkip={(id) => setExerciseSkipped(id, true)} onRestore={(id) => setExerciseSkipped(id, false)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
+    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} repNotices={repNotices} error={entryError} dismissedPrs={dismissedPrs} onDismissPr={(id) => setDismissedPrs((current) => ({ ...current, [id]: true }))} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} skippedLast={(id) => !!block && skippedSinceLast(block, id, lastSessionSets(history, id, activeSession.sessionId), activeSession.workoutId)} onSkip={(id) => setExerciseSkipped(id, true)} onRestore={(id) => setExerciseSkipped(id, false)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
     {prompt && <FeedbackSheet key={`${prompt.kind}-${prompt.group}`} prompt={prompt} onSoreness={(value) => answerSoreness(prompt.group, value)} onSummary={(effort, pump) => answerSummary(prompt.group, { effort, pump })} onSkip={skipPrompt} />}
     {view === 'progress' && <ProgressView history={history} catalog={catalog} finished={finished} total={total} />}
     {view === 'library' && <LibraryView catalog={catalog} custom={state.customExercises} hidden={state.hiddenExerciseIds} inUse={(id) => exerciseInUse(block, id)} onToggle={toggleExercise} onToggleGroup={toggleGroup} onAdd={addToLibrary} onUpdate={updateInLibrary} onDelete={deleteFromLibrary} onBack={() => setView('settings')} />}
