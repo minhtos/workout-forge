@@ -29,6 +29,14 @@ const planTwoDays = () => { openPlanner(); addToDay(1, 'Barbell Bench Press', 'C
 const savedState = () => JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}') as { history?: unknown[] }
 
 describe('Workout Forge gym flow', () => {
+  it('shows the plate brand mark, not a tile, in the app header', () => {
+    renderApp()
+    const header = screen.getByRole('banner')
+    const mark = within(header).getByRole('img', { name: 'Workout Forge' })
+    expect(mark.getAttribute('data-testid')).toBe('brand-mark')
+    expect(header.textContent).not.toMatch(/^WF/)
+  })
+
   it('offers 2, 3 and 4 days and 4, 6, 8 or 12 weeks, and nothing else', () => {
     renderApp()
     expect(screen.getAllByRole('button', { name: /days per week/i }).map((button) => button.getAttribute('aria-label'))).toEqual(['2 days per week', '3 days per week', '4 days per week'])

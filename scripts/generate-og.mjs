@@ -1,6 +1,6 @@
 // Regenerates the social preview image: public/og-image.svg (source, lettering converted to outlines so it renders the
 // same everywhere) and public/og-image.png (1200x630). Run with `npm run og`.
-// The mark is copied from public/workout-forge-icon.svg, and the colors are the app's tokens (see DESIGN.md).
+// Composition: plate mark centered above the wordmark and tagline on charcoal #12151a (see DESIGN.md, Brand mark).
 import { readFileSync, writeFileSync } from 'node:fs'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -10,11 +10,9 @@ import { Resvg } from '@resvg/resvg-js'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const WIDTH = 1200
 const HEIGHT = 630
-const PADDING = 100
-const ICON = 360
-const GAP = 80
+const MARK = 220
 
-const colors = { canvas: '#16181b', ink: '#f2f0eb', inkSubtle: '#aab1bc' }
+const colors = { canvas: '#12151a', ink: '#f2f0eb', inkSubtle: '#aab1bc' }
 
 const loadFont = (file) => {
   const buffer = readFileSync(resolve(root, 'node_modules/@fontsource', file))
@@ -23,54 +21,50 @@ const loadFont = (file) => {
 const titleFont = loadFont('barlow-condensed/files/barlow-condensed-latin-700-normal.woff')
 const bodyFont = loadFont('barlow/files/barlow-latin-500-normal.woff')
 
-// Faithful copy of the app icon: everything inside the root <svg> of public/workout-forge-icon.svg.
-const iconSource = readFileSync(resolve(root, 'public/workout-forge-icon.svg'), 'utf8')
-const iconInner = iconSource.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '').trim()
+// Faithful copy of the brand mark: everything inside the root <svg> of public/plate-mark.svg.
+const markSource = readFileSync(resolve(root, 'public/plate-mark.svg'), 'utf8')
+const markInner = markSource.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '').trim()
 
-const textX = PADDING + ICON + GAP
-const textWidth = WIDTH - PADDING - textX
-const iconY = (HEIGHT - ICON) / 2
-
-/** The largest size (up to `max`) at which `text` fits in `width`. */
-const fitSize = (font, text, width, max, min) => {
-  for (let size = max; size >= min; size -= 1) if (font.getAdvanceWidth(text, size) <= width) return size
-  return min
-}
-/** Greedy word wrap at a fixed size. */
-const wrap = (font, text, size, width) => {
-  const lines = []
-  let line = ''
-  for (const word of text.split(' ')) {
-    const next = line ? `${line} ${word}` : word
-    if (line && font.getAdvanceWidth(next, size) > width) { lines.push(line); line = word } else line = next
+// `tracking` is letter-spacing in em. NOTE: opentype.js getPath with the
+// letterSpacing option corrupts glyph layout partway through a string (the
+// R in FORGE collapsed and later glyphs vanished), so tracked text is drawn
+// glyph by glyph with advances summed by hand.
+const outline = (font, text, size, baseline, fill, tracking = 0) => {
+  if (!tracking) {
+    const width = font.getAdvanceWidth(text, size)
+    const x = (WIDTH - width) / 2
+    return `<path fill="${fill}" d="${font.getPath(text, x, baseline, size).toPathData(2)}"/>`
   }
-  return line ? [...lines, line] : lines
+  const trackPx = tracking * size
+  const advances = [...text].map((ch) => font.getAdvanceWidth(ch, size))
+  const width = advances.reduce((a, b) => a + b, 0) + trackPx * (text.length - 1)
+  let x = (WIDTH - width) / 2
+  const parts = [...text].map((ch, i) => {
+    const d = font.getPath(ch, x, baseline, size).toPathData(2)
+    x += advances[i] + trackPx
+    return d
+  })
+  return `<path fill="${fill}" d="${parts.join(" ")}"/>`
 }
-const outline = (font, text, x, baseline, size, fill) => `<path fill="${fill}" d="${font.getPath(text, x, baseline, size).toPathData(2)}"/>`
 
-const title = 'Workout Forge'
-const tagline = 'Plan workouts. Log training. Local-first.'
-const titleSize = fitSize(titleFont, title, textWidth, 132, 60)
-const taglineSize = fitSize(bodyFont, tagline, textWidth, 36, 30)
-const taglineLines = bodyFont.getAdvanceWidth(tagline, taglineSize) <= textWidth ? [tagline] : wrap(bodyFont, tagline, 34, textWidth)
-const taglineFontSize = taglineLines.length === 1 ? taglineSize : 34
-const lineHeight = Math.round(taglineFontSize * 1.35)
+// Centered stack: mark, WORKOUT FORGE wordmark, tagline.
+const title = 'WORKOUT FORGE'
+const tagline = 'Get measurably stronger, week after week.'
+const titleSize = 96
+const taglineSize = 36
+const markY = 118
+const titleBaseline = markY + MARK + 40 + Math.round(titleSize * 0.7)
+const taglineBaseline = titleBaseline + 40 + Math.round(taglineSize * 0.7)
 
-// Vertically center the text block on the icon.
-const titleCap = titleSize * 0.7
-const blockHeight = titleCap + 36 + (taglineLines.length - 1) * lineHeight + taglineFontSize * 0.7
-const titleBaseline = Math.round((HEIGHT - blockHeight) / 2 + titleCap)
-const taglineBaseline = titleBaseline + 36 + Math.round(taglineFontSize * 0.7)
-
-const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="Workout Forge: plan workouts, log training, local-first">
+const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="Workout Forge: get measurably stronger, week after week">
   <rect width="${WIDTH}" height="${HEIGHT}" fill="${colors.canvas}"/>
-  <svg x="${PADDING}" y="${iconY}" width="${ICON}" height="${ICON}" viewBox="0 0 512 512">${iconInner}</svg>
-  ${outline(titleFont, title, textX, titleBaseline, titleSize, colors.ink)}
-  ${taglineLines.map((line, index) => outline(bodyFont, line, textX, taglineBaseline + index * lineHeight, taglineFontSize, colors.inkSubtle)).join('\n  ')}
+  <svg x="${(WIDTH - MARK) / 2}" y="${markY}" width="${MARK}" height="${MARK}" viewBox="0 0 100 100">${markInner}</svg>
+  ${outline(titleFont, title, titleSize, titleBaseline, colors.ink, 0.06)}
+  ${outline(bodyFont, tagline, taglineSize, taglineBaseline, colors.inkSubtle)}
 </svg>
 `
 
 writeFileSync(resolve(root, 'public/og-image.svg'), svg)
 const png = new Resvg(svg, { fitTo: { mode: 'width', value: WIDTH }, background: colors.canvas }).render().asPng()
 writeFileSync(resolve(root, 'public/og-image.png'), png)
-console.log(`og-image.png ${WIDTH}x${HEIGHT}, ${(png.length / 1024).toFixed(1)} KB; title ${titleSize}px, tagline ${taglineFontSize}px x ${taglineLines.length} line(s)`)
+console.log(`og-image.png ${WIDTH}x${HEIGHT}, ${(png.length / 1024).toFixed(1)} KB`)

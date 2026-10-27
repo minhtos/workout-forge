@@ -23,6 +23,7 @@ import { Icon } from './views/Icon'
 import { LibraryView } from './views/LibraryView'
 import { useForeground } from './lib/useForeground'
 import { PlanView } from './views/PlanView'
+import { BrandMark } from './views/BrandMark'
 import { LandingView } from './views/LandingView'
 import { LoadingView } from './views/LoadingView'
 import { ResetPasswordView } from './views/ResetPasswordView'
@@ -479,7 +480,7 @@ function App() {
   if (recovering) return <main className="app-shell"><ResetPasswordView onSubmit={saveNewPassword} /></main>
 
   return <main className="app-shell">
-    <header className="topbar"><button className="brand" onClick={navigate(home())} aria-label="Workout Forge home"><span className="brand-mark">WF</span><span>WORKOUT FORGE</span></button>
+    <header className="topbar"><button className="brand" onClick={navigate(home())} aria-label="Workout Forge home"><BrandMark size={32} /><span>WORKOUT FORGE</span></button>
       <nav aria-label="Primary navigation">
         {block?.locked && <button aria-current={view === 'today' || view === 'session' ? 'page' : undefined} className={view === 'today' || view === 'session' ? 'nav-active' : ''} onClick={navigate('today')}><Icon name="workout" />Workout</button>}
         <button aria-current={view === 'progress' ? 'page' : undefined} className={view === 'progress' ? 'nav-active' : ''} onClick={navigate('progress')}><Icon name="progress" />Progress</button>

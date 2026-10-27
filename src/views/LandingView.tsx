@@ -4,6 +4,7 @@ import { muscleMapView } from '../domain/muscleVolume'
 import { sampleHistory, sampleNow, sampleRecordSessionId, sampleWeek } from '../domain/sampleData'
 import { completedSessions } from '../domain/weekly'
 import { AuthForm, type AuthResult } from './AuthForm'
+import { BrandMark } from './BrandMark'
 import { FeedbackForm } from './FeedbackForm'
 import { MuscleMap } from './MuscleMap'
 
@@ -42,7 +43,6 @@ const faq = [
 const sampleRecord = findPersonalRecord(sampleHistory, sampleRecordSessionId, 'barbell-bench-press')
 const sampleMap = muscleMapView(completedSessions(sampleHistory, null), baseExercises, sampleNow, null)
 
-const barbell = <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 7v10M3 9v6M18 7v10M21 9v6M6 12h12" /></svg>
 
 function PhonePreview({ workout }: { workout: ScheduledWorkout }) {
   const [first, ...rest] = workout.exercises
@@ -69,7 +69,7 @@ function PhonePreview({ workout }: { workout: ScheduledWorkout }) {
 export function LandingView({ cloudEnabled, onStart, onSignIn, onSignUp, onReset, onFeedback }: Props) {
   return <div className="landing">
     <header className="landing-bar">
-      <div className="landing-brand"><span className="landing-mark">{barbell}</span><span>Workout Forge</span></div>
+      <div className="landing-brand"><BrandMark size={44} decorative /><span>Workout Forge</span></div>
       <nav className="landing-nav" aria-label="Page">
         {cloudEnabled && <a className="landing-link" href="#signin">Sign in</a>}
         <a className="landing-badge" href="#feedback">Early access · feedback welcome</a>

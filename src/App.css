@@ -4,7 +4,7 @@
 .app-shell { min-height: 100vh; background: radial-gradient(900px 460px at 76% -12%, var(--glow), transparent 65%), var(--canvas); color: var(--ink); }
 .topbar { height: 68px; display: flex; align-items: center; gap: 28px; padding: 0 clamp(20px, 5vw, 72px); border-bottom: 1px solid var(--hairline); background: color-mix(in srgb, var(--canvas) 85%, transparent); position: sticky; top: 0; z-index: 3; backdrop-filter: blur(18px); }
 .brand { appearance: none; border: 0; background: none; color: var(--ink); display: flex; align-items: center; gap: 10px; font: 500 12px var(--font-mono); letter-spacing: 0.08em; padding: 0; min-height: 44px; }
-.brand-mark { width: 29px; height: 29px; display: grid; place-items: center; background: var(--primary); color: var(--on-primary); border-radius: 7px; font: 600 10px var(--font-sans); letter-spacing: -0.05em; }
+.brand-mark { flex: none; display: block; }
 nav { display: flex; gap: 4px; }
 nav button { display: flex; align-items: center; gap: 8px; color: var(--ink-subtle); background: transparent; border: 0; padding: 0 12px; min-height: 40px; border-radius: var(--radius-sm); font-size: 14px; font-weight: 500; }
 nav button:hover, nav button.nav-active { color: var(--ink); background: var(--surface-3); }
@@ -450,7 +450,6 @@ select option { background: var(--surface-2); color: var(--ink); }
 .landing { min-height: 100vh; background: radial-gradient(900px 460px at 76% -12%, var(--glow), transparent 65%), var(--canvas); color: var(--ink); display: flex; flex-direction: column; }
 .landing-bar { display: flex; flex-wrap: wrap; gap: 16px; align-items: center; justify-content: space-between; padding: 24px clamp(20px, 4vw, 48px); }
 .landing-brand { display: flex; align-items: center; gap: 12px; font: 700 26px var(--font-display); letter-spacing: 0.06em; text-transform: uppercase; }
-.landing-mark { width: 40px; height: 40px; border-radius: 10px; background: var(--primary); color: var(--on-primary); display: grid; place-items: center; }
 .landing-badge { font-size: 14px; font-weight: 600; color: var(--ink-muted); border: 1px solid var(--hairline-strong); border-radius: var(--radius-pill); padding: 8px 16px; }
 .landing-hero { width: 100%; max-width: 1200px; margin: 0 auto; padding: clamp(24px, 5vw, 56px) clamp(20px, 4vw, 48px) clamp(40px, 6vw, 72px); display: flex; flex-wrap: wrap; gap: clamp(32px, 5vw, 64px); align-items: center; }
 .landing-copy { flex: 1 1 480px; min-width: 0; }
