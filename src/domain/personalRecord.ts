@@ -12,6 +12,11 @@ export interface PersonalRecord {
   previous: { weight: number; reps: number; completedAt: string }
 }
 
+/** One line describing a record, shared by the in-workout banner and the landing page's sample card. */
+export const recordText = ({ set, unit, margin, previous }: PersonalRecord): string => unit === 'reps'
+  ? `${set.reps} reps, ${margin} more than your previous best of ${previous.reps}.`
+  : `${set.weight} lb × ${set.reps}: estimated max up ${margin} lb on ${previous.weight} lb × ${previous.reps}.`
+
 /**
  * Whether a set logged in `sessionId` is a personal record for the exercise, measured the way the Progress chart
  * measures a session: estimated one-rep max (reps unit for bodyweight work), deload sessions left out. Only

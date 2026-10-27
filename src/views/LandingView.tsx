@@ -1,7 +1,11 @@
-import { baseExercises, createBlock, listWorkouts, resolveWorkout, type ScheduledWorkout } from '../domain/program'
-import { applyWorkoutSet, findWorkoutSet, workoutSets } from '../domain/workoutSets'
+import { findPersonalRecord, recordText } from '../domain/personalRecord'
+import { baseExercises, type ScheduledWorkout } from '../domain/program'
+import { muscleMapView } from '../domain/muscleVolume'
+import { sampleHistory, sampleNow, sampleRecordSessionId, sampleWeek } from '../domain/sampleData'
+import { completedSessions } from '../domain/weekly'
 import { AuthForm, type AuthResult } from './AuthForm'
 import { FeedbackForm } from './FeedbackForm'
+import { MuscleMap } from './MuscleMap'
 
 interface Props {
   cloudEnabled: boolean
@@ -22,17 +26,21 @@ const features = [
 const steps = [
   { title: 'Build your block', body: 'Pick your days and a ready-made split — or choose every exercise yourself. The plan, the weights and the deload are worked out for you.' },
   { title: 'Log every set', body: 'Big targets, one hand, mid-workout. Check a set off and it is saved on the spot, with or without a connection.' },
-  { title: 'Lift more next time', body: 'Your soreness, effort and pump answers set the next session\u2019s weight, reps and sets. No spreadsheets, no guessing.' },
+  { title: 'Lift more next time', body: 'Your soreness, effort and pump answers set the next session’s weight, reps and sets. No spreadsheets, no guessing.' },
 ]
 
-/**
- * Week 1 of the ready-made Push | Pull | Legs split, built by the app's own
- * program builder — what the landing page shows is what the app generates.
- */
-const sampleBlock = applyWorkoutSet(createBlock(3, 6), findWorkoutSet('push-pull-legs') ?? workoutSets.find((set) => set.recommendedDays === 3)!)
-const sampleWeek: ScheduledWorkout[] = listWorkouts(sampleBlock)
-  .filter((workout) => workout.weekNumber === 1)
-  .map((workout) => resolveWorkout(sampleBlock, workout, baseExercises))
+// Offline: the app shell is precached by the service worker (vite.config.ts) and every set is written to localStorage
+// as it is checked off. Data: localStorage on the device; signed-in users also back up sessions (sync.ts) and the plan (programSync.ts).
+const faq = [
+  { question: 'Is it free?', answer: 'Yes. Everything in Workout Forge is free to use.' },
+  { question: 'Does it work offline?', answer: 'Yes. It installs like an app and every set saves on your device, with or without a connection.' },
+  { question: 'Where is my data stored?', answer: 'In your browser on this device. If you create an account, your workouts and plan also back up to it.' },
+  { question: 'Do I need an account?', answer: 'No. An account is only for backup and using more than one device.' },
+]
+
+/** The hero's visuals are drawn by the app's own code from fixed sample data, not from mock-ups. */
+const sampleRecord = findPersonalRecord(sampleHistory, sampleRecordSessionId, 'barbell-bench-press')
+const sampleMap = muscleMapView(completedSessions(sampleHistory, null), baseExercises, sampleNow, null)
 
 const barbell = <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true"><path d="M6 7v10M3 9v6M18 7v10M21 9v6M6 12h12" /></svg>
 
@@ -62,16 +70,27 @@ export function LandingView({ cloudEnabled, onStart, onSignIn, onSignUp, onReset
   return <div className="landing">
     <header className="landing-bar">
       <div className="landing-brand"><span className="landing-mark">{barbell}</span><span>Workout Forge</span></div>
-      <a className="landing-badge" href="#feedback">Early access · feedback welcome</a>
+      <nav className="landing-nav" aria-label="Page">
+        {cloudEnabled && <a className="landing-link" href="#signin">Sign in</a>}
+        <a className="landing-badge" href="#feedback">Early access · feedback welcome</a>
+      </nav>
     </header>
     <section className="landing-hero" aria-labelledby="landing-title">
       <div className="landing-copy">
-        <h1 id="landing-title">Train with a plan.<br /><span>Log every set.</span></h1>
+        <h1 id="landing-title">Get measurably stronger, <span>week after week.</span></h1>
         <p>Workout Forge builds your training block, logs your sets, and tells you what to lift next, based on how the last session actually went. Free, and it works offline.</p>
         <div className="landing-actions"><button type="button" className="primary-button large" onClick={onStart}>Get started free</button><span>No account needed. Your data stays on your device.</span></div>
-        <ul className="landing-pills" aria-label="Highlights"><li>2–4 day plans</li><li>Weight · reps · RIR targets</li><li>Works offline</li><li>Installs like an app — no app store</li></ul>
+        <p className="landing-note">Early access, built in public. What ships next comes from your feedback.</p>
       </div>
-      {cloudEnabled && <AuthForm idPrefix="landing" onSignIn={onSignIn} onSignUp={onSignUp} onReset={onReset} />}
+      <div className="landing-visuals">
+        {sampleRecord && <article className="sample-record" aria-label="Sample personal record">
+          <span className="eyebrow">Personal record</span>
+          <h2>{sampleRecord.set.exerciseName}</h2>
+          <p>{recordText(sampleRecord)}</p>
+          <p className="sample-caption">Sample data</p>
+        </article>}
+        <MuscleMap view={sampleMap} idPrefix="landing-map" focusable caption="Sample data" period="A sample week" />
+      </div>
     </section>
     <section className="landing-peek" aria-labelledby="peek-title">
       <div className="landing-inner peek-grid">
@@ -102,6 +121,21 @@ export function LandingView({ cloudEnabled, onStart, onSignIn, onSignUp, onReset
         <div className="feature-grid">{features.map((feature, index) => <article key={feature.title} className="feature-card"><span className="feature-number">{String(index + 1).padStart(2, '0')}</span><h3>{feature.title}</h3><p>{feature.body}</p></article>)}</div>
       </div>
     </section>
+    <section className="landing-faq" aria-labelledby="faq-title">
+      <div className="landing-inner">
+        <h2 id="faq-title">Questions</h2>
+        <div className="faq-list">{faq.map((item) => <details key={item.question} className="faq-item"><summary>{item.question}</summary><p>{item.answer}</p></details>)}</div>
+      </div>
+    </section>
+    {cloudEnabled && <section className="landing-signin" id="signin" aria-labelledby="signin-title">
+      <div className="landing-inner signin-grid">
+        <div>
+          <h2 id="signin-title">Sign in</h2>
+          <p className="landing-lede">An account is only for backup and using more than one device. You can start without one.</p>
+        </div>
+        <AuthForm idPrefix="landing" onSignIn={onSignIn} onSignUp={onSignUp} onReset={onReset} />
+      </div>
+    </section>}
     <section className="landing-feedback" id="feedback" aria-labelledby="feedback-title">
       <div className="landing-inner feedback-grid">
         <div>

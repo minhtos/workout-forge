@@ -9,6 +9,23 @@ const indexCss = read('./index.css')
 
 const toMs = (value: string, unit: string) => Number(value) * (unit === 's' ? 1000 : 1)
 
+describe('heatmap tokens', () => {
+  const light = indexCss.indexOf('@media (prefers-color-scheme: light)')
+
+  it('defines --heat-1 to --heat-4 in the dark theme and again in the light theme', () => {
+    expect(light).toBeGreaterThan(0)
+    for (const level of [1, 2, 3, 4]) {
+      expect(indexCss.slice(0, light)).toMatch(new RegExp(`--heat-${level}:`))
+      expect(indexCss.slice(light)).toMatch(new RegExp(`--heat-${level}:`))
+    }
+  })
+
+  it('builds the steps from the accent over a surface and uses them for the heat cells', () => {
+    expect(indexCss.match(/--heat-[123]: color-mix\(in srgb, var\(--primary\) \d+%, var\(--surface-2\)\)/g)).toHaveLength(6)
+    for (const level of [1, 2, 3, 4]) expect(appCss).toContain(`var(--heat-${level})`)
+  })
+})
+
 describe('motion tokens', () => {
   it('keeps every --duration-* token at 500ms or less', () => {
     const tokens = [...indexCss.matchAll(/--duration-[\w-]+:\s*([\d.]+)(ms|s)\b/g)]

@@ -1,16 +1,19 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mergeSets } from './domain/backup'
-import { standardRepMax, addExerciseToDay, createBlock, findWorkout, listWorkouts, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, setSlotExercise, type Block, type ExercisePrescription, type MuscleGroup, type TrainingDaysPerWeek } from './domain/program'
+import { standardRepMax, addExerciseToDay, createBlock, findWorkout, listWorkouts, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, setSlotExercise, blockName, type Block, type BlockIntent, type ExercisePrescription, type MuscleGroup, type TrainingDaysPerWeek } from './domain/program'
+import { planTargets } from './domain/muscleVolume'
 import { applyProgramSnapshot, hasProgramContent, runProgramSync } from './domain/programSync'
 import { addCustomExercise, deleteCustomExercise, enabledCatalog, exerciseInUse, mergeCustomExercises, setExerciseEnabled, setGroupEnabled, updateCustomExercise } from './domain/exercises'
 import { lengthOf, shapeOf, totalWeeks, type ProgramLength } from './domain/progression'
 import { mergeFeedback, nextPrompt, resizeEntries, setOffset, tuneWorkoutSets, tunedSets, upsertFeedback, usesFeedback, type Effort, type Pump, type SessionFeedback, type Soreness } from './domain/autoregulation'
 import { addSetEntry, applyEntryPatch, buildInitialSets, lastSessionSets, maxSetsPerExercise, parseEntry, removeLastSetEntry, skippedSinceLast, type TuneContext } from './domain/session'
 import { adjustRepsForWeightEdit, historicalOneRepMax, type RepNotice } from './domain/repAdjust'
-import { awaitingNextPart, carryOverFor, previousBlockId, startingOffsets, startNextPart } from './domain/transition'
+import { awaitingNextPart, carryOverFor, previousBlockId, startingOffsets, startNextPart, suggestComeback } from './domain/transition'
 import { applyWorkoutSet, clearWorkoutSet, isPlanCustomized, type WorkoutSet } from './domain/workoutSets'
 import { archiveWorkoutState, emptyState, exportWorkoutState, loadWorkoutState, parseImportedState, saveWorkoutState, type SavedWorkoutState, type SetEntry } from './domain/storage'
-import { loadRestTimerEnabled, saveRestTimerEnabled } from './domain/settings'
+import { loadReportDismissed, loadRestTimerEnabled, saveReportDismissed, saveRestTimerEnabled } from './domain/settings'
+import { completedSessions } from './domain/weekly'
+import { showReportOnToday, weeklyReport } from './domain/weeklyReport'
 import { backupSession, restoreSessions } from './domain/sync'
 import { supabase } from './lib/supabase'
 import { gateTimeoutMs, hasSessionHint, isLoadingGate } from './lib/loadingGate'
@@ -62,6 +65,8 @@ function App() {
   const [view, setView] = useState<View>(() => initialView(state))
   const [setupDays, setSetupDays] = useState<TrainingDaysPerWeek>(state.block?.trainingDays ?? 3)
   const [setupWeeks, setSetupWeeks] = useState<ProgramLength>(state.block ? lengthOf(state.block) : 4)
+  // The goal is optional and never preselected, not even a suggested Comeback.
+  const [setupIntent, setSetupIntent] = useState<BlockIntent | null>(null)
   const [userId, setUserId] = useState<string | null>(null)
   const [accountEmail, setAccountEmail] = useState<string | null>(null)
   const [cloudStatus, setCloudStatus] = useState('')
@@ -69,6 +74,8 @@ function App() {
   const [entryError, setEntryError] = useState('')
   const [saveFailed, setSaveFailed] = useState(false)
   const [restTimer, setRestTimer] = useState(loadRestTimerEnabled)
+  const [dismissedReport, setDismissedReport] = useState(loadReportDismissed)
+  const [now, setNow] = useState(() => new Date())
   const [online, setOnline] = useState(0)
   const [planStatus, setPlanStatus] = useState('')
   const [finishing, setFinishing] = useState(false)
@@ -112,6 +119,12 @@ function App() {
   const trainedBefore = (group: MuscleGroup) => !!activeSession && history.some((set) => set.sessionId !== activeSession.sessionId && catalog.find((item) => item.id === set.exerciseId)?.category === group)
   const prompt = view === 'session' && activeWorkout && activeSession ? nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: sessionEntries, trainedBefore, finishing }) : null
   const gated = isLoadingGate({ hasLocalData: deviceHadData, sessionHint, authResolved, signedIn: userId !== null, firstSyncSettled, timedOut: gateExpired })
+  // The report is for the last finished Sun–Sat week. `now` is refreshed on coming back to the app and on navigating, so a Sunday that arrives while the app sits open is picked up.
+  const sessions = useMemo(() => completedSessions(history, activeSession?.sessionId ?? null), [history, activeSession?.sessionId])
+  const report = useMemo(() => weeklyReport(history, activeSession?.sessionId ?? null, now), [history, activeSession?.sessionId, now])
+  const todayReport = showReportOnToday(report, sessions, now, dismissedReport) ? report : null
+  const comeback = useMemo(() => suggestComeback(history, now), [history, now])
+  const mapTargets = useMemo(() => planTargets(block, catalog), [block, catalog])
   const total = block ? listWorkouts(block).length : 0
   const finished = block ? block.completedIds.length + block.skippedIds.length : 0
 
@@ -185,7 +198,7 @@ function App() {
     return () => window.removeEventListener('online', retry)
   }, [])
   // Coming back to the app (or tab) checks the cloud again: uploads anything waiting and picks up a newer plan from another device.
-  useForeground(() => setOnline((value) => value + 1))
+  useForeground(() => { setOnline((value) => value + 1); setNow(new Date()) })
 
   // Program sync: any change to the block, own exercises or library switches stamps a timestamp;
   // the newest copy (this device or the cloud) wins. A snapshot adopted from the cloud is not re-stamped.
@@ -407,6 +420,8 @@ function App() {
   function newBlock() {
     if (block?.locked && upcoming && !window.confirm('Replace the current block? Your logged history is kept, but this block\'s progress is lost.')) return
     setState({ ...state, block: null, activeSession: null })
+    setSetupIntent(null)
+    setNow(new Date())
     setView('setup')
   }
 
@@ -456,7 +471,7 @@ function App() {
   }
 
   const syncLabel = !owned ? 'saved on this device' : activeSession && state.pendingSessionIds.includes(activeSession.sessionId) ? 'syncing…' : 'backed up'
-  const navigate = (next: View) => () => setView(next === 'today' && activeSession ? 'session' : next)
+  const navigate = (next: View) => () => { setNow(new Date()); setView(next === 'today' && activeSession ? 'session' : next) }
   const home = (): View => (!block ? 'setup' : block.locked ? 'today' : 'plan')
 
   if (gated && !recovering && (view === 'landing' || view === 'setup')) return <main className="app-shell"><LoadingView /></main>
@@ -472,12 +487,12 @@ function App() {
       </nav>
       <span className="local-badge"><i /> {owned ? (state.pendingSessionIds.length ? 'Syncing' : 'Backed up') : 'Local-first'}</span></header>
     {saveFailed && <p className="form-error banner" role="alert">This device could not save your data (storage full or blocked). Export your data from Settings now.</p>}
-    {view === 'setup' && <SetupView days={setupDays} weeks={setupWeeks} hasHistory={history.length > 0} onDays={setSetupDays} onWeeks={setSetupWeeks} onContinue={() => { const shape = shapeOf(setupWeeks); setState({ ...state, block: createBlock(setupDays, shape.durationWeeks, shape.parts) }); setView('plan') }} />}
+    {view === 'setup' && <SetupView days={setupDays} weeks={setupWeeks} intent={setupIntent} comebackWeeks={comeback?.weeks ?? null} hasHistory={history.length > 0} onDays={setSetupDays} onWeeks={setSetupWeeks} onIntent={setSetupIntent} onContinue={() => { const shape = shapeOf(setupWeeks); setState({ ...state, block: createBlock(setupDays, shape.durationWeeks, shape.parts, setupIntent) }); setView('plan') }} />}
     {view === 'plan' && block && <PlanView block={block} catalog={catalog} hiddenIds={state.hiddenExerciseIds} onApplySet={applySet} onCustomPlan={customPlan} onChoose={(day, position, id) => editPlan((current) => setSlotExercise(current, day, position, id))} onRename={(day, title) => editPlan((current) => renameDay(current, day, title))} onAdd={(day, id) => editPlan((current) => addExerciseToDay(current, day, id))} onCreate={createExercise} onRemove={(day, position) => editPlan((current) => removeExerciseFromDay(current, day, position))} onMove={(day, position, delta) => editPlan((current) => moveExercise(current, day, position, delta))} onSets={(day, position, sets) => editPlan((current) => setExerciseSets(current, day, position, sets))} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
-    {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} carriedCount={carriedCount} nextPart={awaitingNextPart(block, !upcoming)} partLabel={block.parts === 2 ? `PART ${block.part ?? 1} OF 2` : null} onNextPart={beginNextPart} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onNewBlock={newBlock} />}
+    {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} carriedCount={carriedCount} nextPart={awaitingNextPart(block, !upcoming)} partLabel={block.parts === 2 ? `PART ${block.part ?? 1} OF 2` : null} outcome={blockName(block).outcome} onNextPart={beginNextPart} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onNewBlock={newBlock} report={todayReport} onDismissReport={() => { if (report) { saveReportDismissed(report.weekKey); setDismissedReport(report.weekKey) } }} />}
     {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} repNotices={repNotices} error={entryError} dismissedPrs={dismissedPrs} onDismissPr={(id) => setDismissedPrs((current) => ({ ...current, [id]: true }))} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} skippedLast={(id) => !!block && skippedSinceLast(block, id, lastSessionSets(history, id, activeSession.sessionId), activeSession.workoutId)} onSkip={(id) => setExerciseSkipped(id, true)} onRestore={(id) => setExerciseSkipped(id, false)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
     {prompt && <FeedbackSheet key={`${prompt.kind}-${prompt.group}`} prompt={prompt} onSoreness={(value) => answerSoreness(prompt.group, value)} onSummary={(effort, pump) => answerSummary(prompt.group, { effort, pump })} onSkip={skipPrompt} />}
-    {view === 'progress' && <ProgressView history={history} catalog={catalog} finished={finished} total={total} />}
+    {view === 'progress' && <ProgressView history={history} catalog={catalog} finished={finished} total={total} activeSessionId={activeSession?.sessionId ?? null} targets={mapTargets} />}
     {view === 'library' && <LibraryView catalog={catalog} custom={state.customExercises} hidden={state.hiddenExerciseIds} inUse={(id) => exerciseInUse(block, id)} onToggle={toggleExercise} onToggleGroup={toggleGroup} onAdd={addToLibrary} onUpdate={updateInLibrary} onDelete={deleteFromLibrary} onBack={() => setView('settings')} />}
     {view === 'settings' && <SettingsView librarySummary={`${enabledCatalog(catalog, state.hiddenExerciseIds).length} of ${catalog.length} exercises on`} onOpenLibrary={() => setView('library')} restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} planStatus={planStatus} onRestore={() => { void restoreFromCloud(false); setOnline((value) => value + 1) }} onExport={exportData} onImport={importData} onNewBlock={newBlock} onFeedback={submitFeedback} />}
   </main>

@@ -1,6 +1,6 @@
 import type { SessionFeedback } from './autoregulation'
 import { completedSetSchema } from './backup'
-import type { Block, DayTemplate, ExerciseCatalogItem, PlanExercise } from './program'
+import { isBlockIntent, type Block, type BlockIntent, type DayTemplate, type ExerciseCatalogItem, type PlanExercise } from './program'
 import type { RepRange } from './progression'
 
 const storageKey = 'workout-forge:v3'
@@ -82,8 +82,10 @@ function normalizeBlock(raw: SavedWorkoutState['block']): Block | null {
   }))
   const trainingDays = [2, 3, 4].includes(stored.trainingDays) ? (stored.trainingDays as Block['trainingDays']) : (Math.min(4, Math.max(2, templates.length)) as Block['trainingDays'])
   const durationWeeks = stored.durationWeeks === 6 || stored.durationWeeks === 8 ? stored.durationWeeks : 4
+  const storedIntent = (stored as { intent?: unknown }).intent
+  const intent: BlockIntent | null = isBlockIntent(storedIntent) ? storedIntent : null
   const chained = (stored as { parts?: number }).parts === 2 && durationWeeks === 6
-  return { ...stored, templates, trainingDays, durationWeeks, ...(chained ? { parts: 2 as const, part: (stored as { part?: number }).part === 2 ? (2 as const) : (1 as const) } : { parts: undefined, part: undefined }), progression: stored.progression ?? 'rir', rotation: stored.rotation ?? false, workoutSetId: stored.workoutSetId ?? null }
+  return { ...stored, intent, templates, trainingDays, durationWeeks, ...(chained ? { parts: 2 as const, part: (stored as { part?: number }).part === 2 ? (2 as const) : (1 as const) } : { parts: undefined, part: undefined }), progression: stored.progression ?? 'rir', rotation: stored.rotation ?? false, workoutSetId: stored.workoutSetId ?? null }
 }
 
 function normalizeState(state: SavedWorkoutState): SavedWorkoutState {

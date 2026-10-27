@@ -1,6 +1,7 @@
 import { historicalOneRepMax } from './repAdjust'
 import { muscleGroups, type ExerciseCatalogItem, type MuscleGroup } from './program'
 import type { CompletedSetRecord } from './storage'
+import { addDays, weekStart } from './weekly'
 
 /** Data for the Progress charts. Everything here is pure so it can be tested without drawing anything. */
 export const rangeOptions = [4, 12, 26] as const
@@ -9,23 +10,17 @@ export type RangeWeeks = (typeof rangeOptions)[number]
 const DAY = 86_400_000
 const WEEK = 7 * DAY
 
-/** Midnight at the start of the Monday of the week containing `date` (local time). */
-export function weekStart(date: Date): Date {
-  const start = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-  start.setDate(start.getDate() - ((start.getDay() + 6) % 7))
-  return start
-}
+// Weeks are Sunday to Saturday everywhere; the one definition lives in weekly.ts.
+export { weekStart }
 
-/** The first Monday shown when the chart covers the last `weeks` weeks including this one. */
+/** The first Sunday shown when the chart covers the last `weeks` weeks including this one. */
 export function rangeStart(weeks: number, now: Date): Date {
-  const start = weekStart(now)
-  start.setDate(start.getDate() - 7 * (weeks - 1))
-  return start
+  return addDays(weekStart(now), -7 * (weeks - 1))
 }
 
 export const shortDate = (value: Date | number): string => new Date(value).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 
-const categoryOf = (catalog: ExerciseCatalogItem[], exerciseId: string): MuscleGroup | undefined => catalog.find((item) => item.id === exerciseId)?.category
+export const categoryOf = (catalog: ExerciseCatalogItem[], exerciseId: string): MuscleGroup | undefined => catalog.find((item) => item.id === exerciseId)?.category
 
 /** Muscle groups that have any logged sets, in the library's order. */
 export function trainedGroups(history: CompletedSetRecord[], catalog: ExerciseCatalogItem[]): MuscleGroup[] {
