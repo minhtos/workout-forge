@@ -43,7 +43,7 @@ hairline borders on a charcoal canvas, one bold accent and condensed uppercase h
 - **Orange (`primary`) means "do this next".** The current set, the primary button, the active tab. Nothing decorative.
 - **Green (`success`) means "saved/done".** Completed sets and the block-complete state.
 - **Everything numeric uses tabular figures** so a column of weights reads as a column.
-- Depth comes from surface steps and 1px hairlines, not shadows.
+- Depth comes primarily from surface steps and 1px hairlines; a soft shadow or glow is allowed sparingly, on the one primary surface of a screen, when it earns its place.
 
 ## Colors
 
@@ -86,9 +86,7 @@ Do
 - Respect `prefers-reduced-motion`.
 
 Don't
-- Don't add a second accent hue. Status colors (green, red) are the only exceptions.
 - Don't use text smaller than 12px or dimmer than `ink-subtle`.
-- Don't use shadows for elevation; use a surface step or a hairline.
 - Don't hardcode colors outside `:root`.
 
 ## Responsive Behavior
