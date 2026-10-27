@@ -752,6 +752,25 @@ describe('personal records and haptics', () => {
     expect(banner()).toBeNull()
   })
 
+  it('animates only what just happened: the check on the set completed now, the banner only when it appears after the view opened', () => {
+    seed(prior)
+    startSession()
+    completeSet1At('150')
+    expect(screen.getByRole('button', { name: 'Undo set 1' }).className).toContain('just-done')
+    expect(banner()?.className).toContain('pr-enter')
+
+    // Back and Resume remount the session view: the same check and banner are simply there, with no entrance.
+    fireEvent.click(screen.getByRole('button', { name: /back/i }))
+    fireEvent.click(screen.getByRole('button', { name: /resume workout/i }))
+    expect(screen.getByRole('button', { name: 'Undo set 1' }).className).not.toContain('just-done')
+    expect(banner()).not.toBeNull()
+    expect(banner()?.className).not.toContain('pr-enter')
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 2' }))
+    expect(screen.getByRole('button', { name: 'Undo set 2' }).className).toContain('just-done')
+    expect(screen.getByRole('button', { name: 'Undo set 1' }).className).not.toContain('just-done')
+  })
+
   it('shows no banner in the first session for an exercise', () => {
     seed([])
     startSession()

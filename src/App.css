@@ -151,7 +151,8 @@ select option { background: var(--surface-2); color: var(--ink); }
 .set-row.is-done { opacity: 0.7; }
 .check { width: 52px; height: 52px; border-radius: var(--radius-md); border: 1px solid var(--hairline-strong); background: var(--surface-2); color: var(--on-primary); font-size: 22px; font-weight: 700; transition: scale var(--duration-press) var(--ease-out); }
 .is-current .check { border-color: var(--primary); background: var(--primary); }
-.check.done { background: var(--success); border-color: var(--success); animation: wf-check var(--duration-panel) var(--ease-out); }
+.check.done { background: var(--success); border-color: var(--success); }
+.check.just-done { animation: wf-check var(--duration-panel) var(--ease-out); }
 .check:not(.done)::before { content: '✓'; opacity: 0.45; }
 .is-current .check:not(.done)::before { opacity: 1; }
 .set-actions { display: flex; flex-wrap: wrap; gap: 0 18px; margin-top: 6px; }
@@ -162,7 +163,8 @@ select option { background: var(--surface-2); color: var(--ink); }
 .session-footer .button-row { justify-content: flex-end; }
 
 /* ---------- Personal record banner (inside the exercise card, under the set table) ---------- */
-.pr-banner { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 4px 4px 4px 14px; border: 1px solid color-mix(in srgb, var(--success) 50%, transparent); border-left: 3px solid var(--success); border-radius: var(--radius-md); background: color-mix(in srgb, var(--success) 14%, var(--surface-1)); box-shadow: var(--elevation-raised); color: var(--ink); font-size: 14px; line-height: 1.4; animation: wf-enter var(--duration-panel) var(--ease-out); }
+.pr-banner { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 4px 4px 4px 14px; border: 1px solid color-mix(in srgb, var(--success) 50%, transparent); border-left: 3px solid var(--success); border-radius: var(--radius-md); background: color-mix(in srgb, var(--success) 14%, var(--surface-1)); box-shadow: var(--elevation-raised); color: var(--ink); font-size: 14px; line-height: 1.4; }
+.pr-banner.pr-enter { animation: wf-enter var(--duration-panel) var(--ease-out); }
 .pr-banner p { flex: 1; margin: 0; padding: 6px 0; font-variant-numeric: tabular-nums; }
 .pr-banner strong { color: var(--success-text); font: 600 12px var(--font-mono); letter-spacing: 0.08em; margin-right: 8px; }
 .pr-banner button { flex: none; min-width: 44px; min-height: 44px; background: transparent; border: 0; border-radius: var(--radius-md); color: var(--ink-muted); font-size: 18px; }
@@ -170,11 +172,11 @@ select option { background: var(--surface-2); color: var(--ink); }
 
 /* ---------- Loading state (static skeleton while the account's program loads; no shimmer) ---------- */
 .loading-skeleton { margin-top: 40px; border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface-1); padding: 27px; }
-.loading-bar { height: 14px; margin-top: 14px; border-radius: var(--radius-sm); background: var(--surface-3); }
+.loading-bar { height: 14px; margin-top: 14px; border-radius: var(--radius-sm); background: var(--hairline-strong); }
 .loading-bar.wide { width: 70%; height: 22px; margin-top: 0; }
 .loading-bar.short { width: 40%; }
 .loading-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 24px; }
-.loading-grid i { min-height: 84px; border-radius: var(--radius-md); background: var(--surface-2); }
+.loading-grid i { min-height: 84px; border-radius: var(--radius-md); background: var(--hairline); }
 
 /* ---------- Rest timer ---------- */
 .rest-timer { position: fixed; left: 50%; transform: translateX(-50%); bottom: 20px; z-index: 5; width: min(520px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 18px; background: var(--surface-3); border: 1px solid var(--primary); border-radius: var(--radius-lg); box-shadow: 0 0 0 4px var(--glow), var(--elevation-raised); animation: wf-sheet-in var(--duration-panel) var(--ease-out); }

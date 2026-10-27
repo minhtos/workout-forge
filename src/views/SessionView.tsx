@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { RestTimer } from './RestTimer'
 import { findPersonalRecord, type PersonalRecord } from '../domain/personalRecord'
 import type { RepNotice } from '../domain/repAdjust'
@@ -43,6 +44,10 @@ export function SessionView({ workout, session, history, syncLabel, restTimer, t
   const skipped = session.skipped ?? []
   const entries = Object.entries(session.sets).filter(([id]) => !skipped.includes(id)).flatMap(([, rows]) => rows)
   const done = entries.filter((entry) => entry.complete).length
+  // Motion shows what just happened: the check pulses only on the set completed in this mount, and a record banner that was already
+  // showing when the view opened (resume, tab return) appears without its entrance.
+  const [justDone, setJustDone] = useState<string | null>(null)
+  const [bannersAtOpen] = useState(() => new Set(workout.exercises.filter((exercise) => !dismissedPrs[exercise.id] && findPersonalRecord(history, session.sessionId, exercise.id)).map((exercise) => exercise.id)))
   return <section className="session-view" aria-labelledby="session-title">
     <button className="back-link" onClick={onBack}>← Back</button>
     <div className="session-header"><div><div className="eyebrow">WEEK {workout.weekNumber} · {workout.target.kind === 'deload' ? 'DELOAD' : linear ? 'ADD WEIGHT EACH SESSION' : `${workout.target.targetRir} RIR TARGET`}</div><h1 id="session-title">{workout.title}</h1><p>Each set saves the moment you check it off.</p></div>{!linear && <div className="rir-pill">RIR {workout.target.targetRir}</div>}</div>
@@ -66,10 +71,10 @@ export function SessionView({ workout, session, history, syncLabel, restTimer, t
             <span className="set-no">{index + 1}{set.complete && last[index] && Number(set.weight) > last[index].weight && <small className="delta" aria-label={`${Number(set.weight) - last[index].weight} lb more than last time`}>+{Number(set.weight) - last[index].weight}</small>}</span>
             <label><input aria-label={`${prefix}Set ${index + 1} weight`} value={set.weight} inputMode="decimal" placeholder="0" disabled={set.complete} onChange={(event) => onUpdate(exercise.id, index, { weight: event.target.value })} /><em>lb</em></label>
             <select aria-label={`${prefix}Set ${index + 1} reps`} value={set.reps} disabled={set.complete} onChange={(event) => onUpdate(exercise.id, index, { reps: event.target.value })}>{repOptions.map((value) => <option key={value} value={value}>{value}</option>)}</select>
-            <button className={set.complete ? 'check done' : 'check'} aria-pressed={set.complete} aria-label={set.complete ? `Undo ${prefix}set ${index + 1}` : `Complete ${prefix}set ${index + 1}`} onClick={() => { if (onToggle(exercise, index)) navigator.vibrate?.(10) }}>{set.complete ? '✓' : ''}</button>
+            <button className={set.complete ? (justDone === `${exercise.id}-${index}` ? 'check done just-done' : 'check done') : 'check'} aria-pressed={set.complete} aria-label={set.complete ? `Undo ${prefix}set ${index + 1}` : `Complete ${prefix}set ${index + 1}`} onClick={() => { const recorded = onToggle(exercise, index); setJustDone(recorded ? `${exercise.id}-${index}` : null); if (recorded) navigator.vibrate?.(10) }}>{set.complete ? '✓' : ''}</button>
           </div>)}
         </div>
-        {record && <div className="pr-banner" role="status"><p><strong>PERSONAL RECORD</strong>{recordText(record)}</p><button aria-label={`Dismiss personal record for ${exercise.name}`} onClick={() => onDismissPr(exercise.id)}>✕</button></div>}
+        {record && <div className={bannersAtOpen.has(exercise.id) ? 'pr-banner' : 'pr-banner pr-enter'} role="status"><p><strong>PERSONAL RECORD</strong>{recordText(record)}</p><button aria-label={`Dismiss personal record for ${exercise.name}`} onClick={() => onDismissPr(exercise.id)}>✕</button></div>}
         {repNotices[exercise.id] && <p className={repNotices[exercise.id]?.kind === 'warn' ? 'rep-notice warn' : 'rep-notice'} role="status">{repNotices[exercise.id]?.text}</p>}
         <div className="set-actions">
           <button className="add-set" aria-label={`Add set to ${exercise.name}`} disabled={(session.sets[exercise.id]?.length ?? 0) >= maxSetsPerExercise} onClick={() => onAddSet(exercise.id)}>+ Add set</button>
