@@ -1,0 +1,22 @@
+#!/bin/bash
+# Project verification gate: lint, unit/component tests, typecheck + production build.
+# Exit non-zero on ANY failure. On success the .claude/verify-ok marker is
+# refreshed — the require-verify hook blocks `git commit` / `gh pr create`
+# whenever a source file is newer than that marker.
+set -euo pipefail
+
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MARKER="$ROOT/.claude/verify-ok"
+rm -f "$MARKER"
+cd "$ROOT"
+
+echo "verify: lint"
+npm run lint
+echo "verify: test"
+npm test
+echo "verify: build (tsc -b + vite build)"
+npm run build
+
+mkdir -p "$(dirname "$MARKER")"
+touch "$MARKER"
+echo "verify: all stages passed"

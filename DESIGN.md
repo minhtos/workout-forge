@@ -31,6 +31,10 @@ typography:
   numeral-lg: { fontFamily: "Barlow", fontSize: 24px, fontWeight: 600, fontFeature: tnum }
 
 rounded: { sm: 6px, md: 8px, lg: 12px, pill: 9999px }
+elevation: { raised: "0 1px 2px rgba(0,0,0,0.35), 0 8px 24px -10px rgba(0,0,0,0.55)" }
+motion:
+  duration: { press: 120ms, hover: 160ms, panel: 240ms, sheet: 320ms }
+  ease-out: "cubic-bezier(0.22, 1, 0.36, 1)"
 spacing: { 1: 4px, 2: 8px, 3: 12px, 4: 16px, 5: 24px, 6: 32px, 7: 48px }
 touch-target: 48px
 ---
@@ -65,6 +69,10 @@ Barlow for body and Barlow Condensed (uppercase) for display headings, both bund
   incomplete set of each exercise), *upcoming* (default). Inputs are 52px tall.
 - **Rest timer** — appears after a set is checked off, counts down from 60/90/120/180s (remembered), floats
   above the tab bar on phones.
+- **Elevation** — one token, `--elevation-raised` (dark and light values in `src/index.css`), on the primary surfaces only: the current set row, the rest timer, the PR banner and every workout card in Today's list (`.today-list .workout-card`). Everything else stays flat on hairlines.
+- **Motion** — tokens `--duration-press` 120ms, `--duration-hover` 160ms, `--duration-panel` 240ms, `--duration-sheet` 320ms and `--ease-out`. Used for: press/hover feedback, a view arriving (`wf-enter`), a sheet or the rest timer arriving (`wf-sheet-in`), the backdrop (`wf-fade-in`) and a saved set's check (`wf-check`). One-shot only, nothing loops, and `src/styles.test.ts` fails on a literal duration in `App.css`, a token over 500ms or an `infinite` animation.
+- **PR banner** — a `role="status"` line inside the exercise card, under the set table, shown when a set beats everything logged earlier for that exercise (best estimated one-rep max, or most reps for bodyweight work; deload sessions never count and the first session has nothing to beat). Green, elevated, with a 44px dismiss button. Dismissals live in memory for the current session only.
+- **Loading state** — while a signed-in user's program is still loading from the account and this device has no program yet, a static skeleton (`LoadingView`) with the text "Loading your program…" (`role="status"`) replaces the landing/setup screen, so the setup question never flashes. No shimmer. After 8 seconds it gives up and shows the normal screen.
 - **Tab bar** — on screens under 680px the primary nav becomes a fixed bottom bar, 56px tall, with icons.
 - **Rest timer** — optional, off by default (Settings → Rest timer). When on it appears after a set is checked off
   and counts down from 60/90/120/180s (remembered). Floats above the tab bar on phones.
@@ -84,6 +92,7 @@ Do
 - Keep tap targets at least 44px (48px preferred in the session view).
 - Use `tnum` for any number the user compares.
 - Respect `prefers-reduced-motion`.
+- Motion shows state only; tokens only.
 
 Don't
 - Don't use text smaller than 12px or dimmer than `ink-subtle`.

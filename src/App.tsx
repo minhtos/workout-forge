@@ -13,12 +13,15 @@ import { archiveWorkoutState, emptyState, exportWorkoutState, loadWorkoutState, 
 import { loadRestTimerEnabled, saveRestTimerEnabled } from './domain/settings'
 import { backupSession, restoreSessions } from './domain/sync'
 import { supabase } from './lib/supabase'
+import { gateTimeoutMs, hasSessionHint, isLoadingGate } from './lib/loadingGate'
 import { submitFeedback } from './lib/feedback'
 import { FeedbackSheet } from './views/FeedbackSheet'
+import { Icon } from './views/Icon'
 import { LibraryView } from './views/LibraryView'
 import { useForeground } from './lib/useForeground'
 import { PlanView } from './views/PlanView'
 import { LandingView } from './views/LandingView'
+import { LoadingView } from './views/LoadingView'
 import { ResetPasswordView } from './views/ResetPasswordView'
 import type { AuthResult } from './views/AuthForm'
 import { authMessage } from './domain/auth'
@@ -36,6 +39,8 @@ function initialView(state: SavedWorkoutState): View {
   if (!state.block) return state.history.length ? 'setup' : 'landing'
   return state.block.locked ? 'today' : 'plan'
 }
+
+const hasDeviceData = (state: Pick<SavedWorkoutState, 'block' | 'history'>) => !!state.block || state.history.length > 0
 
 const addUnique = (ids: string[], id: string) => (ids.includes(id) ? ids : [...ids, id])
 
@@ -68,6 +73,23 @@ function App() {
   const [planStatus, setPlanStatus] = useState('')
   const [finishing, setFinishing] = useState(false)
   const [repNotices, setRepNotices] = useState<Record<string, RepNotice | null>>({})
+  const [dismissedPrs, setDismissedPrs] = useState<Record<string, boolean>>({})
+  // Loading gate: a returning signed-in user on an empty device sees a skeleton, not the setup question, until the account's program arrives.
+  const [sessionHint] = useState(() => !!supabase && hasSessionHint(import.meta.env.VITE_SUPABASE_URL, window.localStorage))
+  const [authResolved, setAuthResolved] = useState(!supabase)
+  const [firstSyncSettled, setFirstSyncSettled] = useState(false)
+  const [gateExpired, setGateExpired] = useState(false)
+  // Whether this device already had data is decided when the gate starts (mount, and again whenever the signed-in user changes), not live:
+  // sets restored from the cloud land before the plan does and must not drop the gate.
+  const [deviceHadData, setDeviceHadData] = useState(() => hasDeviceData(state))
+  const [gateUser, setGateUser] = useState<string | null>(null)
+  if (userId !== gateUser) {
+    setGateUser(userId)
+    setFirstSyncSettled(false)
+    setGateExpired(false)
+    // A different account starts on a clean slate (see the account-wipe effect), so the old owner's data does not count.
+    setDeviceHadData(hasDeviceData(state) && (!userId || !state.ownerId || state.ownerId === userId))
+  }
   const adoptingRemote = useRef(false)
   const stateRef = useRef(state)
   const flushing = useRef(false)
@@ -89,6 +111,7 @@ function App() {
   const sessionEntries = activeSession ? state.feedback.filter((entry) => entry.sessionId === activeSession.sessionId) : []
   const trainedBefore = (group: MuscleGroup) => !!activeSession && history.some((set) => set.sessionId !== activeSession.sessionId && catalog.find((item) => item.id === set.exerciseId)?.category === group)
   const prompt = view === 'session' && activeWorkout && activeSession ? nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: sessionEntries, trainedBefore, finishing }) : null
+  const gated = isLoadingGate({ hasLocalData: deviceHadData, sessionHint, authResolved, signedIn: userId !== null, firstSyncSettled, timedOut: gateExpired })
   const total = block ? listWorkouts(block).length : 0
   const finished = block ? block.completedIds.length + block.skippedIds.length : 0
 
@@ -101,9 +124,10 @@ function App() {
   // Auth: supabase persists the session locally and refreshes it, so users stay signed in.
   useEffect(() => {
     if (!supabase) return
-    void supabase.auth.getSession().then(({ data }) => { setUserId(data.session?.user.id ?? null); setAccountEmail(data.session?.user.email ?? null); if (data.session) setView(leaveLanding) })
+    void supabase.auth.getSession().then(({ data }) => { setUserId(data.session?.user.id ?? null); setAccountEmail(data.session?.user.email ?? null); if (data.session) setView(leaveLanding); setAuthResolved(true) })
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setUserId(session?.user.id ?? null)
+      setAuthResolved(true)
       setAccountEmail(session?.user.email ?? null)
       if (session) setView(leaveLanding)
       if (event === 'PASSWORD_RECOVERY') setRecovering(true)
@@ -194,11 +218,20 @@ function App() {
     else if (outcome.kind === 'error') setPlanStatus(`Plan backup pending: ${outcome.message}`)
     else setPlanStatus('')
   }, [userId])
+  // While the loading screen is up, the first sync runs at once; otherwise it waits to batch up edits.
+  const gatedRef = useRef(gated)
+  useEffect(() => { gatedRef.current = gated }, [gated])
   useEffect(() => {
     if (!owned) return
-    const timer = window.setTimeout(() => void syncProgram(), 1200)
+    const timer = window.setTimeout(() => void syncProgram().finally(() => setFirstSyncSettled(true)), gatedRef.current ? 0 : 1200)
     return () => window.clearTimeout(timer)
   }, [owned, state.programUpdatedAt, online, syncProgram])
+  // Fail-safe: if the account never answers, show what the device has.
+  useEffect(() => {
+    if (!gated) return
+    const timer = window.setTimeout(() => setGateExpired(true), gateTimeoutMs)
+    return () => window.clearTimeout(timer)
+  }, [gated])
 
   function editPlan(edit: (block: Block) => Block) {
     setState((current) => current.block && !current.block.locked ? { ...current, block: edit(current.block) } : current)
@@ -300,8 +333,9 @@ function App() {
       return { ...current, activeSession: { ...session, skipped: skip ? [...rest, exerciseId] : rest } }
     })
   }
-  function toggleSet(exercise: ExercisePrescription, index: number) {
-    if (!activeSession || !activeWorkout) return
+  /** Checks a set off or undoes it. Returns true only when a record was written (so the caller can give a haptic tick). */
+  function toggleSet(exercise: ExercisePrescription, index: number): boolean {
+    if (!activeSession || !activeWorkout) return false
     const { sessionId } = activeSession
     const entry = activeSession.sets[exercise.id][index]
     const id = `${sessionId}-${exercise.id}-${index + 1}`
@@ -309,10 +343,10 @@ function App() {
     if (entry.complete) {
       setState((current) => ({ ...current, history: current.history.filter((set) => set.id !== id), pendingSessionIds: addUnique(current.pendingSessionIds, sessionId) }))
       updateEntry(exercise.id, index, { complete: false })
-      return
+      return false
     }
     const parsed = parseEntry(entry)
-    if ('error' in parsed) { setEntryError(parsed.error); return }
+    if ('error' in parsed) { setEntryError(parsed.error); return false }
     const record = { id, sessionId, workoutId: activeWorkout.id, exerciseId: exercise.id, exerciseName: exercise.name, setIndex: index + 1, ...parsed, weightUnit: 'lb' as const, completedAt: new Date().toISOString(), weekNumber: activeWorkout.weekNumber, repRange: exercise.repRange, targetRir: activeWorkout.target.targetRir, targetReps: entry.targetReps, ...(activeWorkout.target.kind === 'deload' ? { deload: true } : {}) }
     setState((current) => current.activeSession ? {
       ...current,
@@ -320,12 +354,14 @@ function App() {
       pendingSessionIds: addUnique(current.pendingSessionIds, sessionId),
       activeSession: { ...current.activeSession, sets: { ...current.activeSession.sets, [exercise.id]: current.activeSession.sets[exercise.id].map((item, position) => position === index ? { ...item, complete: true } : item) } },
     } : current)
+    return true
   }
   function completeWorkout(feedback: SessionFeedback[]) {
     if (!block || !activeSession) return
     setState({ ...state, feedback, activeSession: null, block: { ...block, completedIds: addUnique(block.completedIds, activeSession.workoutId) } })
     setFinishing(false)
     setRepNotices({})
+    setDismissedPrs({})
     setView('today')
   }
   /** Finishing asks any unanswered effort and pump questions first (each can be skipped). */
@@ -340,6 +376,7 @@ function App() {
     const { sessionId } = activeSession
     setState((current) => ({ ...current, activeSession: null, history: current.history.filter((set) => set.sessionId !== sessionId), feedback: current.feedback.filter((entry) => entry.sessionId !== sessionId), pendingSessionIds: addUnique(current.pendingSessionIds, sessionId) }))
     setFinishing(false)
+    setDismissedPrs({})
     setView('today')
   }
 
@@ -422,22 +459,23 @@ function App() {
   const navigate = (next: View) => () => setView(next === 'today' && activeSession ? 'session' : next)
   const home = (): View => (!block ? 'setup' : block.locked ? 'today' : 'plan')
 
+  if (gated && !recovering && (view === 'landing' || view === 'setup')) return <main className="app-shell"><LoadingView /></main>
   if (view === 'landing' && !recovering) return <LandingView cloudEnabled={!!supabase} onStart={() => setView('setup')} onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} onFeedback={submitFeedback} />
   if (recovering) return <main className="app-shell"><ResetPasswordView onSubmit={saveNewPassword} /></main>
 
   return <main className="app-shell">
     <header className="topbar"><button className="brand" onClick={navigate(home())} aria-label="Workout Forge home"><span className="brand-mark">WF</span><span>WORKOUT FORGE</span></button>
       <nav aria-label="Primary navigation">
-        {block?.locked && <button aria-current={view === 'today' || view === 'session' ? 'page' : undefined} className={view === 'today' || view === 'session' ? 'nav-active' : ''} onClick={navigate('today')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11"/></svg>Workout</button>}
-        <button aria-current={view === 'progress' ? 'page' : undefined} className={view === 'progress' ? 'nav-active' : ''} onClick={navigate('progress')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M5 20V11M12 20V5M19 20v-6"/></svg>Progress</button>
-        <button aria-current={view === 'settings' || view === 'library' ? 'page' : undefined} className={view === 'settings' || view === 'library' ? 'nav-active' : ''} onClick={navigate('settings')}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>Settings</button>
+        {block?.locked && <button aria-current={view === 'today' || view === 'session' ? 'page' : undefined} className={view === 'today' || view === 'session' ? 'nav-active' : ''} onClick={navigate('today')}><Icon name="workout" />Workout</button>}
+        <button aria-current={view === 'progress' ? 'page' : undefined} className={view === 'progress' ? 'nav-active' : ''} onClick={navigate('progress')}><Icon name="progress" />Progress</button>
+        <button aria-current={view === 'settings' || view === 'library' ? 'page' : undefined} className={view === 'settings' || view === 'library' ? 'nav-active' : ''} onClick={navigate('settings')}><Icon name="settings" />Settings</button>
       </nav>
       <span className="local-badge"><i /> {owned ? (state.pendingSessionIds.length ? 'Syncing' : 'Backed up') : 'Local-first'}</span></header>
     {saveFailed && <p className="form-error banner" role="alert">This device could not save your data (storage full or blocked). Export your data from Settings now.</p>}
     {view === 'setup' && <SetupView days={setupDays} weeks={setupWeeks} hasHistory={history.length > 0} onDays={setSetupDays} onWeeks={setSetupWeeks} onContinue={() => { const shape = shapeOf(setupWeeks); setState({ ...state, block: createBlock(setupDays, shape.durationWeeks, shape.parts) }); setView('plan') }} />}
     {view === 'plan' && block && <PlanView block={block} catalog={catalog} hiddenIds={state.hiddenExerciseIds} onApplySet={applySet} onCustomPlan={customPlan} onChoose={(day, position, id) => editPlan((current) => setSlotExercise(current, day, position, id))} onRename={(day, title) => editPlan((current) => renameDay(current, day, title))} onAdd={(day, id) => editPlan((current) => addExerciseToDay(current, day, id))} onCreate={createExercise} onRemove={(day, position) => editPlan((current) => removeExerciseFromDay(current, day, position))} onMove={(day, position, delta) => editPlan((current) => moveExercise(current, day, position, delta))} onSets={(day, position, sets) => editPlan((current) => setExerciseSets(current, day, position, sets))} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
     {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} carriedCount={carriedCount} nextPart={awaitingNextPart(block, !upcoming)} partLabel={block.parts === 2 ? `PART ${block.part ?? 1} OF 2` : null} onNextPart={beginNextPart} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onNewBlock={newBlock} />}
-    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} repNotices={repNotices} error={entryError} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} skippedLast={(id) => !!block && skippedSinceLast(block, id, lastSessionSets(history, id, activeSession.sessionId), activeSession.workoutId)} onSkip={(id) => setExerciseSkipped(id, true)} onRestore={(id) => setExerciseSkipped(id, false)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
+    {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} repNotices={repNotices} error={entryError} dismissedPrs={dismissedPrs} onDismissPr={(id) => setDismissedPrs((current) => ({ ...current, [id]: true }))} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} skippedLast={(id) => !!block && skippedSinceLast(block, id, lastSessionSets(history, id, activeSession.sessionId), activeSession.workoutId)} onSkip={(id) => setExerciseSkipped(id, true)} onRestore={(id) => setExerciseSkipped(id, false)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
     {prompt && <FeedbackSheet key={`${prompt.kind}-${prompt.group}`} prompt={prompt} onSoreness={(value) => answerSoreness(prompt.group, value)} onSummary={(effort, pump) => answerSummary(prompt.group, { effort, pump })} onSkip={skipPrompt} />}
     {view === 'progress' && <ProgressView history={history} catalog={catalog} finished={finished} total={total} />}
     {view === 'library' && <LibraryView catalog={catalog} custom={state.customExercises} hidden={state.hiddenExerciseIds} inUse={(id) => exerciseInUse(block, id)} onToggle={toggleExercise} onToggleGroup={toggleGroup} onAdd={addToLibrary} onUpdate={updateInLibrary} onDelete={deleteFromLibrary} onBack={() => setView('settings')} />}
