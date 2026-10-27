@@ -1,0 +1,28 @@
+/// <reference types="node" />
+import { readFileSync } from 'node:fs'
+import { describe, expect, it } from 'vitest'
+
+// Read as text: vitest does not process CSS imports, so ?raw would be empty.
+const read = (name: string) => readFileSync(new URL(name, import.meta.url), 'utf8')
+const appCss = read('./App.css')
+const indexCss = read('./index.css')
+
+const toMs = (value: string, unit: string) => Number(value) * (unit === 's' ? 1000 : 1)
+
+describe('motion tokens', () => {
+  it('keeps every --duration-* token at 500ms or less', () => {
+    const tokens = [...indexCss.matchAll(/--duration-[\w-]+:\s*([\d.]+)(ms|s)\b/g)]
+    expect(tokens.length).toBeGreaterThanOrEqual(4)
+    for (const [, value, unit] of tokens) expect(toMs(value, unit)).toBeLessThanOrEqual(500)
+  })
+
+  it('has no infinite animations', () => {
+    expect(`${indexCss}${appCss}`).not.toMatch(/\binfinite\b/)
+  })
+
+  it('uses tokens, not literal durations, in App.css transitions and animations', () => {
+    const declarations = [...appCss.matchAll(/(?:^|[;{\s])(transition|animation)(?:-duration)?\s*:([^;}]*)/g)]
+    expect(declarations.length).toBeGreaterThan(0)
+    for (const [, , value] of declarations) expect(value).not.toMatch(/(?<![\w-])\d*\.?\d+m?s\b/)
+  })
+})
