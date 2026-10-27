@@ -1,4 +1,6 @@
 import type { ScheduledWorkout } from '../domain/program'
+import type { WeeklyReport as Report } from '../domain/weeklyReport'
+import { WeeklyReport } from './WeeklyReport'
 
 interface Props {
   workout: ScheduledWorkout | null
@@ -16,10 +18,13 @@ interface Props {
   onNextPart: () => void
   onStart: () => void
   onNewBlock: () => void
+  /** Last week's report, when Today should show it (see showReportOnToday). */
+  report: Report | null
+  onDismissReport: () => void
 }
 
-export function TodayView({ workout, trainingDays, totalWeeks, finished, total, resuming, carriedCount, nextPart, partLabel, onNextPart, onStart, onNewBlock }: Props) {
-  const progress = <div className="progress-line" aria-label={`${finished} of ${total} workouts done`}><span style={{ width: `${total ? finished / total * 100 : 0}%` }} /></div>
+export function TodayView({ workout, trainingDays, totalWeeks, finished, total, resuming, carriedCount, nextPart, partLabel, onNextPart, onStart, onNewBlock, report, onDismissReport }: Props) {
+  const progress = <><div className="progress-line" aria-label={`${finished} of ${total} workouts done`}><span style={{ width: `${total ? finished / total * 100 : 0}%` }} /></div>{report && <WeeklyReport report={report} placement="today" onDismiss={onDismissReport} />}</>
   if (!workout && nextPart) return <section className="workspace" aria-labelledby="today-title">
     <div className="eyebrow">{partLabel} COMPLETE</div><h1 id="today-title">Part 1 done. On to part 2.</h1><p className="lede">{finished} of {total} workouts done, deload included. Part 2 starts from your last 0 RIR numbers, with reps back at the bottom of the range and the same exercises.</p>{progress}
     <button className="primary-button" onClick={onNextPart}>Start part 2 <span>→</span></button>

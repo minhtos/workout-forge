@@ -4,9 +4,11 @@ import { muscleMapView, type PlanTargets } from '../domain/muscleVolume'
 import type { ExerciseCatalogItem, MuscleGroup } from '../domain/program'
 import type { CompletedSetRecord } from '../domain/storage'
 import { completedSessions } from '../domain/weekly'
+import { weeklyReport } from '../domain/weeklyReport'
 import { ColumnChart, TrendChart } from './Charts'
 import { MuscleMap } from './MuscleMap'
 import { TrainingRhythm } from './TrainingRhythm'
+import { WeeklyReport } from './WeeklyReport'
 
 interface Props {
   history: CompletedSetRecord[]
@@ -36,6 +38,7 @@ const weeklySummary = (buckets: WeekBucket[], scope: string) => {
 export function ProgressView({ history, catalog, finished, total, activeSessionId, targets }: Props) {
   const [now] = useState(() => new Date())
   const sessions = useMemo(() => completedSessions(history, activeSessionId), [history, activeSessionId])
+  const report = useMemo(() => weeklyReport(history, activeSessionId, now), [history, activeSessionId, now])
   const mapView = useMemo(() => muscleMapView(sessions, catalog, now, targets), [sessions, catalog, now, targets])
   const [weeks, setWeeks] = useState<RangeWeeks>(12)
   const [group, setGroup] = useState<MuscleGroup | 'all'>('all')
@@ -71,6 +74,7 @@ export function ProgressView({ history, catalog, finished, total, activeSessionI
   return <section className="workspace" aria-labelledby="progress-title">
     <div className="workspace-heading"><div><div className="eyebrow">TRAINING DATA</div><h1 id="progress-title">Progress, without the noise.</h1><p>Every completed set is saved the moment you log it.</p></div></div>
     <MuscleMap view={mapView} idPrefix="progress-map" />
+    {report && <WeeklyReport report={report} placement="progress" />}
     {sessions.length > 0 && <TrainingRhythm sessions={sessions} now={now} />}
     <div className="metrics-grid">
       <article><span>THIS BLOCK</span><strong>{finished}<small> / {total}</small></strong><p>workouts done</p></article>
