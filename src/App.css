@@ -112,6 +112,7 @@ select option { background: var(--surface-2); color: var(--ink); }
 .workout-list { display: grid; gap: 10px; margin-top: 10px; }
 .workout-card { min-height: 96px; border-radius: var(--radius-lg); padding: 18px 20px; display: grid; grid-template-columns: 56px 1fr auto; align-items: center; gap: 12px; }
 .workout-card.completed { opacity: 0.72; }
+.today-list .workout-card { box-shadow: var(--elevation-raised); }
 .session-number { font: 15px var(--font-mono); color: var(--ink-subtle); font-variant-numeric: tabular-nums; }
 .workout-info span { font: 12px var(--font-mono); text-transform: uppercase; color: var(--ink-subtle); }
 .workout-info h2 { font-size: 19px; font-weight: 500; letter-spacing: -0.025em; margin: 6px 0; }
@@ -145,7 +146,7 @@ select option { background: var(--surface-2); color: var(--ink); }
 .set-row select { min-height: 52px; font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
 .set-row em { position: absolute; right: 10px; top: 50%; transform: translateY(-50%); color: var(--ink-subtle); font: 12px var(--font-mono); font-style: normal; pointer-events: none; }
 .set-row select:disabled, .set-row input:disabled { opacity: 1; color: var(--ink-muted); background: transparent; border-color: var(--hairline); }
-.set-row.is-current { border-color: var(--primary); background: var(--primary-tint); }
+.set-row.is-current { border-color: var(--primary); background: var(--primary-tint); box-shadow: var(--elevation-raised); }
 .set-row.is-current > .set-no { color: var(--primary-text); }
 .set-row.is-done { opacity: 0.7; }
 .check { width: 52px; height: 52px; border-radius: var(--radius-md); border: 1px solid var(--hairline-strong); background: var(--surface-2); color: var(--on-primary); font-size: 22px; font-weight: 700; transition: scale var(--duration-press) var(--ease-out); }
@@ -160,9 +161,16 @@ select option { background: var(--surface-2); color: var(--ink); }
 .session-footer { display: flex; justify-content: space-between; align-items: center; padding-top: 20px; color: var(--ink-subtle); font-size: 14px; gap: 12px; }
 .session-footer .button-row { justify-content: flex-end; }
 
+/* ---------- Personal record banner (inside the exercise card, under the set table) ---------- */
+.pr-banner { display: flex; align-items: center; gap: 8px; margin-top: 12px; padding: 4px 4px 4px 14px; border: 1px solid color-mix(in srgb, var(--success) 50%, transparent); border-left: 3px solid var(--success); border-radius: var(--radius-md); background: color-mix(in srgb, var(--success) 14%, var(--surface-1)); box-shadow: var(--elevation-raised); color: var(--ink); font-size: 14px; line-height: 1.4; animation: wf-enter var(--duration-panel) var(--ease-out); }
+.pr-banner p { flex: 1; margin: 0; padding: 6px 0; font-variant-numeric: tabular-nums; }
+.pr-banner strong { color: var(--success-text); font: 600 12px var(--font-mono); letter-spacing: 0.08em; margin-right: 8px; }
+.pr-banner button { flex: none; min-width: 44px; min-height: 44px; background: transparent; border: 0; border-radius: var(--radius-md); color: var(--ink-muted); font-size: 18px; }
+.pr-banner button:hover { background: var(--surface-3); }
+
 /* ---------- Rest timer ---------- */
-.rest-timer { position: fixed; left: 50%; transform: translateX(-50%); bottom: 20px; z-index: 5; width: min(520px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 18px; background: var(--surface-3); border: 1px solid var(--primary); border-radius: var(--radius-lg); box-shadow: 0 0 0 4px var(--glow); animation: wf-sheet-in var(--duration-panel) var(--ease-out); }
-.rest-timer.is-over { border-color: var(--success); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 25%, transparent); }
+.rest-timer { position: fixed; left: 50%; transform: translateX(-50%); bottom: 20px; z-index: 5; width: min(520px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 18px; background: var(--surface-3); border: 1px solid var(--primary); border-radius: var(--radius-lg); box-shadow: 0 0 0 4px var(--glow), var(--elevation-raised); animation: wf-sheet-in var(--duration-panel) var(--ease-out); }
+.rest-timer.is-over { border-color: var(--success); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 25%, transparent), var(--elevation-raised); }
 .rest-time { font: 600 28px var(--font-sans); letter-spacing: -0.03em; font-variant-numeric: tabular-nums; min-width: 4ch; }
 .rest-label { display: flex; flex-direction: column; flex: 1; min-width: 0; font-size: 13px; color: var(--ink-subtle); }
 .rest-label strong { color: var(--ink); font-size: 14px; font-weight: 500; }
