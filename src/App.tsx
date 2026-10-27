@@ -40,6 +40,8 @@ function initialView(state: SavedWorkoutState): View {
   return state.block.locked ? 'today' : 'plan'
 }
 
+const hasDeviceData = (state: Pick<SavedWorkoutState, 'block' | 'history'>) => !!state.block || state.history.length > 0
+
 const addUnique = (ids: string[], id: string) => (ids.includes(id) ? ids : [...ids, id])
 
 /** What counts as "the program" for syncing; changes to it stamp programUpdatedAt. */
@@ -77,6 +79,17 @@ function App() {
   const [authResolved, setAuthResolved] = useState(!supabase)
   const [firstSyncSettled, setFirstSyncSettled] = useState(false)
   const [gateExpired, setGateExpired] = useState(false)
+  // Whether this device already had data is decided when the gate starts (mount, and again whenever the signed-in user changes), not live:
+  // sets restored from the cloud land before the plan does and must not drop the gate.
+  const [deviceHadData, setDeviceHadData] = useState(() => hasDeviceData(state))
+  const [gateUser, setGateUser] = useState<string | null>(null)
+  if (userId !== gateUser) {
+    setGateUser(userId)
+    setFirstSyncSettled(false)
+    setGateExpired(false)
+    // A different account starts on a clean slate (see the account-wipe effect), so the old owner's data does not count.
+    setDeviceHadData(hasDeviceData(state) && (!userId || !state.ownerId || state.ownerId === userId))
+  }
   const adoptingRemote = useRef(false)
   const stateRef = useRef(state)
   const flushing = useRef(false)
@@ -98,7 +111,7 @@ function App() {
   const sessionEntries = activeSession ? state.feedback.filter((entry) => entry.sessionId === activeSession.sessionId) : []
   const trainedBefore = (group: MuscleGroup) => !!activeSession && history.some((set) => set.sessionId !== activeSession.sessionId && catalog.find((item) => item.id === set.exerciseId)?.category === group)
   const prompt = view === 'session' && activeWorkout && activeSession ? nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: sessionEntries, trainedBefore, finishing }) : null
-  const gated = isLoadingGate({ hasLocalData: !!block || history.length > 0, sessionHint, authResolved, signedIn: userId !== null, firstSyncSettled, timedOut: gateExpired })
+  const gated = isLoadingGate({ hasLocalData: deviceHadData, sessionHint, authResolved, signedIn: userId !== null, firstSyncSettled, timedOut: gateExpired })
   const total = block ? listWorkouts(block).length : 0
   const finished = block ? block.completedIds.length + block.skippedIds.length : 0
 

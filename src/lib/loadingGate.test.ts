@@ -23,11 +23,6 @@ describe('isLoadingGate', () => {
     expect(gate({ authResolved: true, signedIn: true, firstSyncSettled: true })).toBe(false)
   })
 
-  it('treats a sync error like any other settled sync', () => {
-    // App marks the first sync settled in every outcome, errors included, so the setup screen and the error message show.
-    expect(gate({ authResolved: true, signedIn: true, firstSyncSettled: true })).toBe(false)
-  })
-
   it('gives up after the timeout in every stage', () => {
     expect(gate({ timedOut: true })).toBe(false)
     expect(gate({ authResolved: true, signedIn: true, timedOut: true })).toBe(false)

@@ -17,11 +17,12 @@ const setupQuestion = /how many days per week/i
 let block = createBlock(2, 4)
 for (const day of [0, 1]) block = addExerciseToDay(block, day, 'barbell-bench-press')
 const lockedBlock = { ...block, locked: true, startedAt: '2026-09-28T09:00:00.000Z' }
+const loggedSet = { id: '550e8400-e29b-41d4-a716-446655440000-1', sessionId: '550e8400-e29b-41d4-a716-446655440000', workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex: 1, weight: 135, reps: 8, rir: 2, weightUnit: 'lb', completedAt: '2026-09-29T10:00:00.000Z', weekNumber: 1, repRange: { min: 6, max: 12 }, targetRir: 2, targetReps: 8 }
 const snapshot = { version: 1, updatedAt: '2026-10-01T00:00:00.000Z', block: lockedBlock, customExercises: [], hiddenExerciseIds: [], feedback: [] }
 
 /** A stand-in Supabase client: one signed-in (or not) session, and a program row the test decides when to deliver. */
-function mockClient({ signedIn, program }: { signedIn: boolean; program: () => Promise<Reply> }) {
-  const empty = { select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }) }), upsert: () => Promise.resolve({ error: null }) }
+function mockClient({ signedIn, program, sessions = [] }: { signedIn: boolean; program: () => Promise<Reply>; sessions?: unknown[] }) {
+  const empty = { select: () => ({ eq: () => ({ order: () => Promise.resolve({ data: sessions, error: null }) }) }), upsert: () => Promise.resolve({ error: null }) }
   mocks.client = {
     auth: {
       getSession: () => Promise.resolve({ data: { session: signedIn ? { user: { id: 'user-1', email: 'lifter@example.com' } } : null } }),
@@ -65,6 +66,23 @@ describe('loading state while the account program loads', () => {
     await act(async () => { pending.resolve({ data: { payload: snapshot }, error: null }) })
     expect(await screen.findByRole('heading', { name: 'Day 1' })).toBeTruthy()
     expect(screen.queryByText('Loading your program…')).toBeNull()
+    expect(sawSetup).toBe(false)
+  })
+
+  it('keeps the skeleton when restored sets land before the plan, so the setup question never flashes', async () => {
+    window.localStorage.setItem(sessionKey, '{"present":true}')
+    const pending = deferred()
+    mockClient({ signedIn: true, program: () => pending.promise, sessions: [{ payload: { id: loggedSet.sessionId, completedAt: loggedSet.completedAt, schemaVersion: 1, sets: [loggedSet] } }] })
+    render(<App />)
+
+    await settle()
+    // The cloud history has been restored into the app by now, while the plan is still in flight.
+    expect(JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}').history).toHaveLength(1)
+    expect(screen.getByRole('status').textContent).toBe('Loading your program…')
+    expect(screen.queryByText(setupQuestion)).toBeNull()
+
+    await act(async () => { pending.resolve({ data: { payload: snapshot }, error: null }) })
+    expect(await screen.findByRole('heading', { name: 'Day 1' })).toBeTruthy()
     expect(sawSetup).toBe(false)
   })
 
