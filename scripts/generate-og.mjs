@@ -25,6 +25,7 @@ const bodyFont = loadFont('barlow/files/barlow-latin-500-normal.woff')
 const markSource = readFileSync(resolve(root, 'public/plate-mark.svg'), 'utf8')
 const markInner = markSource.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '').trim()
 
+// `tracking` is letter-spacing in em (opentype.js convention), not pixels.
 const outline = (font, text, size, baseline, fill, tracking = 0) => {
   const width = font.getAdvanceWidth(text, size, { letterSpacing: tracking })
   const x = (WIDTH - width) / 2
@@ -43,7 +44,7 @@ const taglineBaseline = titleBaseline + 40 + Math.round(taglineSize * 0.7)
 const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${WIDTH}" height="${HEIGHT}" viewBox="0 0 ${WIDTH} ${HEIGHT}" role="img" aria-label="Workout Forge: get measurably stronger, week after week">
   <rect width="${WIDTH}" height="${HEIGHT}" fill="${colors.canvas}"/>
   <svg x="${(WIDTH - MARK) / 2}" y="${markY}" width="${MARK}" height="${MARK}" viewBox="0 0 100 100">${markInner}</svg>
-  ${outline(titleFont, title, titleSize, titleBaseline, colors.ink, titleSize * 0.06)}
+  ${outline(titleFont, title, titleSize, titleBaseline, colors.ink, 0.06)}
   ${outline(bodyFont, tagline, taglineSize, taglineBaseline, colors.inkSubtle)}
 </svg>
 `
