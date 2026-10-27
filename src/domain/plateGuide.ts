@@ -14,13 +14,13 @@ const clean = (value: number) => Number(value.toFixed(2))
 export function plateGuide(weight: number, unit: PlateUnit = 'lb'): string | null {
   if (!Number.isFinite(weight) || weight <= 0) return null
   const bar = bars[unit]
-  if (weight <= bar) return `Working weight ${clean(weight)} ${unit} — Bar only (bar ${bar})`
+  if (weight <= bar) return `Working weight ${clean(weight)} ${unit} — Bar only (bar ${bar})${weight < bar ? `, makes ${bar} ${unit}` : ''}`
   let perSide = (weight - bar) / 2
   const used: number[] = []
   for (const plate of plates[unit]) {
     while (perSide + 1e-9 >= plate) { used.push(plate); perSide -= plate }
   }
   const total = clean(bar + 2 * used.reduce((sum, plate) => sum + plate, 0))
-  const line = `Working weight ${clean(weight)} ${unit} — plates per side: ${used.join(' + ')} (bar ${bar})`
+  const line = `Working weight ${clean(weight)} ${unit} — ${used.length ? `plates per side: ${used.join(' + ')}` : 'Bar only'} (bar ${bar})`
   return total === clean(weight) ? line : `${line}, makes ${total} ${unit}`
 }

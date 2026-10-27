@@ -101,22 +101,25 @@ describe('Workout Forge gym flow', () => {
     fireEvent.click(screen.getByRole('button', { name: /start block/i }))
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
 
-    const toggles = screen.getAllByRole('button', { name: 'Last time & suggestion' })
+    const toggles = screen.getAllByRole('button', { name: /last time & suggestion/i })
     expect(toggles).toHaveLength(2)
     expect(toggles[0].getAttribute('aria-expanded')).toBe('false')
-    expect(document.querySelector('.suggestion')).toBeNull()
+    const panel = (toggle: HTMLElement) => document.getElementById(toggle.getAttribute('aria-controls') ?? '')
+    expect(panel(toggles[0])?.hidden).toBe(true)
+    expect(panel(toggles[1])?.hidden).toBe(true)
 
     fireEvent.click(toggles[0])
     expect(toggles[0].getAttribute('aria-expanded')).toBe('true')
-    expect(document.querySelectorAll('.suggestion')).toHaveLength(1)
+    expect(panel(toggles[0])?.hidden).toBe(false)
+    expect(panel(toggles[0])?.querySelector('.suggestion')).not.toBeNull()
     expect(toggles[1].getAttribute('aria-expanded')).toBe('false')
 
     fireEvent.click(toggles[0])
-    expect(document.querySelector('.suggestion')).toBeNull()
+    expect(panel(toggles[0])?.hidden).toBe(true)
 
     cleanup()
     renderApp()
-    expect(screen.getAllByRole('button', { name: 'Last time & suggestion' })[0].getAttribute('aria-expanded')).toBe('false')
+    expect(screen.getAllByRole('button', { name: /last time & suggestion/i })[0].getAttribute('aria-expanded')).toBe('false')
   })
 
   it('shows the plate guide for barbell lifts only, from the first unchecked set\'s weight', () => {
@@ -397,7 +400,7 @@ describe('Workout Forge gym flow', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     expect((screen.getByLabelText('Set 1 weight') as HTMLInputElement).value).toBe('105')
-    for (const toggle of screen.getAllByRole('button', { name: 'Last time & suggestion' })) fireEvent.click(toggle)
+    for (const toggle of screen.getAllByRole('button', { name: /last time & suggestion/i })) fireEvent.click(toggle)
     expect(screen.getAllByText(/last time was easy: \+5 lb\. low pump: \+1 rep/i)).toHaveLength(2)
     expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('10')
     expect(screen.getByLabelText('Set 2 weight')).toBeTruthy()
@@ -467,7 +470,7 @@ describe('Workout Forge gym flow', () => {
     expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('6')
     expect(screen.getByLabelText('Set 4 weight')).toBeTruthy()
     expect(screen.queryByLabelText('Set 5 weight')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Last time & suggestion' }))
+    fireEvent.click(screen.getByRole('button', { name: /last time & suggestion/i }))
     expect(screen.getByText(/based on 200 lb × 6 at 0 RIR last block/i)).toBeTruthy()
   })
 

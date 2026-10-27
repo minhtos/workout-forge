@@ -63,11 +63,11 @@ export function SessionView({ workout, session, history, syncLabel, restTimer, t
       </article>
       return <article className="exercise-card" key={exercise.id}>
         <div className="exercise-title"><div><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><h2>{exercise.name}</h2><p>{rows.length || exercise.sets} {(rows.length || exercise.sets) === 1 ? 'set' : 'sets'} × {exercise.repRange.min === exercise.repRange.max ? exercise.repRange.min : `${exercise.repRange.min}–${exercise.repRange.max}`} reps{linear ? '' : ` · RIR ${workout.target.targetRir}`}</p></div></div>
-        <button type="button" className="last-toggle" aria-expanded={openLast[exercise.id] === true} aria-controls={`${exercise.id}-last`} onClick={() => setOpenLast((open) => ({ ...open, [exercise.id]: !open[exercise.id] }))}><span>Last time &amp; suggestion</span><svg className="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5" /></svg></button>
-        {openLast[exercise.id] && <div id={`${exercise.id}-last`}>
+        <button type="button" className="last-toggle" aria-expanded={openLast[exercise.id] === true} aria-controls={`${exercise.id}-last`} aria-label={`${exercise.name} last time & suggestion`} onClick={() => setOpenLast((open) => ({ ...open, [exercise.id]: !open[exercise.id] }))}><span>Last time &amp; suggestion</span><svg className="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5" /></svg></button>
+        <div id={`${exercise.id}-last`} hidden={openLast[exercise.id] !== true}>
           {last.length > 0 && <p className="last-time">Last time: {describeLastSession(last)}</p>}
           <p className="suggestion">{suggestionText(exercise, workout, last, tune, previousSessionSets(history, exercise.id, session.sessionId), skippedLast(exercise.id))}</p>
-        </div>}
+        </div>
         {guide && <p className="plate-guide">{guide}</p>}
         <div className="set-table set-table-rir" role="table" aria-label={`${exercise.name} set log`}>
           <div className="set-head" role="row"><span>SET</span><span>WEIGHT</span><span>REPS</span><span>DONE</span></div>

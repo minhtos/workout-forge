@@ -17,7 +17,7 @@ describe('plateGuide', () => {
 
   it('says bar only at or under the bar', () => {
     expect(plateGuide(45)).toBe('Working weight 45 lb — Bar only (bar 45)')
-    expect(plateGuide(30)).toContain('Bar only')
+    expect(plateGuide(30)).toBe('Working weight 30 lb — Bar only (bar 45), makes 45 lb')
     expect(plateGuide(20, 'kg')).toContain('Bar only')
   })
 
@@ -25,6 +25,11 @@ describe('plateGuide', () => {
     expect(plateGuide(99)).toBe('Working weight 99 lb — plates per side: 25 (bar 45), makes 95 lb')
     expect(plateGuide(98, 'kg')).toBe('Working weight 98 kg — plates per side: 25 + 10 + 2.5 + 1.25 (bar 20), makes 97.5 kg')
     expect(plateGuide(97.5, 'kg')).not.toContain('makes')
+  })
+
+  it('falls back to bar only when less than the smallest plate pair fits', () => {
+    expect(plateGuide(47.5)).toBe('Working weight 47.5 lb — Bar only (bar 45), makes 45 lb')
+    expect(plateGuide(21, 'kg')).toBe('Working weight 21 kg — Bar only (bar 20), makes 20 kg')
   })
 
   it('gives nothing for an empty or invalid weight', () => {
