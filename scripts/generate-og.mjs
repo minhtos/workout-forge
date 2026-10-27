@@ -25,11 +25,26 @@ const bodyFont = loadFont('barlow/files/barlow-latin-500-normal.woff')
 const markSource = readFileSync(resolve(root, 'public/plate-mark.svg'), 'utf8')
 const markInner = markSource.replace(/^[\s\S]*?<svg[^>]*>/, '').replace(/<\/svg>\s*$/, '').trim()
 
-// `tracking` is letter-spacing in em (opentype.js convention), not pixels.
+// `tracking` is letter-spacing in em. NOTE: opentype.js getPath with the
+// letterSpacing option corrupts glyph layout partway through a string (the
+// R in FORGE collapsed and later glyphs vanished), so tracked text is drawn
+// glyph by glyph with advances summed by hand.
 const outline = (font, text, size, baseline, fill, tracking = 0) => {
-  const width = font.getAdvanceWidth(text, size, { letterSpacing: tracking })
-  const x = (WIDTH - width) / 2
-  return `<path fill="${fill}" d="${font.getPath(text, x, baseline, size, { letterSpacing: tracking }).toPathData(2)}"/>`
+  if (!tracking) {
+    const width = font.getAdvanceWidth(text, size)
+    const x = (WIDTH - width) / 2
+    return `<path fill="${fill}" d="${font.getPath(text, x, baseline, size).toPathData(2)}"/>`
+  }
+  const trackPx = tracking * size
+  const advances = [...text].map((ch) => font.getAdvanceWidth(ch, size))
+  const width = advances.reduce((a, b) => a + b, 0) + trackPx * (text.length - 1)
+  let x = (WIDTH - width) / 2
+  const parts = [...text].map((ch, i) => {
+    const d = font.getPath(ch, x, baseline, size).toPathData(2)
+    x += advances[i] + trackPx
+    return d
+  })
+  return `<path fill="${fill}" d="${parts.join(" ")}"/>`
 }
 
 // Centered stack: mark, WORKOUT FORGE wordmark, tagline.
