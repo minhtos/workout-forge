@@ -1,6 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { z } from 'zod'
-import { muscleGroups, type Block, type ExerciseCatalogItem } from './program'
+import { blockIntents, muscleGroups, type Block, type ExerciseCatalogItem } from './program'
 import { mergeFeedback, type SessionFeedback } from './autoregulation'
 import type { SavedWorkoutState } from './storage'
 
@@ -19,6 +19,8 @@ export interface ProgramSnapshot {
 const group = z.enum(muscleGroups as [string, ...string[]])
 const planExercise = z.object({ exerciseId: z.string().min(1).nullable(), category: group.optional(), sets: z.number().int().min(1).max(10), reps: z.number().int().min(1).max(100).optional() })
 const blockSchema = z.object({
+  // Snapshots from before goals existed have no intent; an unrecognised value is treated as none rather than rejecting the whole plan.
+  intent: z.enum(blockIntents as [string, ...string[]]).nullable().optional().catch(null),
   trainingDays: z.union([z.literal(2), z.literal(3), z.literal(4)]),
   durationWeeks: z.union([z.literal(4), z.literal(6), z.literal(8)]),
   parts: z.union([z.literal(1), z.literal(2)]).optional(),

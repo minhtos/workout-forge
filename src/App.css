@@ -41,6 +41,13 @@ nav button svg { width: 20px; height: 20px; flex: none; display: none; }
 .choice.selected { border-color: var(--primary); background: var(--primary-tint); }
 .choice strong { font-size: 30px; letter-spacing: -0.05em; color: var(--ink); font-variant-numeric: tabular-nums; }
 .choice span { font-size: 13px; margin-top: 3px; }
+.setup-card.wide { grid-column: 1 / -1; }
+.setup-card h2 small { margin-left: 8px; font: 500 12px var(--font-mono); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-subtle); }
+.setup-card.wide .choice { position: relative; }
+.setup-card.wide .choice strong { font-size: 20px; letter-spacing: -0.02em; }
+.choice-badge { position: absolute; top: 10px; right: 10px; padding: 2px 8px; border-radius: var(--radius-pill); background: var(--primary-tint); color: var(--primary-text); font: 500 12px var(--font-mono); font-style: normal; letter-spacing: 0.06em; text-transform: uppercase; }
+.workspace-heading p.block-name { color: var(--ink-muted); font-size: 18px; font-weight: 500; margin: 0 0 8px; }
+@media (max-width: 680px) { .setup-card.wide .choice-grid { grid-template-columns: 1fr; } }
 .preview-card { margin-top: 18px; border-radius: var(--radius-lg); padding: 26px 28px; display: flex; align-items: center; justify-content: space-between; gap: 20px; background: linear-gradient(105deg, var(--primary-tint), var(--surface-1)); }
 .preview-card h2 { font-size: 20px; margin: 8px 0 5px; letter-spacing: -0.025em; font-weight: 500; }
 .preview-card p { color: var(--ink-subtle); margin: 0; font-size: 14px; }

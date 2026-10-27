@@ -47,6 +47,20 @@ export function previousBlockId(feedback: SessionFeedback[], currentBlockId: str
   return earlier[0]?.blockId ?? null
 }
 
+/** A gap this long since the last workout is when a Comeback block is worth suggesting. */
+export const comebackAfterDays = 28
+
+/**
+ * Whether to suggest the Comeback goal when planning a block: only for someone who has trained before and whose newest
+ * set is at least 28 days old. Returns how many whole weeks it has been, or null. It is a suggestion only; nothing selects it.
+ */
+export function suggestComeback(history: CompletedSetRecord[], now: Date): { weeks: number } | null {
+  if (!history.length) return null
+  const newest = Math.max(...history.map((set) => Date.parse(set.completedAt)))
+  const days = (now.getTime() - newest) / 86_400_000
+  return days >= comebackAfterDays ? { weeks: Math.floor(days / 7) } : null
+}
+
 /** Whether a chained block (12 weeks = 2 × 6) has finished its first part and is waiting for the second. */
 export const awaitingNextPart = (block: Block, finishedAll: boolean): boolean => block.locked && block.parts === 2 && (block.part ?? 1) === 1 && finishedAll
 

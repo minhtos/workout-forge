@@ -1,4 +1,4 @@
-import { getWeekTarget, totalWeeks, type Progression, type ProgramDurationWeeks, type ProgramParts, type RepRange, type WeekTarget } from './progression'
+import { getWeekTarget, lengthOf, totalWeeks, type Progression, type ProgramDurationWeeks, type ProgramParts, type RepRange, type WeekTarget } from './progression'
 
 export type { Progression, ProgramDurationWeeks }
 export type TrainingDaysPerWeek = 2 | 3 | 4
@@ -14,7 +14,15 @@ export interface ExercisePrescription { id: string; name: string; category: Musc
 export interface PlanExercise { exerciseId: string | null; category?: MuscleGroup; sets: number; reps?: number }
 /** A training day. The user names it and picks its exercises. */
 export interface DayTemplate { title: string; exercises: PlanExercise[] }
+/** What the user wants out of a block. Optional: it names the block and changes nothing about the plan. */
+export type BlockIntent = 'consistent' | 'push' | 'comeback'
+export const blockIntents: BlockIntent[] = ['consistent', 'push', 'comeback']
+export const intentLabels: Record<BlockIntent, string> = { consistent: 'Stay Consistent', push: 'Push Further', comeback: 'Comeback' }
+export const isBlockIntent = (value: unknown): value is BlockIntent => blockIntents.includes(value as BlockIntent)
+
 export interface Block {
+  /** The goal chosen in setup, if any. Blocks saved before goals existed have none. */
+  intent?: BlockIntent | null
   trainingDays: TrainingDaysPerWeek
   /** Training weeks; a deload week is added after them. */
   durationWeeks: ProgramDurationWeeks
@@ -91,11 +99,26 @@ export function mergeCatalog(custom: ExerciseCatalogItem[]): ExerciseCatalogItem
 }
 
 /** An empty block: the user decides what to train on each day (or applies a Workout Set). */
-export function createBlock(trainingDays: TrainingDaysPerWeek, durationWeeks: ProgramDurationWeeks, parts: ProgramParts = 1): Block {
+export function createBlock(trainingDays: TrainingDaysPerWeek, durationWeeks: ProgramDurationWeeks, parts: ProgramParts = 1, intent: BlockIntent | null = null): Block {
   return {
-    trainingDays, durationWeeks, ...(parts === 2 ? { parts, part: 1 as ProgramParts } : {}), progression: 'rir', rotation: false, workoutSetId: null, locked: false, startedAt: null, completedIds: [], skippedIds: [],
+    trainingDays, durationWeeks, intent, ...(parts === 2 ? { parts, part: 1 as ProgramParts } : {}), progression: 'rir', rotation: false, workoutSetId: null, locked: false, startedAt: null, completedIds: [], skippedIds: [],
     templates: Array.from({ length: trainingDays }, (_, index) => ({ title: `Day ${index + 1}`, exercises: [] })),
   }
+}
+
+/**
+ * A block's name in two parts: the outcome the user chose ("Push Further", or null) and the shape of the plan
+ * ("3-day · 6-week block"; a 12-week chain reads as a program).
+ */
+export function blockName(block: Pick<Block, 'trainingDays' | 'durationWeeks' | 'parts' | 'intent'>): { outcome: string | null; spec: string } {
+  const weeks = lengthOf(block)
+  return { outcome: block.intent ? intentLabels[block.intent] : null, spec: `${block.trainingDays}-day · ${weeks}-week ${weeks === 12 ? 'program' : 'block'}` }
+}
+
+/** "Push Further — 3-day · 6-week block", or just the spec when no goal was chosen. */
+export function blockTitle(block: Parameters<typeof blockName>[0]): string {
+  const { outcome, spec } = blockName(block)
+  return outcome ? `${outcome} — ${spec}` : spec
 }
 
 function editDay(block: Block, dayIndex: number, edit: (day: DayTemplate) => DayTemplate): Block {
