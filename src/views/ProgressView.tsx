@@ -6,6 +6,7 @@ import type { CompletedSetRecord } from '../domain/storage'
 import { completedSessions } from '../domain/weekly'
 import { ColumnChart, TrendChart } from './Charts'
 import { MuscleMap } from './MuscleMap'
+import { TrainingRhythm } from './TrainingRhythm'
 
 interface Props {
   history: CompletedSetRecord[]
@@ -70,6 +71,7 @@ export function ProgressView({ history, catalog, finished, total, activeSessionI
   return <section className="workspace" aria-labelledby="progress-title">
     <div className="workspace-heading"><div><div className="eyebrow">TRAINING DATA</div><h1 id="progress-title">Progress, without the noise.</h1><p>Every completed set is saved the moment you log it.</p></div></div>
     <MuscleMap view={mapView} idPrefix="progress-map" />
+    {sessions.length > 0 && <TrainingRhythm sessions={sessions} now={now} />}
     <div className="metrics-grid">
       <article><span>THIS BLOCK</span><strong>{finished}<small> / {total}</small></strong><p>workouts done</p></article>
       <article><span>LOGGED SETS</span><strong>{history.length}</strong><p>all time</p></article>
