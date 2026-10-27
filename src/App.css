@@ -168,6 +168,14 @@ select option { background: var(--surface-2); color: var(--ink); }
 .pr-banner button { flex: none; min-width: 44px; min-height: 44px; background: transparent; border: 0; border-radius: var(--radius-md); color: var(--ink-muted); font-size: 18px; }
 .pr-banner button:hover { background: var(--surface-3); }
 
+/* ---------- Loading state (static skeleton while the account's program loads; no shimmer) ---------- */
+.loading-skeleton { margin-top: 40px; border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface-1); padding: 27px; }
+.loading-bar { height: 14px; margin-top: 14px; border-radius: var(--radius-sm); background: var(--surface-3); }
+.loading-bar.wide { width: 70%; height: 22px; margin-top: 0; }
+.loading-bar.short { width: 40%; }
+.loading-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 9px; margin-top: 24px; }
+.loading-grid i { min-height: 84px; border-radius: var(--radius-md); background: var(--surface-2); }
+
 /* ---------- Rest timer ---------- */
 .rest-timer { position: fixed; left: 50%; transform: translateX(-50%); bottom: 20px; z-index: 5; width: min(520px, calc(100% - 32px)); display: flex; align-items: center; gap: 12px; padding: 10px 12px 10px 18px; background: var(--surface-3); border: 1px solid var(--primary); border-radius: var(--radius-lg); box-shadow: 0 0 0 4px var(--glow), var(--elevation-raised); animation: wf-sheet-in var(--duration-panel) var(--ease-out); }
 .rest-timer.is-over { border-color: var(--success); box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 25%, transparent), var(--elevation-raised); }

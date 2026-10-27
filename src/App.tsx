@@ -13,6 +13,7 @@ import { archiveWorkoutState, emptyState, exportWorkoutState, loadWorkoutState, 
 import { loadRestTimerEnabled, saveRestTimerEnabled } from './domain/settings'
 import { backupSession, restoreSessions } from './domain/sync'
 import { supabase } from './lib/supabase'
+import { gateTimeoutMs, hasSessionHint, isLoadingGate } from './lib/loadingGate'
 import { submitFeedback } from './lib/feedback'
 import { FeedbackSheet } from './views/FeedbackSheet'
 import { Icon } from './views/Icon'
@@ -20,6 +21,7 @@ import { LibraryView } from './views/LibraryView'
 import { useForeground } from './lib/useForeground'
 import { PlanView } from './views/PlanView'
 import { LandingView } from './views/LandingView'
+import { LoadingView } from './views/LoadingView'
 import { ResetPasswordView } from './views/ResetPasswordView'
 import type { AuthResult } from './views/AuthForm'
 import { authMessage } from './domain/auth'
@@ -70,6 +72,11 @@ function App() {
   const [finishing, setFinishing] = useState(false)
   const [repNotices, setRepNotices] = useState<Record<string, RepNotice | null>>({})
   const [dismissedPrs, setDismissedPrs] = useState<Record<string, boolean>>({})
+  // Loading gate: a returning signed-in user on an empty device sees a skeleton, not the setup question, until the account's program arrives.
+  const [sessionHint] = useState(() => !!supabase && hasSessionHint(import.meta.env.VITE_SUPABASE_URL, window.localStorage))
+  const [authResolved, setAuthResolved] = useState(!supabase)
+  const [firstSyncSettled, setFirstSyncSettled] = useState(false)
+  const [gateExpired, setGateExpired] = useState(false)
   const adoptingRemote = useRef(false)
   const stateRef = useRef(state)
   const flushing = useRef(false)
@@ -91,6 +98,7 @@ function App() {
   const sessionEntries = activeSession ? state.feedback.filter((entry) => entry.sessionId === activeSession.sessionId) : []
   const trainedBefore = (group: MuscleGroup) => !!activeSession && history.some((set) => set.sessionId !== activeSession.sessionId && catalog.find((item) => item.id === set.exerciseId)?.category === group)
   const prompt = view === 'session' && activeWorkout && activeSession ? nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: sessionEntries, trainedBefore, finishing }) : null
+  const gated = isLoadingGate({ hasLocalData: !!block || history.length > 0, sessionHint, authResolved, signedIn: userId !== null, firstSyncSettled, timedOut: gateExpired })
   const total = block ? listWorkouts(block).length : 0
   const finished = block ? block.completedIds.length + block.skippedIds.length : 0
 
@@ -103,9 +111,10 @@ function App() {
   // Auth: supabase persists the session locally and refreshes it, so users stay signed in.
   useEffect(() => {
     if (!supabase) return
-    void supabase.auth.getSession().then(({ data }) => { setUserId(data.session?.user.id ?? null); setAccountEmail(data.session?.user.email ?? null); if (data.session) setView(leaveLanding) })
+    void supabase.auth.getSession().then(({ data }) => { setUserId(data.session?.user.id ?? null); setAccountEmail(data.session?.user.email ?? null); if (data.session) setView(leaveLanding); setAuthResolved(true) })
     const { data: listener } = supabase.auth.onAuthStateChange((event, session) => {
       setUserId(session?.user.id ?? null)
+      setAuthResolved(true)
       setAccountEmail(session?.user.email ?? null)
       if (session) setView(leaveLanding)
       if (event === 'PASSWORD_RECOVERY') setRecovering(true)
@@ -196,11 +205,20 @@ function App() {
     else if (outcome.kind === 'error') setPlanStatus(`Plan backup pending: ${outcome.message}`)
     else setPlanStatus('')
   }, [userId])
+  // While the loading screen is up, the first sync runs at once; otherwise it waits to batch up edits.
+  const gatedRef = useRef(gated)
+  useEffect(() => { gatedRef.current = gated }, [gated])
   useEffect(() => {
     if (!owned) return
-    const timer = window.setTimeout(() => void syncProgram(), 1200)
+    const timer = window.setTimeout(() => void syncProgram().finally(() => setFirstSyncSettled(true)), gatedRef.current ? 0 : 1200)
     return () => window.clearTimeout(timer)
   }, [owned, state.programUpdatedAt, online, syncProgram])
+  // Fail-safe: if the account never answers, show what the device has.
+  useEffect(() => {
+    if (!gated) return
+    const timer = window.setTimeout(() => setGateExpired(true), gateTimeoutMs)
+    return () => window.clearTimeout(timer)
+  }, [gated])
 
   function editPlan(edit: (block: Block) => Block) {
     setState((current) => current.block && !current.block.locked ? { ...current, block: edit(current.block) } : current)
@@ -428,6 +446,7 @@ function App() {
   const navigate = (next: View) => () => setView(next === 'today' && activeSession ? 'session' : next)
   const home = (): View => (!block ? 'setup' : block.locked ? 'today' : 'plan')
 
+  if (gated && !recovering && (view === 'landing' || view === 'setup')) return <main className="app-shell"><LoadingView /></main>
   if (view === 'landing' && !recovering) return <LandingView cloudEnabled={!!supabase} onStart={() => setView('setup')} onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} onFeedback={submitFeedback} />
   if (recovering) return <main className="app-shell"><ResetPasswordView onSubmit={saveNewPassword} /></main>
 
