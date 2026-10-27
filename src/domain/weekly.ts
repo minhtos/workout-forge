@@ -51,17 +51,15 @@ export const sessionsInWeek = (sessions: CompletedSession[], start: Date): Compl
 }
 
 /**
- * Consecutive Sun–Sat weeks with at least one completed workout, ending at `from`. A week with no workouts ends the run.
+ * The streak as of the end of the week beginning `from`: consecutive Sun–Sat weeks with at least one completed workout,
+ * ending there. A week with no workouts ends the run.
  */
-function streakFrom(sessions: CompletedSession[], from: Date): number {
+export function streakAsOf(sessions: CompletedSession[], from: Date): number {
   const trained = new Set(sessions.map((session) => weekKey(new Date(session.start))))
   let count = 0
   for (let cursor = from; trained.has(dayKey(cursor)); cursor = addDays(cursor, -7)) count += 1
   return count
 }
-
-/** The streak as of the end of the week beginning `start`. */
-export const streakAsOf = (sessions: CompletedSession[], start: Date): number => streakFrom(sessions, start)
 
 /**
  * The current streak. Counts back from this week if it already has a workout, otherwise from last week, so a week that is
@@ -69,7 +67,7 @@ export const streakAsOf = (sessions: CompletedSession[], start: Date): number =>
  */
 export function weekStreak(sessions: CompletedSession[], now: Date): number {
   const thisWeek = weekStart(now)
-  return streakFrom(sessions, sessionsInWeek(sessions, thisWeek).length ? thisWeek : addDays(thisWeek, -7))
+  return streakAsOf(sessions, sessionsInWeek(sessions, thisWeek).length ? thisWeek : addDays(thisWeek, -7))
 }
 
 export const heatmapWeeks = 12
