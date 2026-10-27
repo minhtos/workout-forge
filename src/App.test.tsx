@@ -96,6 +96,50 @@ describe('Workout Forge gym flow', () => {
     expect(savedState().history).toHaveLength(0)
   })
 
+  it('folds last time and the suggestion into one closed row per exercise, opened by tapping it', () => {
+    planTwoDays()
+    fireEvent.click(screen.getByRole('button', { name: /start block/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+
+    const toggles = screen.getAllByRole('button', { name: 'Last time & suggestion' })
+    expect(toggles).toHaveLength(2)
+    expect(toggles[0].getAttribute('aria-expanded')).toBe('false')
+    expect(document.querySelector('.suggestion')).toBeNull()
+
+    fireEvent.click(toggles[0])
+    expect(toggles[0].getAttribute('aria-expanded')).toBe('true')
+    expect(document.querySelectorAll('.suggestion')).toHaveLength(1)
+    expect(toggles[1].getAttribute('aria-expanded')).toBe('false')
+
+    fireEvent.click(toggles[0])
+    expect(document.querySelector('.suggestion')).toBeNull()
+
+    cleanup()
+    renderApp()
+    expect(screen.getAllByRole('button', { name: 'Last time & suggestion' })[0].getAttribute('aria-expanded')).toBe('false')
+  })
+
+  it('shows the plate guide for barbell lifts only, from the first unchecked set\'s weight', () => {
+    planTwoDays()
+    fireEvent.click(screen.getByRole('button', { name: /start block/i }))
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+
+    expect(document.querySelectorAll('.plate-guide')).toHaveLength(0)
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '100' } })
+    expect(document.querySelectorAll('.plate-guide')).toHaveLength(1)
+    expect(screen.getByText('Working weight 100 lb — plates per side: 25 + 2.5 (bar 45)')).toBeTruthy()
+    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '135' } })
+    expect(screen.getByText('Working weight 135 lb — plates per side: 45 (bar 45)')).toBeTruthy()
+
+    fireEvent.change(screen.getByLabelText('Cable Pushdown Set 1 weight'), { target: { value: '60' } })
+    expect(document.querySelectorAll('.plate-guide')).toHaveLength(1)
+
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+    expect(document.querySelectorAll('.plate-guide')).toHaveLength(1)
+    fireEvent.change(screen.getByLabelText('Set 2 weight'), { target: { value: '45' } })
+    expect(screen.getByText('Working weight 45 lb — Bar only (bar 45)')).toBeTruthy()
+  })
+
   it('advances to the next day after finishing', () => {
     planTwoDays()
     fireEvent.click(screen.getByRole('button', { name: /start block/i }))
@@ -353,6 +397,7 @@ describe('Workout Forge gym flow', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     expect((screen.getByLabelText('Set 1 weight') as HTMLInputElement).value).toBe('105')
+    for (const toggle of screen.getAllByRole('button', { name: 'Last time & suggestion' })) fireEvent.click(toggle)
     expect(screen.getAllByText(/last time was easy: \+5 lb\. low pump: \+1 rep/i)).toHaveLength(2)
     expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('10')
     expect(screen.getByLabelText('Set 2 weight')).toBeTruthy()
@@ -422,6 +467,7 @@ describe('Workout Forge gym flow', () => {
     expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('6')
     expect(screen.getByLabelText('Set 4 weight')).toBeTruthy()
     expect(screen.queryByLabelText('Set 5 weight')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: 'Last time & suggestion' }))
     expect(screen.getByText(/based on 200 lb × 6 at 0 RIR last block/i)).toBeTruthy()
   })
 

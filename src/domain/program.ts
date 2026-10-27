@@ -4,8 +4,9 @@ export type { Progression, ProgramDurationWeeks }
 export type TrainingDaysPerWeek = 2 | 3 | 4
 export type MuscleGroup = 'Chest' | 'Back' | 'Shoulders' | 'Triceps' | 'Biceps' | 'Forearms' | 'Quads' | 'Hamstrings' | 'Glutes' | 'Calves' | 'Core'
 /** `compound` marks a large compound lift (rep max 12); everything else has a rep max of 15. */
-export interface ExerciseCatalogItem { id: string; name: string; category: MuscleGroup; compound?: boolean }
-export interface ExercisePrescription { id: string; name: string; category: MuscleGroup; sets: number; repRange: RepRange }
+/** `barbell` marks a lift loaded with plates on a barbell (the session view shows a plate guide for it). */
+export interface ExerciseCatalogItem { id: string; name: string; category: MuscleGroup; compound?: boolean; barbell?: boolean }
+export interface ExercisePrescription { id: string; name: string; category: MuscleGroup; sets: number; repRange: RepRange; barbell?: boolean }
 
 /**
  * One exercise on a training day. `exerciseId` is null for a slot that came from a Workout Set and
@@ -91,7 +92,7 @@ const compoundNames = new Set([
 export const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 /** Ids of exercises that were renamed, so saved plans and history keep matching (Quad Extension is now Leg Extension). */
 const legacyIds: Record<string, string> = { 'Leg Extension': 'quad-extension' }
-export const baseExercises: ExerciseCatalogItem[] = muscleGroups.flatMap((category) => names[category].map((name): ExerciseCatalogItem => ({ id: legacyIds[name] ?? slugify(name), name, category, ...(compoundNames.has(name) ? { compound: true } : {}) })))
+export const baseExercises: ExerciseCatalogItem[] = muscleGroups.flatMap((category) => names[category].map((name): ExerciseCatalogItem => ({ id: legacyIds[name] ?? slugify(name), name, category, ...(compoundNames.has(name) ? { compound: true } : {}), ...(name.startsWith('Barbell ') ? { barbell: true } : {}) })))
 
 export function mergeCatalog(custom: ExerciseCatalogItem[]): ExerciseCatalogItem[] {
   const seen = new Set(baseExercises.map((item) => item.id))
