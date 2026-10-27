@@ -80,8 +80,9 @@ describe('findPersonalRecord', () => {
     for (const current of ['b', 'c']) {
       const earlier = points.filter((point) => point.sessionId !== current && point.t < points.find((p) => p.sessionId === current)!.t)
       const mine = points.find((point) => point.sessionId === current)!
+      const currentAt = history.find((s) => s.sessionId === current)!.completedAt
       const best = Math.max(...earlier.map((point) => point.value))
-      expect(findPersonalRecord(history.filter((s) => s.sessionId <= current), current, 'bench') !== null).toBe(Math.round(mine.value - best) >= 1)
+      expect(findPersonalRecord(history.filter((s) => s.completedAt <= currentAt), current, 'bench') !== null).toBe(Math.round(mine.value - best) >= 1)
     }
   })
 })
