@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mergeSets } from './domain/backup'
 import { standardRepMax, addExerciseToDay, createBlock, findWorkout, listWorkouts, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, setSlotExercise, type Block, type ExercisePrescription, type MuscleGroup, type TrainingDaysPerWeek } from './domain/program'
+import { planTargets } from './domain/muscleVolume'
 import { applyProgramSnapshot, hasProgramContent, runProgramSync } from './domain/programSync'
 import { addCustomExercise, deleteCustomExercise, enabledCatalog, exerciseInUse, mergeCustomExercises, setExerciseEnabled, setGroupEnabled, updateCustomExercise } from './domain/exercises'
 import { lengthOf, shapeOf, totalWeeks, type ProgramLength } from './domain/progression'
@@ -112,6 +113,7 @@ function App() {
   const trainedBefore = (group: MuscleGroup) => !!activeSession && history.some((set) => set.sessionId !== activeSession.sessionId && catalog.find((item) => item.id === set.exerciseId)?.category === group)
   const prompt = view === 'session' && activeWorkout && activeSession ? nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: sessionEntries, trainedBefore, finishing }) : null
   const gated = isLoadingGate({ hasLocalData: deviceHadData, sessionHint, authResolved, signedIn: userId !== null, firstSyncSettled, timedOut: gateExpired })
+  const mapTargets = useMemo(() => planTargets(block, catalog), [block, catalog])
   const total = block ? listWorkouts(block).length : 0
   const finished = block ? block.completedIds.length + block.skippedIds.length : 0
 
@@ -477,7 +479,7 @@ function App() {
     {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} carriedCount={carriedCount} nextPart={awaitingNextPart(block, !upcoming)} partLabel={block.parts === 2 ? `PART ${block.part ?? 1} OF 2` : null} onNextPart={beginNextPart} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onNewBlock={newBlock} />}
     {view === 'session' && activeWorkout && activeSession && <SessionView workout={activeWorkout} session={activeSession} history={history} syncLabel={syncLabel} restTimer={restTimer} tune={tune} repNotices={repNotices} error={entryError} dismissedPrs={dismissedPrs} onDismissPr={(id) => setDismissedPrs((current) => ({ ...current, [id]: true }))} onBack={() => setView('today')} onUpdate={updateEntry} onAddSet={(id) => resizeSets(id, addSetEntry)} onRemoveSet={(id) => resizeSets(id, removeLastSetEntry)} skippedLast={(id) => !!block && skippedSinceLast(block, id, lastSessionSets(history, id, activeSession.sessionId), activeSession.workoutId)} onSkip={(id) => setExerciseSkipped(id, true)} onRestore={(id) => setExerciseSkipped(id, false)} onToggle={toggleSet} onFinish={finishWorkout} onDiscard={discardSession} />}
     {prompt && <FeedbackSheet key={`${prompt.kind}-${prompt.group}`} prompt={prompt} onSoreness={(value) => answerSoreness(prompt.group, value)} onSummary={(effort, pump) => answerSummary(prompt.group, { effort, pump })} onSkip={skipPrompt} />}
-    {view === 'progress' && <ProgressView history={history} catalog={catalog} finished={finished} total={total} />}
+    {view === 'progress' && <ProgressView history={history} catalog={catalog} finished={finished} total={total} activeSessionId={activeSession?.sessionId ?? null} targets={mapTargets} />}
     {view === 'library' && <LibraryView catalog={catalog} custom={state.customExercises} hidden={state.hiddenExerciseIds} inUse={(id) => exerciseInUse(block, id)} onToggle={toggleExercise} onToggleGroup={toggleGroup} onAdd={addToLibrary} onUpdate={updateInLibrary} onDelete={deleteFromLibrary} onBack={() => setView('settings')} />}
     {view === 'settings' && <SettingsView librarySummary={`${enabledCatalog(catalog, state.hiddenExerciseIds).length} of ${catalog.length} exercises on`} onOpenLibrary={() => setView('library')} restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} planStatus={planStatus} onRestore={() => { void restoreFromCloud(false); setOnline((value) => value + 1) }} onExport={exportData} onImport={importData} onNewBlock={newBlock} onFeedback={submitFeedback} />}
   </main>

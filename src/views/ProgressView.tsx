@@ -1,10 +1,22 @@
 import { useMemo, useState } from 'react'
 import { exerciseOptions, rangeOptions, rangeStart, sessionPoints, trainedGroups, weeklyBuckets, type RangeWeeks, type SessionPoint, type WeekBucket } from '../domain/charts'
+import { muscleMapView, type PlanTargets } from '../domain/muscleVolume'
 import type { ExerciseCatalogItem, MuscleGroup } from '../domain/program'
 import type { CompletedSetRecord } from '../domain/storage'
+import { completedSessions } from '../domain/weekly'
 import { ColumnChart, TrendChart } from './Charts'
+import { MuscleMap } from './MuscleMap'
 
-interface Props { history: CompletedSetRecord[]; catalog: ExerciseCatalogItem[]; finished: number; total: number }
+interface Props {
+  history: CompletedSetRecord[]
+  catalog: ExerciseCatalogItem[]
+  finished: number
+  total: number
+  /** The workout in progress, if any; it is not counted until it is finished. */
+  activeSessionId: string | null
+  /** This week's planned sets per muscle group, or null with no plan to compare to. */
+  targets: PlanTargets | null
+}
 
 const lb = (value: number) => `${Math.round(value).toLocaleString('en-US')} lb`
 
@@ -20,8 +32,10 @@ const weeklySummary = (buckets: WeekBucket[], scope: string) => {
   return `Sets per week for ${scope}: ${total} sets over the last ${buckets.length} weeks. The table below lists every week.`
 }
 
-export function ProgressView({ history, catalog, finished, total }: Props) {
+export function ProgressView({ history, catalog, finished, total, activeSessionId, targets }: Props) {
   const [now] = useState(() => new Date())
+  const sessions = useMemo(() => completedSessions(history, activeSessionId), [history, activeSessionId])
+  const mapView = useMemo(() => muscleMapView(sessions, catalog, now, targets), [sessions, catalog, now, targets])
   const [weeks, setWeeks] = useState<RangeWeeks>(12)
   const [group, setGroup] = useState<MuscleGroup | 'all'>('all')
   const [exerciseId, setExerciseId] = useState<string | null>(null)
@@ -55,6 +69,7 @@ export function ProgressView({ history, catalog, finished, total }: Props) {
 
   return <section className="workspace" aria-labelledby="progress-title">
     <div className="workspace-heading"><div><div className="eyebrow">TRAINING DATA</div><h1 id="progress-title">Progress, without the noise.</h1><p>Every completed set is saved the moment you log it.</p></div></div>
+    <MuscleMap view={mapView} idPrefix="progress-map" />
     <div className="metrics-grid">
       <article><span>THIS BLOCK</span><strong>{finished}<small> / {total}</small></strong><p>workouts done</p></article>
       <article><span>LOGGED SETS</span><strong>{history.length}</strong><p>all time</p></article>

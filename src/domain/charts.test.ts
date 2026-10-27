@@ -13,17 +13,17 @@ const at = (month: number, day: number) => new Date(2026, month - 1, day, 12, 0,
 const NOW = new Date(2026, 9, 14, 12, 0, 0) // Wednesday 14 Oct 2026
 
 describe('weeks', () => {
-  it('starts on Monday at midnight', () => {
+  it('starts on Sunday at midnight', () => {
     const start = weekStart(NOW)
-    expect([start.getFullYear(), start.getMonth(), start.getDate(), start.getDay(), start.getHours()]).toEqual([2026, 9, 12, 1, 0])
-    expect(weekStart(new Date(2026, 9, 18, 23, 0)).getDate()).toBe(12)
-    expect(weekStart(new Date(2026, 9, 19, 1, 0)).getDate()).toBe(19)
+    expect([start.getFullYear(), start.getMonth(), start.getDate(), start.getDay(), start.getHours()]).toEqual([2026, 9, 11, 0, 0])
+    expect(weekStart(new Date(2026, 9, 17, 23, 59)).getDate()).toBe(11)
+    expect(weekStart(new Date(2026, 9, 18, 0, 0)).getDate()).toBe(18)
   })
 
   it('starts the range N-1 weeks before this week', () => {
-    expect(rangeStart(4, NOW).getDate()).toBe(21)
+    expect(rangeStart(4, NOW).getDate()).toBe(20)
     expect(rangeStart(4, NOW).getMonth()).toBe(8)
-    expect(rangeStart(1, NOW).getDate()).toBe(12)
+    expect(rangeStart(1, NOW).getDate()).toBe(11)
   })
 
   it('formats short dates', () => expect(shortDate(new Date(2026, 9, 5))).toBe('Oct 5'))
@@ -74,7 +74,7 @@ describe('estimated max per session', () => {
 
 describe('sets per week', () => {
   const history = [
-    set('a', 1, 100, 10, at(10, 12)), set('a', 2, 100, 10, at(10, 13)), set('a', 3, 100, 8, at(10, 18)),
+    set('a', 1, 100, 10, at(10, 12)), set('a', 2, 100, 10, at(10, 13)), set('a', 3, 100, 8, at(10, 17)),
     set('b', 1, 50, 10, at(10, 6), { exerciseId: 'pull-ups', exerciseName: 'Pull-ups' }),
     set('c', 1, 100, 10, at(9, 1)),
     set('d', 1, 60, 10, at(10, 14), { deload: true }),
@@ -82,7 +82,7 @@ describe('sets per week', () => {
 
   it('has one bucket per week, empty weeks included, ending with this week', () => {
     const buckets = weeklyBuckets(history, catalog, null, 4, NOW)
-    expect(buckets.map((bucket) => bucket.label)).toEqual(['Sep 21', 'Sep 28', 'Oct 5', 'Oct 12'])
+    expect(buckets.map((bucket) => bucket.label)).toEqual(['Sep 20', 'Sep 27', 'Oct 4', 'Oct 11'])
     expect(buckets.map((bucket) => bucket.sets)).toEqual([0, 0, 1, 4])
   })
 
