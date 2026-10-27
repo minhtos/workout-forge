@@ -1,16 +1,12 @@
 import { useState } from 'react'
 import { RestTimer } from './RestTimer'
-import { findPersonalRecord, type PersonalRecord } from '../domain/personalRecord'
+import { findPersonalRecord, recordText } from '../domain/personalRecord'
 import type { RepNotice } from '../domain/repAdjust'
 import { describeLastSession, lastSessionSets, maxSetsPerExercise, previousSessionSets, suggestionText, type TuneContext } from '../domain/session'
 import type { ExercisePrescription, ScheduledWorkout } from '../domain/program'
 import type { ActiveSession, CompletedSetRecord, SetEntry } from '../domain/storage'
 
 const repOptions = Array.from({ length: 30 }, (_, index) => index + 1)
-
-const recordText = ({ set, unit, margin, previous }: PersonalRecord) => unit === 'reps'
-  ? `${set.reps} reps, ${margin} more than your previous best of ${previous.reps}.`
-  : `${set.weight} lb × ${set.reps}: estimated max up ${margin} lb on ${previous.weight} lb × ${previous.reps}.`
 
 interface Props {
   workout: ScheduledWorkout

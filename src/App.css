@@ -456,9 +456,29 @@ select option { background: var(--surface-2); color: var(--ink); }
 .landing-actions { margin-top: 32px; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
 .landing-actions span { color: var(--ink-subtle); font-size: 15px; }
 .primary-button.large { min-height: 56px; padding: 0 28px; font-size: 18px; font-weight: 700; }
-.landing-pills { margin: 32px 0 0; padding: 0; list-style: none; display: flex; flex-wrap: wrap; gap: 12px; }
-.landing-pills li { font-size: 15px; font-weight: 600; background: var(--surface-2); border: 1px solid var(--hairline); border-radius: var(--radius-md); padding: 10px 14px; }
-.landing-hero .auth-card { flex: 1 1 360px; max-width: 440px; min-width: 0; }
+.landing-copy h1 span { display: block; }
+.landing-copy > p.landing-note { margin: 24px 0 0; font-size: 15px; color: var(--ink-subtle); max-width: 480px; }
+.landing-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+a.landing-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: var(--radius-pill); font-size: 14px; font-weight: 600; color: var(--ink); text-decoration: none; transition: background-color var(--duration-hover) var(--ease-out); }
+a.landing-link:hover { background: var(--surface-2); }
+.landing-visuals { flex: 1 1 380px; max-width: 480px; min-width: 0; display: grid; gap: 16px; }
+.landing-visuals .muscle-map { margin-top: 0; }
+.landing-visuals .chart-card h2, .sample-record h2 { font: 500 20px var(--font-sans); text-transform: none; letter-spacing: -0.02em; }
+.sample-record { padding: 20px 22px; border: 1px solid var(--hairline); border-left: 3px solid var(--success); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--success) 12%, var(--surface-1)); box-shadow: var(--elevation-raised); }
+.sample-record h2 { margin: 8px 0 4px; }
+.sample-record p { margin: 0; color: var(--ink-muted); font-size: 15px; line-height: 1.45; font-variant-numeric: tabular-nums; }
+.sample-record .sample-caption, .muscle-caption { margin-top: 10px; font-size: 13px; color: var(--ink-subtle); }
+.landing-faq { background: var(--surface-1); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
+.landing-faq h2, .landing-signin h2 { margin: 0 0 32px; font-size: clamp(34px, 4vw, 44px); }
+.faq-list { max-width: 760px; border-top: 1px solid var(--hairline); }
+.faq-item { border-bottom: 1px solid var(--hairline); }
+.faq-item summary { min-height: 56px; display: flex; align-items: center; cursor: pointer; font-size: 18px; font-weight: 500; color: var(--ink); }
+.faq-item p { margin: 0 0 20px; max-width: 620px; color: var(--ink-muted); font-size: 16px; line-height: 1.55; }
+.landing-signin .landing-inner { padding-top: clamp(40px, 6vw, 64px); padding-bottom: clamp(40px, 6vw, 64px); }
+.signin-grid { display: flex; flex-wrap: wrap; gap: clamp(24px, 4vw, 56px); align-items: flex-start; }
+.signin-grid > div { flex: 1 1 320px; min-width: 0; }
+.signin-grid .landing-lede { margin-bottom: 0; }
+.signin-grid .auth-card { flex: 1 1 360px; max-width: 440px; min-width: 0; }
 .landing-features { background: var(--surface-1); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
 .landing-inner { width: 100%; max-width: 1200px; margin: 0 auto; padding: clamp(40px, 6vw, 64px) clamp(20px, 4vw, 48px); }
 .landing-features h2 { margin: 0 0 32px; font-size: clamp(34px, 4vw, 44px); }

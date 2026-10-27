@@ -682,7 +682,7 @@ describe('plan screen', () => {
 describe('landing page', () => {
   it('greets a first-time visitor and opens setup without an account', () => {
     render(<App />)
-    expect(screen.getByRole('heading', { level: 1, name: /train with a plan/i })).toBeTruthy()
+    expect(screen.getByRole('heading', { level: 1, name: /get measurably stronger/i })).toBeTruthy()
     expect(screen.queryByRole('heading', { name: /set up your next block/i })).toBeNull()
     expect(screen.getByRole('heading', { name: /what is a deload/i })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /get started free/i }))
