@@ -55,6 +55,16 @@ All colors are CSS variables in `src/index.css`. Never hardcode a hex value in a
 Body-size text is never dimmer than `ink-subtle` (contrast 6:1+ on canvas). Orange is for fills, borders and
 links at 14px+. Orange text uses `primary-text`, and text on an orange fill uses `on-primary` (dark), never white.
 
+## Brand mark
+
+The Plate: a barbell plate seen face-on. Sources are `public/plate-mark.svg` (primary) and `public/plate-mark-small.svg`, and `BrandMark` in `src/views/BrandMark.tsx` draws the same geometry inline.
+
+- **Geometry (viewBox 100):** outer ring r40.5, stroke 10; hub ring r11.5, stroke 7; three rounded spokes (8×16, rx4, at y16) rotated 0, 120 and 240 about the center.
+- **Color:** forge orange `#f26b21` only, stroke and fill. This is the one literal hex outside the tokens, because the mark is fixed art.
+- **Small variant (24px and below, favicon):** no spokes; outer ring r39, stroke 14; hub ring r12, stroke 11. `BrandMark` switches on `size <= 24`.
+- **No tile:** the mark never sits on an orange or any other tile in the UI. The only tile is the charcoal `#12151a` square behind the raster PWA icons and the og:image, where the platform needs a background.
+- **Raster assets:** `npm run icons` (PWA icons, mark at 72%) and `npm run og` (1200×630) render from the primary SVG with resvg.
+
 ## Typography
 
 Barlow for body and Barlow Condensed (uppercase) for display headings, both bundled through `@fontsource` and imported in `src/main.tsx`, so there are no external font requests. `ui-monospace` is for the small uppercase labels only. Display headings use slight positive tracking; body uses none. Minimum text size is 12px. Weights and reps are `numeral-lg` (24px, 600, `tnum`).
