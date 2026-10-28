@@ -33,6 +33,14 @@ describe('plate blocks', () => {
     expect(rule('.plate-row')).toContain('flex-wrap: wrap')
   })
 
+  it('gives every plate block one uniform width, with only the Bar block wider', () => {
+    expect(rule('.plate-block')).toMatch(/(^|[\s;])width: 46px/)
+    expect(rule('.plate-block')).not.toContain('min-width')
+    expect(rule('.plate-block.is-bar')).toContain('width: auto')
+    expect(rule('.plate-block.is-bar')).toContain('min-width: 64px')
+    expect(appCss.match(/\.plate-block[^{]*\{[^}]*(?<![-\w])width:\s*\d/g)).toHaveLength(1)
+  })
+
   it('keeps orange (--primary) out of every .plate-* rule', () => {
     const plateRules = [...appCss.matchAll(/^[^\n{]*\.plate-[^\n{]*\{[^}]*\}/gm)].map(([text]) => text)
     expect(plateRules.length).toBeGreaterThanOrEqual(4)

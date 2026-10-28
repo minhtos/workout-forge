@@ -146,9 +146,9 @@ select option { background: var(--surface-2); color: var(--ink); }
 .last-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
 .plate-blocks { margin: 12px 0 0; display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; font-variant-numeric: tabular-nums; }
 .plate-row { display: flex; flex-wrap: wrap; gap: 4px; }
-.plate-block { height: 30px; min-width: 38px; padding: 0 8px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; line-height: 1; color: var(--plate-ink); background: color-mix(in srgb, var(--plate-hi) var(--tone, 100%), var(--plate-lo)); }
+.plate-block { height: 30px; width: 46px; flex: none; padding: 0 8px; box-sizing: border-box; display: inline-flex; align-items: center; justify-content: center; border-radius: var(--radius-sm); font-size: 14px; font-weight: 600; line-height: 1; color: var(--plate-ink); background: color-mix(in srgb, var(--plate-hi) var(--tone, 100%), var(--plate-lo)); }
 .plate-block.is-lightest { background: var(--plate-hi); }
-.plate-block.is-bar { background: var(--plate-bar); color: var(--plate-bar-ink); font-weight: 500; white-space: nowrap; }
+.plate-block.is-bar { width: auto; min-width: 64px; background: var(--plate-bar); color: var(--plate-bar-ink); font-weight: 500; white-space: nowrap; }
 .plate-note { font-size: 13px; color: var(--ink-subtle); }
 
 .set-table { margin-top: 16px; }
