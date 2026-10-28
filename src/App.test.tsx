@@ -147,10 +147,14 @@ describe('Workout Forge gym flow', () => {
       setWeight('100')
       expect(blocks()).toEqual(['Bar 45', '25', '2.5'])
       expect(note()).toBe('per side')
-      expect(document.querySelectorAll('.plate-block.is-top')).toHaveLength(1)
+      expect(document.querySelectorAll('.plate-block.is-lightest')).toHaveLength(1)
+      expect(document.querySelector('.plate-block.is-lightest')?.textContent).toBe('25')
       setWeight('225')
-      expect(blocks()).toEqual(['Bar 45', '45', '45']) // the heaviest plates share the accent
-      expect(document.querySelectorAll('.plate-block.is-top')).toHaveLength(2)
+      expect(blocks()).toEqual(['Bar 45', '45', '45']) // the heaviest plates share the lightest grey
+      expect(document.querySelectorAll('.plate-block.is-lightest')).toHaveLength(2)
+      expect(document.querySelector('.plate-block.is-bar')?.classList.contains('is-lightest')).toBe(false)
+      // grey only: orange is reserved for real controls
+      expect(document.querySelector('.plate-blocks [class*="primary"], .plate-blocks [class*="accent"], .plate-blocks [class*="is-top"]')).toBeNull()
       expect(row()).toBe('Bar 45 lb, plates per side: 45 and 45 — total 225 lb')
       setWeight('155')
       expect(blocks()).toEqual(['Bar 45', '45', '10'])

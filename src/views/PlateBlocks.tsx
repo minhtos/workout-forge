@@ -15,7 +15,7 @@ export function PlateBlocks({ weight }: { weight: number }) {
   return <div className="plate-blocks">
     <div className="plate-row" role="img" aria-label={spoken}>
       <span className="plate-block is-bar" aria-hidden="true">Bar {bar}</span>
-      {plates.map((plate, index) => <span key={index} className={plate === heaviest ? 'plate-block is-top' : 'plate-block'} style={{ minWidth: blockWidth(plate), '--tone': `${10 + Math.round((plate / heaviest) * 16)}%` } as CSSProperties} aria-hidden="true">{plate}</span>)}
+      {plates.map((plate, index) => <span key={index} className={plate === heaviest ? 'plate-block is-lightest' : 'plate-block'} style={{ minWidth: blockWidth(plate), '--tone': `${45 + Math.round((plate / heaviest) * 55)}%` } as CSSProperties} aria-hidden="true">{plate}</span>)}
     </div>
     <span className="plate-note">{notes.join(' · ')}</span>
   </div>
