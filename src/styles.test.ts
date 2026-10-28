@@ -26,6 +26,20 @@ describe('heatmap tokens', () => {
   })
 })
 
+describe('plate blocks', () => {
+  const rule = (selector: string) => appCss.match(new RegExp(`^${selector.replace('.', '\\.')}\\s*\\{([^}]*)\\}`, 'm'))?.[1] ?? ''
+
+  it('wraps the plate row so heavy loads never overflow a narrow card', () => {
+    expect(rule('.plate-row')).toContain('flex-wrap: wrap')
+  })
+
+  it('keeps orange (--primary) out of every .plate-* rule', () => {
+    const plateRules = [...appCss.matchAll(/^[^\n{]*\.plate-[^\n{]*\{[^}]*\}/gm)].map(([text]) => text)
+    expect(plateRules.length).toBeGreaterThanOrEqual(4)
+    for (const text of plateRules) expect(text).not.toContain('var(--primary)')
+  })
+})
+
 describe('motion tokens', () => {
   it('keeps every --duration-* token at 500ms or less', () => {
     const tokens = [...indexCss.matchAll(/--duration-[\w-]+:\s*([\d.]+)(ms|s)\b/g)]

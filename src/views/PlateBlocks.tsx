@@ -8,10 +8,10 @@ const blockWidth = (plate: number) => Math.max(38, Math.round(plate * 1.5))
 export function PlateBlocks({ weight }: { weight: number }) {
   const load = plateLoad(weight, 'lb')
   if (!load) return null
-  const { bar, plates, total, requested } = load
+  const { bar, plates, total, exact } = load
   const heaviest = plates[0]
   const spoken = `Bar ${bar} lb${plates.length ? `, plates per side: ${plates.join(' and ')}` : ', no plates'} — total ${total} lb`
-  const notes = [plates.length === 0 ? 'Bar only' : 'per side', total !== requested && `makes ${total} lb`].filter(Boolean)
+  const notes = [plates.length === 0 ? 'Bar only' : 'per side', !exact && `makes ${total} lb`].filter(Boolean)
   return <div className="plate-blocks">
     <div className="plate-row" role="img" aria-label={spoken}>
       <span className="plate-block is-bar" aria-hidden="true">Bar {bar}</span>

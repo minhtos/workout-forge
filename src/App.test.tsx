@@ -159,6 +159,9 @@ describe('Workout Forge gym flow', () => {
       setWeight('155')
       expect(blocks()).toEqual(['Bar 45', '45', '10'])
       expect(row()).toBe('Bar 45 lb, plates per side: 45 and 10 — total 155 lb')
+      setWeight('100')
+      expect((document.querySelectorAll('.plate-block')[2] as HTMLElement).style.minWidth).toBe('38px') // 2.5 plate sits on the label floor
+      setWeight('155')
       expect(document.querySelectorAll('.plate-block[aria-hidden="true"]')).toHaveLength(3)
       expect(document.querySelector('.plate-row')?.getAttribute('role')).toBe('img')
     })

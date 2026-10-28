@@ -14,6 +14,8 @@ export interface PlateLoad {
   total: number
   /** The working weight asked for. */
   requested: number
+  /** The bar and plates make exactly the requested weight (never true below the bar). */
+  exact: boolean
 }
 
 /** The plate load for a working weight, greedy from the heaviest plate; `plateGuide` and the block visual both format from it. Null when there is nothing to show. */
@@ -25,7 +27,9 @@ export function plateLoad(weight: number, unit: PlateUnit = 'lb'): PlateLoad | n
   for (const plate of plates[unit]) {
     while (perSide + 1e-9 >= plate) { used.push(plate); perSide -= plate }
   }
-  return { bar, plates: used, total: clean(bar + 2 * used.reduce((sum, plate) => sum + plate, 0)), requested: clean(weight) }
+  const total = clean(bar + 2 * used.reduce((sum, plate) => sum + plate, 0))
+  const requested = clean(weight)
+  return { bar, plates: used, total, requested, exact: total === requested && weight >= bar }
 }
 
 /**
@@ -36,7 +40,7 @@ export function plateLoad(weight: number, unit: PlateUnit = 'lb'): PlateLoad | n
 export function plateGuide(weight: number, unit: PlateUnit = 'lb'): string | null {
   const load = plateLoad(weight, unit)
   if (!load) return null
-  const { bar, plates: used, total, requested } = load
+  const { bar, plates: used, total, requested, exact } = load
   const line = `Working weight ${requested} ${unit} — ${used.length ? `plates per side: ${used.join(' + ')}` : 'Bar only'} (bar ${bar})`
-  return total === requested && weight >= bar ? line : `${line}, makes ${total} ${unit}`
+  return exact ? line : `${line}, makes ${total} ${unit}`
 }
