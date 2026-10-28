@@ -130,25 +130,65 @@ describe('Workout Forge gym flow', () => {
     expect(screen.getAllByRole('button', { name: /last time & suggestion/i })[0].getAttribute('aria-expanded')).toBe('false')
   })
 
-  it('shows the plate guide for barbell lifts only, from the first unchecked set\'s weight', () => {
-    planTwoDays()
-    fireEvent.click(screen.getByRole('button', { name: /start block/i }))
-    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+  describe('plate blocks', () => {
+    const blocks = () => Array.from(document.querySelectorAll('.plate-block')).map((block) => block.textContent)
+    const row = () => document.querySelector('.plate-row')?.getAttribute('aria-label')
+    const note = () => document.querySelector('.plate-note')?.textContent
+    const startSession = () => {
+      planTwoDays()
+      fireEvent.click(screen.getByRole('button', { name: /start block/i }))
+      fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    }
+    const setWeight = (value: string, label = 'Set 1 weight') => fireEvent.change(screen.getByLabelText(label), { target: { value } })
 
-    expect(document.querySelectorAll('.plate-guide')).toHaveLength(0)
-    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '100' } })
-    expect(document.querySelectorAll('.plate-guide')).toHaveLength(1)
-    expect(screen.getByText('Working weight 100 lb — plates per side: 25 + 2.5 (bar 45)')).toBeTruthy()
-    fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '135' } })
-    expect(screen.getByText('Working weight 135 lb — plates per side: 45 (bar 45)')).toBeTruthy()
+    it('renders the bar first, then every plate on one side labeled, heaviest first, updating with the weight', () => {
+      startSession()
+      expect(document.querySelectorAll('.plate-blocks')).toHaveLength(0)
+      setWeight('100')
+      expect(blocks()).toEqual(['Bar 45', '25', '2.5'])
+      expect(note()).toBe('per side')
+      expect(document.querySelectorAll('.plate-block.is-top')).toHaveLength(1)
+      setWeight('225')
+      expect(blocks()).toEqual(['Bar 45', '45', '45']) // the heaviest plates share the accent
+      expect(document.querySelectorAll('.plate-block.is-top')).toHaveLength(2)
+      expect(row()).toBe('Bar 45 lb, plates per side: 45 and 45 — total 225 lb')
+      setWeight('155')
+      expect(blocks()).toEqual(['Bar 45', '45', '10'])
+      expect(row()).toBe('Bar 45 lb, plates per side: 45 and 10 — total 155 lb')
+      expect(document.querySelectorAll('.plate-block[aria-hidden="true"]')).toHaveLength(3)
+      expect(document.querySelector('.plate-row')?.getAttribute('role')).toBe('img')
+    })
 
-    fireEvent.change(screen.getByLabelText('Cable Pushdown Set 1 weight'), { target: { value: '60' } })
-    expect(document.querySelectorAll('.plate-guide')).toHaveLength(1)
+    it('shows only the bar block and "Bar only" at or below the bar', () => {
+      startSession()
+      setWeight('45')
+      expect(blocks()).toEqual(['Bar 45'])
+      expect(note()).toBe('Bar only')
+      expect(row()).toBe('Bar 45 lb, no plates — total 45 lb')
+      setWeight('40')
+      expect(note()).toBe('Bar only · makes 45 lb')
+    })
 
-    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
-    expect(document.querySelectorAll('.plate-guide')).toHaveLength(1)
-    fireEvent.change(screen.getByLabelText('Set 2 weight'), { target: { value: '45' } })
-    expect(screen.getByText('Working weight 45 lb — Bar only (bar 45)')).toBeTruthy()
+    it('shows the closest loadable combo and what it makes when the target is unmakeable', () => {
+      startSession()
+      setWeight('99')
+      expect(blocks()).toEqual(['Bar 45', '25'])
+      expect(note()).toBe('per side · makes 95 lb')
+      expect(row()).toBe('Bar 45 lb, plates per side: 25 — total 95 lb')
+      setWeight('47.5')
+      expect(blocks()).toEqual(['Bar 45'])
+      expect(note()).toBe('Bar only · makes 45 lb')
+    })
+
+    it('follows the first unchecked set and ignores non-barbell lifts', () => {
+      startSession()
+      setWeight('135')
+      setWeight('60', 'Cable Pushdown Set 1 weight')
+      expect(document.querySelectorAll('.plate-blocks')).toHaveLength(1)
+      fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+      setWeight('45', 'Set 2 weight')
+      expect(blocks()).toEqual(['Bar 45'])
+    })
   })
 
   it('advances to the next day after finishing', () => {
