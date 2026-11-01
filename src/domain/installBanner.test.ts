@@ -6,6 +6,7 @@ const edge = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 const iosSafari = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
 const ipadSafari = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Safari/605.1.15'
 const iosChrome = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/130.0.0.0 Mobile/15E148 Safari/604.1'
+const iosOther = (token: string) => `Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Mobile/15E148 ${token}`
 const firefox = 'Mozilla/5.0 (Android 14; Mobile; rv:132.0) Gecko/132.0 Firefox/132.0'
 const samsung = 'Mozilla/5.0 (Linux; Android 14; SM-S918B) AppleWebKit/537.36 (KHTML, like Gecko) SamsungBrowser/25.0 Chrome/121.0.0.0 Mobile Safari/537.36'
 
@@ -27,6 +28,10 @@ describe('detectInstallPlatform', () => {
     expect(detectInstallPlatform(env(samsung, { canPrompt: true }))).toBe('other')
     expect(detectInstallPlatform(env(iosChrome))).toBe('other')
     expect(detectInstallPlatform(env(ipadSafari))).toBe('other')
+  })
+
+  it.each([['Google app', 'GSA/350.0.0 Safari/604.1'], ['DuckDuckGo', 'Ddg/18.0 Safari/604.1'], ['Facebook', '[FBAN/FBIOS;FBAV/480.0]'], ['Instagram', 'Instagram 350.0.0'], ['Google WebView', 'GoogleWv/1.0']])('gives the iOS %s browser the generic steps', (_name, token) => {
+    expect(detectInstallPlatform(env(iosOther(token)))).toBe('other')
   })
 
   it('treats Chrome without prompt support as generic', () => {

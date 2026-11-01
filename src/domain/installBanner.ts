@@ -18,8 +18,8 @@ export function detectInstallPlatform({ userAgent, maxTouchPoints, canPrompt, st
   if (standalone) return 'standalone'
   const iPadOs = /Macintosh/.test(userAgent) && maxTouchPoints > 1
   if (/iPhone|iPad|iPod/.test(userAgent) || iPadOs) {
-    // Other iOS browsers (Chrome, Firefox, Edge) cannot add to the home screen the same way.
-    return /CriOS|FxiOS|EdgiOS|OPiOS/.test(userAgent) ? 'other' : 'ios'
+    // Other iOS browsers (Chrome, Firefox, Edge, Opera), the Google app, DuckDuckGo and in-app webviews cannot add to the home screen the same way.
+    return /CriOS|FxiOS|EdgiOS|OPiOS|GSA\/|Ddg\/|FBAN|FBAV|Instagram|GoogleWv/.test(userAgent) ? 'other' : 'ios'
   }
   if (/Firefox|SamsungBrowser/.test(userAgent)) return 'other'
   return canPrompt ? 'chromium' : 'other'

@@ -16,7 +16,11 @@ beforeEach(() => {
   for (const day of [0, 1]) block = addExerciseToDay(block, day, 'barbell-bench-press')
   window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block: { ...block, locked: true, startedAt: '2026-10-20T09:00:00.000Z' } }))
 })
-afterEach(() => { cleanup(); vi.unstubAllGlobals() })
+afterEach(() => {
+  cleanup()
+  vi.unstubAllGlobals()
+  delete (window as { onbeforeinstallprompt?: unknown }).onbeforeinstallprompt
+})
 
 describe('install banner', () => {
   it('shows on the Today surface, then minimizes to a chip, expands and closes', () => {
@@ -81,7 +85,37 @@ describe('install banner', () => {
     expect(prompt).toHaveBeenCalledOnce()
     expect(window.localStorage.getItem(bannerStateKey)).toBe('off')
     expect(bannerHeading()).toBeNull()
-    delete (window as { onbeforeinstallprompt?: unknown }).onbeforeinstallprompt
+  })
+
+  it.each(['full', 'min'])('stays away on Today after backing out of an unfinished session (stored %s)', (stored) => {
+    window.localStorage.setItem(bannerStateKey, stored)
+    render(<App />)
+    expect(bannerHeading() ?? chip()).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    fireEvent.click(screen.getByRole('button', { name: /back/i }))
+    expect(screen.getByRole('button', { name: /resume workout/i })).toBeTruthy()
+    expect(bannerHeading()).toBeNull()
+    expect(chip()).toBeNull()
+  })
+
+  const promptEvent = () => Object.assign(new Event('beforeinstallprompt', { cancelable: true }), { prompt: vi.fn().mockResolvedValue(undefined), userChoice: Promise.resolve({ outcome: 'accepted' as const }) })
+
+  it('leaves the native prompt alone once the banner was closed', () => {
+    Object.assign(window, { onbeforeinstallprompt: null })
+    window.localStorage.setItem(bannerStateKey, 'off')
+    render(<App />)
+    const event = promptEvent()
+    act(() => { window.dispatchEvent(event) })
+    expect(event.defaultPrevented).toBe(false)
+    expect(screen.queryByRole('button', { name: 'Install app' })).toBeNull()
+  })
+
+  it('leaves the native prompt alone on platforms the banner cannot serve', () => {
+    render(<App />) // no onbeforeinstallprompt at startup, so the platform is classified other
+    const event = promptEvent()
+    act(() => { window.dispatchEvent(event) })
+    expect(event.defaultPrevented).toBe(false)
+    expect(screen.queryByRole('button', { name: 'Install app' })).toBeNull()
   })
 
   it('closes when the browser reports the app was installed', () => {

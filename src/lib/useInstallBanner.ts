@@ -19,12 +19,17 @@ export function useInstallBanner() {
   }, [])
 
   useEffect(() => {
-    const onPrompt = (event: Event) => { event.preventDefault(); setPromptEvent(event as InstallPromptEvent) }
+    // Only take over the browser's own prompt when the banner can offer it: Chromium, and not closed for good.
+    const onPrompt = (event: Event) => {
+      if (platform !== 'chromium' || stored === 'off') return
+      event.preventDefault()
+      setPromptEvent(event as InstallPromptEvent)
+    }
     const onInstalled = () => apply('close')
     window.addEventListener('beforeinstallprompt', onPrompt)
     window.addEventListener('appinstalled', onInstalled)
     return () => { window.removeEventListener('beforeinstallprompt', onPrompt); window.removeEventListener('appinstalled', onInstalled) }
-  }, [apply])
+  }, [apply, platform, stored])
 
   const install = useCallback(async () => {
     if (!promptEvent) return
