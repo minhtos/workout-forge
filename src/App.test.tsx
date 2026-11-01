@@ -496,6 +496,22 @@ describe('Workout Forge gym flow', () => {
     expect(screen.queryByLabelText('Barbell Incline Bench Press Set 4 weight')).toBeNull()
   })
 
+  it('a skipped (neutral) recovery answer is recorded but keeps the sets you added by hand', () => {
+    chestWeekOne(['w1-d1', 'w1-d2'])
+
+    renderApp()
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Add set to Barbell Bench Press' }))
+    expect(screen.getByLabelText('Set 4 weight')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByLabelText('Set 4 weight')).toBeTruthy()
+    expect(screen.getByRole('button', { name: 'Undo set 1' })).toBeTruthy()
+    const saved = JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}') as { feedback: Record<string, unknown>[] }
+    expect(saved.feedback[0]).toMatchObject({ group: 'Chest', soreness: 'ontime', templateIndex: 0, exerciseId: 'barbell-bench-press' })
+  })
+
   it('does not ask recovery in the second Chest workout of the week, and does not move its sets', () => {
     chestWeekOne(['w1-d1'], {}, [{ sessionId: 'a', blockId: '2026-09-28T09:00:00.000Z', group: 'Chest', soreness: 'early', workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', at: '2026-09-28T10:30:00.000Z' }])
 
@@ -569,8 +585,8 @@ describe('Workout Forge gym flow', () => {
       ...[1, 2, 3].map((n) => row('deload', n, 100, 6, `2026-09-29T10:0${n}:00.000Z`, { weekNumber: 5, targetRir: 3, deload: true })),
     ]
     const feedback = [
-      { sessionId: 'a', blockId: OLD, group: 'Chest', soreness: 'early', workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', at: '2026-09-02T10:00:00.000Z' },
-      { sessionId: 'b', blockId: OLD, group: 'Chest', soreness: 'early', workoutId: 'w2-d1', exerciseId: 'barbell-bench-press', at: '2026-09-09T10:00:00.000Z' },
+      { sessionId: 'a', blockId: OLD, group: 'Chest', soreness: 'early', workoutId: 'w1-d1', templateIndex: 0, exerciseId: 'barbell-bench-press', at: '2026-09-02T10:00:00.000Z' },
+      { sessionId: 'b', blockId: OLD, group: 'Chest', soreness: 'early', workoutId: 'w2-d1', templateIndex: 0, exerciseId: 'barbell-bench-press', at: '2026-09-09T10:00:00.000Z' },
       { sessionId: 'fail', blockId: OLD, group: 'Chest', effort: 'right', pump: 'high', summaryDone: true, at: '2026-09-22T10:30:00.000Z' },
     ]
     window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history, feedback }))

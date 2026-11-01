@@ -397,14 +397,15 @@ function App() {
 
   /**
    * Soreness moves the sets of the group's first exercise in this workout: the unfinished tail is resized now, and the
-   * same answer shapes this workout's lever in the weeks to come. No other exercise changes.
+   * same answer shapes this workout's lever in the weeks to come. No other exercise changes. A neutral answer (including
+   * Skip) is recorded but resizes nothing, so sets added by hand survive.
    */
   function answerSoreness(group: MuscleGroup, value: Soreness) {
     if (!activeSession || !activeWorkout || !block?.startedAt) return
     const first = firstExerciseOf(activeWorkout, group)
-    const feedback = upsertFeedback(state.feedback, { sessionId: activeSession.sessionId, blockId: block.startedAt, group, workoutId: activeSession.workoutId }, { soreness: value, ...(first ? { exerciseId: first.id } : {}) }, new Date().toISOString())
+    const feedback = upsertFeedback(state.feedback, { sessionId: activeSession.sessionId, blockId: block.startedAt, group, workoutId: activeSession.workoutId }, { soreness: value, templateIndex: activeWorkout.templateIndex, ...(first ? { exerciseId: first.id } : {}) }, new Date().toISOString())
     const sets = { ...activeSession.sets }
-    if (first && sets[first.id]) sets[first.id] = resizeEntries(sets[first.id], tunedSets(first.sets, workoutOffset({ ...offsets, feedback }, activeWorkout, group)), maxSetsPerExercise)
+    if (value !== 'ontime' && first && sets[first.id]) sets[first.id] =resizeEntries(sets[first.id], tunedSets(first.sets, workoutOffset({ ...offsets, feedback }, activeWorkout, group)), maxSetsPerExercise)
     setState({ ...state, feedback, activeSession: { ...activeSession, sets } })
   }
   function answerSummary(group: MuscleGroup, patch: { effort?: Effort; pump?: Pump }) {

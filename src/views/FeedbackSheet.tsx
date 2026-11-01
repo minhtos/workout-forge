@@ -10,9 +10,9 @@ interface Props {
 }
 
 const sorenessChoices: { value: Soreness; label: string; effect: (group: string) => string }[] = [
-  { value: 'sore', label: 'Still sore', effect: (group) => `Takes a set off your first ${group} exercise next week` },
+  { value: 'sore', label: 'Still sore', effect: (group) => `Takes a set off your first ${group} exercise, starting today` },
   { value: 'ontime', label: 'Recovered just on time', effect: () => 'Keeps your sets as planned' },
-  { value: 'early', label: 'Recovered early', effect: (group) => `Adds a set to your first ${group} exercise next week` },
+  { value: 'early', label: 'Recovered early', effect: (group) => `Adds a set to your first ${group} exercise, starting today` },
 ]
 const effortChoices: { value: Effort; label: string; effect: string }[] = [
   { value: 'easy', label: 'Easy', effect: 'A little more weight next time' },

@@ -76,14 +76,16 @@ export function startNextPart(block: Block, feedback: SessionFeedback[], started
  * Starting set lever for a new block, keyed "templateIndex|group". Each template that checks a group in some week
  * inherits last block's lever for the same group and first exercise, minus one, never below the plan. A swapped first
  * exercise carries nothing, and neither does a template that never checks the group. Answers saved without an
- * exerciseId (older versions) cannot be matched to an exercise and are not carried.
+ * exerciseId or templateIndex (older versions) cannot be matched and are not carried. Each lever starts from the
+ * block's own startOffsets, so a block that began at +2 and heard nothing carries 1 (chained part 2 only: a fresh draft has none).
  */
 export function startingOffsets(feedback: SessionFeedback[], previousBlock: string | null, block: Block, catalog: ExerciseCatalogItem[]): Record<string, number> {
   if (!previousBlock) return {}
-  const answers = feedback.filter((entry) => entry.blockId === previousBlock && entry.soreness && entry.exerciseId)
+  const answers = feedback.filter((entry) => entry.blockId === previousBlock && entry.soreness && entry.exerciseId && entry.templateIndex !== undefined)
   const result: Record<string, number> = {}
   for (const { templateIndex, group, exerciseId } of anchorSlots(block, catalog)) {
-    const carried = Math.max(0, leverOf(answers.filter((entry) => entry.group === group && entry.exerciseId === exerciseId)) - 1)
+    const own = answers.filter((entry) => entry.templateIndex === templateIndex && entry.group === group && entry.exerciseId === exerciseId)
+    const carried = Math.max(0, leverOf(own, block.startOffsets?.[offsetKey(templateIndex, group)] ?? 0) - 1)
     if (carried > 0) result[offsetKey(templateIndex, group)] = carried
   }
   return result

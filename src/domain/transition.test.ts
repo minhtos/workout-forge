@@ -66,7 +66,7 @@ describe('carrying a 0 RIR week into the next block', () => {
 })
 
 describe('sets carried into the next block', () => {
-  const entry = (sessionId: string, group: SessionFeedback['group'], soreness: SessionFeedback['soreness'], at: string, blockId = OLD_BLOCK, extra: Partial<SessionFeedback> = {}): SessionFeedback => ({ sessionId, blockId, group, soreness, at, workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', ...extra })
+  const entry = (sessionId: string, group: SessionFeedback['group'], soreness: SessionFeedback['soreness'], at: string, blockId = OLD_BLOCK, extra: Partial<SessionFeedback> = {}): SessionFeedback => ({ sessionId, blockId, group, soreness, at, workoutId: 'w1-d1', templateIndex: 0, exerciseId: 'barbell-bench-press', ...extra })
   const carriedInto = (feedback: SessionFeedback[], block = newBlock()) => startingOffsets(feedback, OLD_BLOCK, block, catalog)
   /** Three days over two rotating templates (A, B, A / B, A, B): both train Chest, so each is the weekly check in some week. */
   const rotating = (firstA: string, firstB: string) => {
@@ -115,10 +115,27 @@ describe('sets carried into the next block', () => {
   it('carries per template when the templates rotate', () => {
     const feedback = [
       entry('a', 'Chest', 'early', '1'), entry('b', 'Chest', 'early', '2'), entry('c', 'Chest', 'early', '3'),
-      entry('d', 'Chest', 'early', '4', OLD_BLOCK, { exerciseId: 'barbell-incline-bench-press' }), entry('e', 'Chest', 'early', '5', OLD_BLOCK, { exerciseId: 'barbell-incline-bench-press' }),
+      entry('d', 'Chest', 'early', '4', OLD_BLOCK, { exerciseId: 'barbell-incline-bench-press', templateIndex: 1 }), entry('e', 'Chest', 'early', '5', OLD_BLOCK, { exerciseId: 'barbell-incline-bench-press', templateIndex: 1 }),
     ]
     expect(carriedInto(feedback, rotating('barbell-bench-press', 'barbell-incline-bench-press'))).toEqual({ '0|Chest': 2, '1|Chest': 1 })
     expect(carriedInto(feedback, rotating('barbell-bench-press', 'machine-chest-press'))).toEqual({ '0|Chest': 2 })
+  })
+
+  it('does not pool answers across templates that open with the same exercise', () => {
+    // A answers "early" twice, B once: A carries 2 - 1 = 1, B's single answer carries nothing (not a pooled 3 - 1)
+    const feedback = [entry('a', 'Chest', 'early', '1'), entry('b', 'Chest', 'early', '2'), entry('c', 'Chest', 'early', '3', OLD_BLOCK, { templateIndex: 1 })]
+    expect(carriedInto(feedback, rotating('barbell-bench-press', 'barbell-bench-press'))).toEqual({ '0|Chest': 1 })
+  })
+
+  it('carries nothing from answers without a templateIndex', () => {
+    const feedback = [entry('a', 'Chest', 'early', '1'), entry('b', 'Chest', 'early', '2'), entry('c', 'Chest', 'early', '3')].map(({ templateIndex: _templateIndex, ...older }) => older)
+    expect(carriedInto(feedback)).toEqual({})
+  })
+
+  it('seeds the lever with the ending block\'s own start offsets', () => {
+    const ended = { ...newBlock({ '0|Chest': 2 }), startedAt: OLD_BLOCK }
+    expect(startingOffsets([entry('a', 'Chest', 'sore', '1')], OLD_BLOCK, ended, catalog)).toEqual({})
+    expect(startingOffsets([entry('a', 'Chest', 'early', '1')], OLD_BLOCK, ended, catalog)).toEqual({ '0|Chest': 2 })
   })
 })
 
@@ -198,7 +215,7 @@ describe('chained blocks (12 weeks = 2 × 6)', () => {
   })
 
   it('part 2 keeps the exercises, clears progress, restarts the clock and carries sets over minus one', () => {
-    const early = (sessionId: string) => ({ ...effort(undefined, { sessionId, workoutId: 'w1-d1', exerciseId: 'barbell-bench-press' }), soreness: 'early' as const })
+    const early = (sessionId: string) => ({ ...effort(undefined, { sessionId, workoutId: 'w1-d1', templateIndex: 0, exerciseId: 'barbell-bench-press' }), soreness: 'early' as const })
     const feedback = [effort('right'), early('s2'), early('s3')]
     const next = startNextPart(chained(), feedback, NEW_BLOCK, catalog)
     expect(next).toMatchObject({ part: 2, parts: 2, durationWeeks: 6, locked: true, startedAt: NEW_BLOCK, completedIds: [], skippedIds: [] })
@@ -206,10 +223,16 @@ describe('chained blocks (12 weeks = 2 × 6)', () => {
     expect(next.startOffsets).toEqual({ '0|Chest': 1 })
   })
 
+  it('part 2 starts one lower than part 1\'s start offset when nothing was answered', () => {
+    // unrelated feedback keeps previousBlockId pointing at part 1
+    const next = startNextPart({ ...chained(), startOffsets: { '0|Chest': 2 } }, [effort('right')], NEW_BLOCK, catalog)
+    expect(next.startOffsets).toEqual({ '0|Chest': 1 })
+  })
+
   it('part 2 carries each template\'s lever when the templates rotate', () => {
     let rotating: Block = { ...createBlock(3, 6, 2), rotation: true, templates: [{ title: 'A', exercises: [] }, { title: 'B', exercises: [] }] }
     for (const [day, id] of [[0, 'barbell-bench-press'], [1, 'barbell-incline-bench-press']] as const) rotating = addExerciseToDay(rotating, day, id)
-    const early = (sessionId: string, exerciseId: string) => ({ ...effort(undefined, { sessionId, workoutId: 'w1-d1', exerciseId }), soreness: 'early' as const })
+    const early = (sessionId: string, exerciseId: string) => ({ ...effort(undefined, { sessionId, workoutId: 'w1-d1', templateIndex: exerciseId === 'barbell-bench-press' ? 0 : 1, exerciseId }), soreness: 'early' as const })
     const feedback = [early('a', 'barbell-bench-press'), early('b', 'barbell-bench-press'), early('c', 'barbell-bench-press'), early('d', 'barbell-incline-bench-press'), early('e', 'barbell-incline-bench-press')]
     const next = startNextPart({ ...rotating, locked: true, startedAt: OLD_BLOCK }, feedback, NEW_BLOCK, catalog)
     expect(next.startOffsets).toEqual({ '0|Chest': 2, '1|Chest': 1 })
