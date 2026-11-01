@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'vitest'
-import { blockIntents, blockName, blockTitle, createBlock, intentLabels } from './program'
+import { blockIntents, blockName, blockTitle, createBlock, intentLabels, mergeCatalog } from './program'
 import { parseProgramSnapshot } from './programSync'
 import { emptyState, loadWorkoutState, parseImportedState, saveWorkoutState } from './storage'
 import { set } from './testSets'
@@ -37,7 +37,7 @@ describe('block names', () => {
 
   it('keeps the intent when part 2 of a 12-week program starts', () => {
     const chained = { ...createBlock(3, 6, 2, 'push'), locked: true, startedAt: '2026-09-01T09:00:00.000Z' }
-    expect(startNextPart(chained, [], '2026-10-20T09:00:00.000Z').intent).toBe('push')
+    expect(startNextPart(chained, [], '2026-10-20T09:00:00.000Z', mergeCatalog([])).intent).toBe('push')
   })
 })
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { SessionFeedback } from './autoregulation'
-import { addExerciseToDay, createBlock, findWorkout, mergeCatalog, resolveWorkout } from './program'
+import { tuneWorkoutSets, type SessionFeedback } from './autoregulation'
+import { addExerciseToDay, createBlock, findWorkout, mergeCatalog, resolveWorkout, type Block } from './program'
 import { buildInitialSets, lastSessionSets, suggestionText } from './session'
 import type { CompletedSetRecord } from './storage'
 import { awaitingNextPart, carryOverFor, estimateOneRepMax, previousBlockId, startNextPart, startingOffsets, startingWeight } from './transition'
@@ -16,7 +16,7 @@ const failureWeek = [record({ sessionId: 'fail', setIndex: 1, weight: 200, reps:
 const deloadWeek = [1, 2, 3].map((n) => record({ sessionId: 'deload', setIndex: n, weight: 100, reps: 6, completedAt: `2026-09-29T10:0${n}:00.000Z`, weekNumber: 5, targetRir: 3, deload: true }))
 const effort = (effortValue: SessionFeedback['effort'], patch: Partial<SessionFeedback> = {}): SessionFeedback => ({ sessionId: 'fail', blockId: OLD_BLOCK, group: 'Chest', effort: effortValue, summaryDone: true, at: '2026-09-22T10:30:00.000Z', ...patch })
 
-const newBlock = (offsets?: Record<string, number>) => {
+const newBlock = (offsets?: Record<string, number>): Block => {
   let block = createBlock(2, 4)
   for (const day of [0, 1]) block = addExerciseToDay(block, day, 'barbell-bench-press')
   return { ...block, locked: true, startedAt: NEW_BLOCK, startOffsets: offsets }
@@ -66,7 +66,14 @@ describe('carrying a 0 RIR week into the next block', () => {
 })
 
 describe('sets carried into the next block', () => {
-  const entry = (sessionId: string, group: SessionFeedback['group'], soreness: SessionFeedback['soreness'], at: string, blockId = OLD_BLOCK, extra: Partial<SessionFeedback> = {}): SessionFeedback => ({ sessionId, blockId, group, soreness, at, ...extra })
+  const entry = (sessionId: string, group: SessionFeedback['group'], soreness: SessionFeedback['soreness'], at: string, blockId = OLD_BLOCK, extra: Partial<SessionFeedback> = {}): SessionFeedback => ({ sessionId, blockId, group, soreness, at, workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', ...extra })
+  const carriedInto = (feedback: SessionFeedback[], block = newBlock()) => startingOffsets(feedback, OLD_BLOCK, block, catalog)
+  /** Three days over two rotating templates (A, B, A / B, A, B): both train Chest, so each is the weekly check in some week. */
+  const rotating = (firstA: string, firstB: string) => {
+    let block: Block = { ...createBlock(3, 6, 2), rotation: true, templates: [{ title: 'A', exercises: [] }, { title: 'B', exercises: [] }] }
+    for (const [day, ids] of [[0, [firstA, 'cable-pushdown']], [1, [firstB, 'cable-pushdown']]] as const) for (const id of ids) block = addExerciseToDay(block, day, id)
+    return { ...block, locked: true, startedAt: OLD_BLOCK }
+  }
 
   it('finds the previous block from the feedback', () => {
     const feedback = [entry('a', 'Chest', 'early', '2026-09-02T10:00:00.000Z'), entry('b', 'Chest', 'early', '2026-09-09T10:00:00.000Z'), entry('c', 'Chest', 'sore', '2026-10-06T10:00:00.000Z', NEW_BLOCK)]
@@ -75,15 +82,43 @@ describe('sets carried into the next block', () => {
     expect(previousBlockId([], NEW_BLOCK)).toBeNull()
   })
 
-  it('carries last block\'s final extra sets minus one, never below the plan', () => {
+  it('carries last block\'s final lever minus one onto the matching anchor exercise, never below the plan', () => {
     const feedback = [entry('a', 'Chest', 'early', '1'), entry('b', 'Chest', 'early', '2'), entry('c', 'Chest', 'early', '3'), entry('d', 'Back', 'early', '4'), entry('e', 'Quads', 'sore', '5'), entry('f', 'Biceps', 'ontime', '6')]
-    expect(startingOffsets(feedback, OLD_BLOCK)).toEqual({ Chest: 2 })
-    expect(startingOffsets(feedback, null)).toEqual({})
+    expect(carriedInto(feedback)).toEqual({ '0|Chest': 2 })
+    expect(startingOffsets(feedback, null, newBlock(), catalog)).toEqual({})
+    expect(carriedInto([entry('a', 'Chest', 'early', '1')])).toEqual({})
+    expect(carriedInto([entry('a', 'Chest', 'sore', '1'), entry('b', 'Chest', 'sore', '2')])).toEqual({})
+  })
+
+  it('carries nothing when the group\'s first exercise was swapped', () => {
+    const feedback = [entry('a', 'Chest', 'early', '1'), entry('b', 'Chest', 'early', '2'), entry('c', 'Chest', 'early', '3')]
+    let swapped = createBlock(2, 4)
+    for (const day of [0, 1]) for (const id of ['barbell-incline-bench-press', 'barbell-bench-press']) swapped = addExerciseToDay(swapped, day, id)
+    expect(carriedInto(feedback, { ...swapped, locked: true, startedAt: NEW_BLOCK })).toEqual({})
+    // the lever follows the exercise: one that was the first last time and is the first again carries
+    expect(carriedInto([...feedback, entry('d', 'Chest', 'early', '4', OLD_BLOCK, { exerciseId: 'barbell-incline-bench-press' }), entry('e', 'Chest', 'early', '5', OLD_BLOCK, { exerciseId: 'barbell-incline-bench-press' })], { ...swapped, locked: true, startedAt: NEW_BLOCK })).toEqual({ '0|Chest': 1 })
   })
 
   it('does not carry a set that was cancelled by "too hard"', () => {
     const feedback = [entry('a', 'Chest', 'early', '1', OLD_BLOCK, { effort: 'hard' }), entry('b', 'Chest', 'early', '2')]
-    expect(startingOffsets(feedback, OLD_BLOCK)).toEqual({})
+    expect(carriedInto(feedback)).toEqual({})
+    expect(carriedInto([...feedback, entry('c', 'Chest', 'early', '3'), entry('d', 'Chest', 'early', '4')])).toEqual({ '0|Chest': 2 })
+  })
+
+  it('does not carry onto a template that never checks the group, or from answers with no exercise on record', () => {
+    const feedback = [entry('a', 'Chest', 'early', '1'), entry('b', 'Chest', 'early', '2'), entry('c', 'Chest', 'early', '3')]
+    // the second day also opens with bench, but day 1 checks Chest every week, so only template 0 gets the lever
+    expect(Object.keys(carriedInto(feedback))).toEqual(['0|Chest'])
+    expect(carriedInto(feedback.map(({ exerciseId: _exerciseId, ...older }) => older))).toEqual({})
+  })
+
+  it('carries per template when the templates rotate', () => {
+    const feedback = [
+      entry('a', 'Chest', 'early', '1'), entry('b', 'Chest', 'early', '2'), entry('c', 'Chest', 'early', '3'),
+      entry('d', 'Chest', 'early', '4', OLD_BLOCK, { exerciseId: 'barbell-incline-bench-press' }), entry('e', 'Chest', 'early', '5', OLD_BLOCK, { exerciseId: 'barbell-incline-bench-press' }),
+    ]
+    expect(carriedInto(feedback, rotating('barbell-bench-press', 'barbell-incline-bench-press'))).toEqual({ '0|Chest': 2, '1|Chest': 1 })
+    expect(carriedInto(feedback, rotating('barbell-bench-press', 'machine-chest-press'))).toEqual({ '0|Chest': 2 })
   })
 })
 
@@ -102,9 +137,20 @@ describe('Week 1 of a new block', () => {
   })
 
   it('adds the carried sets and the easy step', () => {
-    const sets = buildInitialSets(week1(newBlock({ Chest: 1 })), history, 'now', { feedback: [effort('easy')], blockId: NEW_BLOCK, startOffsets: { Chest: 1 } })['barbell-bench-press']
+    const block = newBlock({ '0|Chest': 1 })
+    const feedback = [effort('easy')]
+    const tuned = tuneWorkoutSets(week1(block), { feedback, block, catalog, history })
+    const sets = buildInitialSets(tuned, history, 'now', { feedback, blockId: NEW_BLOCK })['barbell-bench-press']
     expect(sets).toHaveLength(4)
     expect(sets[0].weight).toBe('190')
+  })
+
+  it('does not apply a carried lever to the week\'s second workout for the group, or to an old group-keyed one', () => {
+    const second = (offsets: Record<string, number>) => { const block = newBlock(offsets); return tuneWorkoutSets(resolveWorkout(block, findWorkout(block, 'w1-d2')!, catalog), { feedback: [], block, catalog, history }).exercises[0].sets }
+    expect(second({ '0|Chest': 1, '1|Chest': 1 })).toBe(3)
+    const first = (offsets: Record<string, number>) => { const block = newBlock(offsets); return tuneWorkoutSets(week1(block), { feedback: [], block, catalog, history }).exercises[0].sets }
+    expect(first({ Chest: 1 })).toBe(3)
+    expect(first({ '0|Chest': 1 })).toBe(4)
   })
 
   it('explains where the numbers came from', () => {
@@ -152,15 +198,25 @@ describe('chained blocks (12 weeks = 2 × 6)', () => {
   })
 
   it('part 2 keeps the exercises, clears progress, restarts the clock and carries sets over minus one', () => {
-    const feedback = [effort('right'), { ...effort(undefined, { sessionId: 's2' }), soreness: 'early' as const }, { ...effort(undefined, { sessionId: 's3' }), soreness: 'early' as const }]
-    const next = startNextPart(chained(), feedback, NEW_BLOCK)
+    const early = (sessionId: string) => ({ ...effort(undefined, { sessionId, workoutId: 'w1-d1', exerciseId: 'barbell-bench-press' }), soreness: 'early' as const })
+    const feedback = [effort('right'), early('s2'), early('s3')]
+    const next = startNextPart(chained(), feedback, NEW_BLOCK, catalog)
     expect(next).toMatchObject({ part: 2, parts: 2, durationWeeks: 6, locked: true, startedAt: NEW_BLOCK, completedIds: [], skippedIds: [] })
     expect(next.templates).toEqual(chained().templates)
-    expect(next.startOffsets).toEqual({ Chest: 1 })
+    expect(next.startOffsets).toEqual({ '0|Chest': 1 })
+  })
+
+  it('part 2 carries each template\'s lever when the templates rotate', () => {
+    let rotating: Block = { ...createBlock(3, 6, 2), rotation: true, templates: [{ title: 'A', exercises: [] }, { title: 'B', exercises: [] }] }
+    for (const [day, id] of [[0, 'barbell-bench-press'], [1, 'barbell-incline-bench-press']] as const) rotating = addExerciseToDay(rotating, day, id)
+    const early = (sessionId: string, exerciseId: string) => ({ ...effort(undefined, { sessionId, workoutId: 'w1-d1', exerciseId }), soreness: 'early' as const })
+    const feedback = [early('a', 'barbell-bench-press'), early('b', 'barbell-bench-press'), early('c', 'barbell-bench-press'), early('d', 'barbell-incline-bench-press'), early('e', 'barbell-incline-bench-press')]
+    const next = startNextPart({ ...rotating, locked: true, startedAt: OLD_BLOCK }, feedback, NEW_BLOCK, catalog)
+    expect(next.startOffsets).toEqual({ '0|Chest': 2, '1|Chest': 1 })
   })
 
   it('part 2 week 1 starts from the 0 RIR week of part 1, like any new block', () => {
-    const next = startNextPart(chained(), [], NEW_BLOCK)
+    const next = startNextPart(chained(), [], NEW_BLOCK, catalog)
     const workout = resolveWorkout(next, findWorkout(next, 'w1-d1')!, catalog)
     const sets = buildInitialSets(workout, [...failureWeek, ...deloadWeek], 'new', { feedback: [], blockId: NEW_BLOCK })
     expect(sets['barbell-bench-press'][0]).toMatchObject({ weight: '185', reps: '6' })

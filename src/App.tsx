@@ -1,11 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mergeSets } from './domain/backup'
-import { standardRepMax, addExerciseToDay, createBlock, findWorkout, listWorkouts, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, setSlotExercise, blockName, type Block, type BlockIntent, type ExercisePrescription, type MuscleGroup, type TrainingDaysPerWeek } from './domain/program'
+import { standardRepMax, addExerciseToDay, createBlock, findWorkout, firstExerciseOf, listWorkouts, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, setSlotExercise, blockName, type Block, type BlockIntent, type ExercisePrescription, type MuscleGroup, type TrainingDaysPerWeek } from './domain/program'
 import { planTargets } from './domain/muscleVolume'
 import { applyProgramSnapshot, hasProgramContent, runProgramSync } from './domain/programSync'
 import { addCustomExercise, deleteCustomExercise, enabledCatalog, exerciseInUse, mergeCustomExercises, setExerciseEnabled, setGroupEnabled, updateCustomExercise } from './domain/exercises'
 import { lengthOf, shapeOf, totalWeeks, type ProgramLength } from './domain/progression'
-import { mergeFeedback, nextPrompt, resizeEntries, setOffset, tuneWorkoutSets, tunedSets, upsertFeedback, usesFeedback, type Effort, type Pump, type SessionFeedback, type Soreness } from './domain/autoregulation'
+import { isAnchor, mergeFeedback, nextPrompt, resizeEntries, tuneWorkoutSets, tunedSets, upsertFeedback, usesFeedback, workoutOffset, type Effort, type OffsetContext, type Pump, type SessionFeedback, type Soreness } from './domain/autoregulation'
 import { addSetEntry, applyEntryPatch, buildInitialSets, lastSessionSets, maxSetsPerExercise, parseEntry, removeLastSetEntry, skippedSinceLast, type TuneContext } from './domain/session'
 import { adjustRepsForWeightEdit, historicalOneRepMax, type RepNotice } from './domain/repAdjust'
 import { awaitingNextPart, carryOverFor, previousBlockId, startingOffsets, startNextPart, suggestComeback } from './domain/transition'
@@ -106,10 +106,10 @@ function App() {
   const catalog = useMemo(() => mergeCatalog(state.customExercises), [state.customExercises])
   const upcoming = block?.locked ? nextWorkout(block) : null
   const blockId = block?.startedAt ?? null
-  const startOffsets = block?.startOffsets
-  const tune = useMemo<TuneContext>(() => ({ feedback: state.feedback, blockId, startOffsets }), [state.feedback, blockId, startOffsets])
+  const tune = useMemo<TuneContext>(() => ({ feedback: state.feedback, blockId }), [state.feedback, blockId])
+  const offsets = useMemo<OffsetContext>(() => ({ feedback: state.feedback, block, catalog, history }), [state.feedback, block, catalog, history])
   const plannedWorkout = block && upcoming ? resolveWorkout(block, upcoming, catalog) : null
-  const todayWorkout = plannedWorkout ? tuneWorkoutSets(plannedWorkout, state.feedback, blockId, startOffsets) : null
+  const todayWorkout = plannedWorkout ? tuneWorkoutSets(plannedWorkout, offsets) : null
   // Exercises whose Week 1 numbers come from the previous block's 0 RIR week (shown as a note on the Today screen).
   const carriedCount = plannedWorkout && !activeSession && usesFeedback(plannedWorkout)
     ? plannedWorkout.exercises.filter((exercise) => carryOverFor({ exercise, last: lastSessionSets(history, exercise.id, ''), blockId, feedback: state.feedback })).length
@@ -118,7 +118,8 @@ function App() {
   const activeWorkout = block && activeRef ? resolveWorkout(block, activeRef, catalog) : null
   const sessionEntries = activeSession ? state.feedback.filter((entry) => entry.sessionId === activeSession.sessionId) : []
   const trainedBefore = (group: MuscleGroup) => !!activeSession && history.some((set) => set.sessionId !== activeSession.sessionId && catalog.find((item) => item.id === set.exerciseId)?.category === group)
-  const prompt = view === 'session' && activeWorkout && activeSession ? nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: sessionEntries, trainedBefore, finishing }) : null
+  const anchors = (group: MuscleGroup) => !!activeWorkout && isAnchor(block, catalog, activeWorkout, group)
+  const prompt = view === 'session' && activeWorkout && activeSession ? nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: sessionEntries, trainedBefore, anchors, finishing }) : null
   const gated = isLoadingGate({ hasLocalData: deviceHadData, sessionHint, authResolved, signedIn: userId !== null, firstSyncSettled, timedOut: gateExpired })
   // The report is for the last finished Sun–Sat week. `now` is refreshed on coming back to the app and on navigating, so a Sunday that arrives while the app sits open is picked up.
   const sessions = useMemo(() => completedSessions(history, activeSession?.sessionId ?? null), [history, activeSession?.sessionId])
@@ -300,21 +301,21 @@ function App() {
     if (!block || planProblem(block, catalog)) return
     // A new block starts from the last one: sets carry over (larger of plan or last block's final sets minus one).
     const startedAt = new Date().toISOString()
-    const startOffsets = startingOffsets(state.feedback, previousBlockId(state.feedback, startedAt))
+    const startOffsets = startingOffsets(state.feedback, previousBlockId(state.feedback, startedAt), block, catalog)
     setState({ ...state, block: { ...block, locked: true, startedAt, startOffsets } })
     setView('today')
   }
   /** Part 2 of a 12-week program: same exercises, a fresh start, carried over from part 1's 0 RIR week. */
   function beginNextPart() {
     if (!block) return
-    setState({ ...state, block: startNextPart(block, state.feedback, new Date().toISOString()) })
+    setState({ ...state, block: startNextPart(block, state.feedback, new Date().toISOString(), catalog) })
     setView('today')
   }
   function startWorkout() {
-    if (!block || !plannedWorkout) return
-    if (!activeSession || activeSession.workoutId !== plannedWorkout.id) {
+    if (!block || !todayWorkout) return
+    if (!activeSession || activeSession.workoutId !== todayWorkout.id) {
       const sessionId = crypto.randomUUID()
-      setState({ ...state, activeSession: { workoutId: plannedWorkout.id, sessionId, sets: buildInitialSets(plannedWorkout, history, sessionId, tune) } })
+      setState({ ...state, activeSession: { workoutId: todayWorkout.id, sessionId, sets: buildInitialSets(todayWorkout, history, sessionId, tune) } })
     }
     setEntryError('')
     setRepNotices({})
@@ -381,7 +382,7 @@ function App() {
   /** Finishing asks any unanswered effort and pump questions first (each can be skipped). */
   function finishWorkout() {
     if (!block || !activeSession || !activeWorkout) return
-    const pending = nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: sessionEntries, trainedBefore, finishing: true })
+    const pending = nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: sessionEntries, trainedBefore, anchors, finishing: true })
     if (pending) setFinishing(true)
     else completeWorkout(state.feedback)
   }
@@ -394,22 +395,22 @@ function App() {
     setView('today')
   }
 
-  /** Soreness changes today's unstarted exercises for that muscle group right away, and carries forward through the block. */
+  /**
+   * Soreness moves the sets of the group's first exercise in this workout: the unfinished tail is resized now, and the
+   * same answer shapes this workout's lever in the weeks to come. No other exercise changes.
+   */
   function answerSoreness(group: MuscleGroup, value: Soreness) {
     if (!activeSession || !activeWorkout || !block?.startedAt) return
-    const feedback = upsertFeedback(state.feedback, { sessionId: activeSession.sessionId, blockId: block.startedAt, group }, { soreness: value }, new Date().toISOString())
-    const offset = setOffset(feedback, block.startedAt, group, block.startOffsets?.[group] ?? 0)
+    const first = firstExerciseOf(activeWorkout, group)
+    const feedback = upsertFeedback(state.feedback, { sessionId: activeSession.sessionId, blockId: block.startedAt, group, workoutId: activeSession.workoutId }, { soreness: value, ...(first ? { exerciseId: first.id } : {}) }, new Date().toISOString())
     const sets = { ...activeSession.sets }
-    for (const exercise of activeWorkout.exercises) {
-      if (exercise.category !== group || sets[exercise.id].some((entry) => entry.complete)) continue
-      sets[exercise.id] = resizeEntries(sets[exercise.id], tunedSets(exercise.sets, offset), maxSetsPerExercise)
-    }
+    if (first && sets[first.id]) sets[first.id] = resizeEntries(sets[first.id], tunedSets(first.sets, workoutOffset({ ...offsets, feedback }, activeWorkout, group)), maxSetsPerExercise)
     setState({ ...state, feedback, activeSession: { ...activeSession, sets } })
   }
   function answerSummary(group: MuscleGroup, patch: { effort?: Effort; pump?: Pump }) {
     if (!activeSession || !activeWorkout || !block?.startedAt) return
-    const feedback = upsertFeedback(state.feedback, { sessionId: activeSession.sessionId, blockId: block.startedAt, group }, { ...patch, summaryDone: true }, new Date().toISOString())
-    const more = finishing && nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: feedback.filter((entry) => entry.sessionId === activeSession.sessionId), trainedBefore, finishing: true })
+    const feedback = upsertFeedback(state.feedback, { sessionId: activeSession.sessionId, blockId: block.startedAt, group, workoutId: activeSession.workoutId }, { ...patch, summaryDone: true }, new Date().toISOString())
+    const more = finishing && nextPrompt({ workout: activeWorkout, sets: activeSession.sets, skipped: activeSession.skipped, entries: feedback.filter((entry) => entry.sessionId === activeSession.sessionId), trainedBefore, anchors, finishing: true })
     if (finishing && !more) completeWorkout(feedback)
     else setState({ ...state, feedback })
   }

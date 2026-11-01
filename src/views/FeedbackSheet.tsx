@@ -10,9 +10,9 @@ interface Props {
 }
 
 const sorenessChoices: { value: Soreness; label: string; effect: (group: string) => string }[] = [
-  { value: 'sore', label: 'Still sore', effect: (group) => `Takes a set off your ${group} exercises` },
+  { value: 'sore', label: 'Still sore', effect: (group) => `Takes a set off your first ${group} exercise next week` },
   { value: 'ontime', label: 'Recovered just on time', effect: () => 'Keeps your sets as planned' },
-  { value: 'early', label: 'Recovered early', effect: (group) => `Adds a set to your ${group} exercises` },
+  { value: 'early', label: 'Recovered early', effect: (group) => `Adds a set to your first ${group} exercise next week` },
 ]
 const effortChoices: { value: Effort; label: string; effect: string }[] = [
   { value: 'easy', label: 'Easy', effect: 'A little more weight next time' },
@@ -38,7 +38,7 @@ export function FeedbackSheet({ prompt, onSoreness, onSummary, onSkip }: Props) 
           <span className="eyebrow">Recovery check</span>
           <h2 id="sheet-title">How is your {group} recovery?</h2>
           <p>Compared with your last {group} workout, how did you feel coming in?</p>
-          <div className="sheet-choices">{sorenessChoices.map((choice, index) => <button key={choice.value} ref={index === 0 ? first : undefined} className="sheet-choice" onClick={() => onSoreness(choice.value)}><strong>{choice.label}</strong><span>{choice.effect(group)}</span></button>)}</div>
+          <div className="sheet-choices">{sorenessChoices.map((choice, index) => <button key={choice.value} ref={index === 0 ? first : undefined} className="sheet-choice" onClick={() => onSoreness(choice.value)}><strong>{choice.label}</strong><span>{choice.effect(prompt.group)}</span></button>)}</div>
           <button className="sheet-skip" onClick={onSkip}>Skip</button>
         </>
         : <>

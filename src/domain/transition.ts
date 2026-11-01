@@ -1,6 +1,6 @@
 import { roundWeight } from './weights'
-import { feedbackFor, setOffset, weightIncrement, type SessionFeedback } from './autoregulation'
-import type { Block, ExercisePrescription, MuscleGroup } from './program'
+import { feedbackFor, leverOf, weightIncrement, type SessionFeedback } from './autoregulation'
+import { anchorSlots, offsetKey, type Block, type ExerciseCatalogItem, type ExercisePrescription } from './program'
 import type { CompletedSetRecord } from './storage'
 
 /**
@@ -8,7 +8,7 @@ import type { CompletedSetRecord } from './storage'
  *  - Weight: from the heaviest set of last block's 0 RIR week, as an estimated one-rep max (Epley), scaled to the weight
  *    that leaves 3 in reserve at the bottom of the rep range. If that week felt easy, add one weight step.
  *  - Reps: back to the bottom of the exercise's rep range.
- *  - Sets: the larger of the plan or last block's final sets minus one (see startingOffsets).
+ *  - Sets: the larger of the plan or last block's lever for the same first exercise minus one (see startingOffsets).
  */
 export const estimateOneRepMax = (weight: number, reps: number): number => weight * (1 + reps / 30)
 
@@ -68,18 +68,23 @@ export const awaitingNextPart = (block: Block, finishedAll: boolean): boolean =>
  * Part 2 of a chained block: the same exercises, progress cleared, and a fresh start time, so it is treated like a new
  * block (Week 1 carries over from part 1's 0 RIR week, and sets carry over minus one).
  */
-export function startNextPart(block: Block, feedback: SessionFeedback[], startedAt: string): Block {
-  return { ...block, part: 2, locked: true, startedAt, startOffsets: startingOffsets(feedback, previousBlockId(feedback, startedAt)), completedIds: [], skippedIds: [] }
+export function startNextPart(block: Block, feedback: SessionFeedback[], startedAt: string, catalog: ExerciseCatalogItem[]): Block {
+  return { ...block, part: 2, locked: true, startedAt, startOffsets: startingOffsets(feedback, previousBlockId(feedback, startedAt), block, catalog), completedIds: [], skippedIds: [] }
 }
 
-/** Starting set offset per muscle group for a new block: last block's final change minus one, never below the plan. */
-export function startingOffsets(feedback: SessionFeedback[], previousBlock: string | null): Partial<Record<MuscleGroup, number>> {
+/**
+ * Starting set lever for a new block, keyed "templateIndex|group". Each template that checks a group in some week
+ * inherits last block's lever for the same group and first exercise, minus one, never below the plan. A swapped first
+ * exercise carries nothing, and neither does a template that never checks the group. Answers saved without an
+ * exerciseId (older versions) cannot be matched to an exercise and are not carried.
+ */
+export function startingOffsets(feedback: SessionFeedback[], previousBlock: string | null, block: Block, catalog: ExerciseCatalogItem[]): Record<string, number> {
   if (!previousBlock) return {}
-  const groups = new Set(feedback.filter((entry) => entry.blockId === previousBlock).map((entry) => entry.group))
-  const result: Partial<Record<MuscleGroup, number>> = {}
-  for (const group of groups) {
-    const carried = Math.max(0, setOffset(feedback, previousBlock, group) - 1)
-    if (carried > 0) result[group] = carried
+  const answers = feedback.filter((entry) => entry.blockId === previousBlock && entry.soreness && entry.exerciseId)
+  const result: Record<string, number> = {}
+  for (const { templateIndex, group, exerciseId } of anchorSlots(block, catalog)) {
+    const carried = Math.max(0, leverOf(answers.filter((entry) => entry.group === group && entry.exerciseId === exerciseId)) - 1)
+    if (carried > 0) result[offsetKey(templateIndex, group)] = carried
   }
   return result
 }

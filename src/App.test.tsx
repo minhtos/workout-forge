@@ -416,28 +416,37 @@ describe('Workout Forge gym flow', () => {
     expect(screen.getByRole('alert').textContent).toMatch(/already has 12 exercises/i)
   })
 
-  it('asks recovery, then effort and pump, and the next session follows the answers', () => {
+  /** A two-day Chest block (bench, then incline, both days) with week 1 logged; `done` lists the workouts already finished. */
+  function chestWeekOne(done: string[], extra: Record<string, unknown> = {}, feedback: unknown[] = []) {
     let block = createBlock(2, 4)
     for (const day of [0, 1]) for (const id of ['barbell-bench-press', 'barbell-incline-bench-press']) block = addExerciseToDay(block, day, id)
-    block = { ...block, locked: true, startedAt: '2026-09-28T09:00:00.000Z', completedIds: ['w1-d1'] }
+    block = { ...block, locked: true, startedAt: '2026-09-28T09:00:00.000Z', completedIds: done }
     const sessionId = '550e8400-e29b-41d4-a716-446655440000'
     const history = ['barbell-bench-press', 'barbell-incline-bench-press'].flatMap((id) => [1, 2, 3].map((n) => ({ id: `${sessionId}-${id}-${n}`, sessionId, workoutId: 'w1-d1', exerciseId: id, exerciseName: id, setIndex: n, weight: 100, reps: 8, rir: 3, weightUnit: 'lb' as const, completedAt: `2026-09-28T10:0${n}:00.000Z`, weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3 })))
-    window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history }))
+    window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history, feedback, ...extra }))
+  }
+
+  it('asks recovery once a week, after the first set of the first exercise, then effort and pump, and the next sessions follow the answers', () => {
+    chestWeekOne(['w1-d1', 'w1-d2'])
 
     renderApp()
+    expect(screen.getByText(/week 2 of 5 · day 1 of 2/i)).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     expect(screen.queryByRole('dialog')).toBeNull()
-    for (const n of [1, 2, 3]) fireEvent.click(screen.getByRole('button', { name: `Complete set ${n}` }))
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
 
+    // the bench press is not finished: the question comes after its first set
     expect(screen.getByRole('dialog', { name: /chest recovery/i })).toBeTruthy()
     fireEvent.click(screen.getByRole('button', { name: /still sore/i }))
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.getByLabelText('Barbell Incline Bench Press Set 2 weight')).toBeTruthy()
-    expect(screen.queryByLabelText('Barbell Incline Bench Press Set 3 weight')).toBeNull()
+    // and the answer resizes only that exercise's remaining sets today
+    expect(screen.getByLabelText('Set 2 weight')).toBeTruthy()
+    expect(screen.queryByLabelText('Set 3 weight')).toBeNull()
+    expect(screen.getByLabelText('Barbell Incline Bench Press Set 3 weight')).toBeTruthy()
 
-    fireEvent.click(screen.getByRole('button', { name: 'Complete Barbell Incline Bench Press set 1' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 2' }))
     expect(screen.queryByRole('dialog')).toBeNull()
-    fireEvent.click(screen.getByRole('button', { name: 'Complete Barbell Incline Bench Press set 2' }))
+    for (const n of [1, 2, 3]) fireEvent.click(screen.getByRole('button', { name: `Complete Barbell Incline Bench Press set ${n}` }))
     expect(screen.getByRole('dialog', { name: /chest work/i })).toBeTruthy()
     expect((screen.getByRole('button', { name: 'Save' }) as HTMLButtonElement).disabled).toBe(true)
     fireEvent.click(screen.getByRole('button', { name: /easy/i }))
@@ -447,19 +456,71 @@ describe('Workout Forge gym flow', () => {
 
     const saved = JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}') as { feedback: Record<string, unknown>[] }
     expect(saved.feedback).toHaveLength(1)
-    expect(saved.feedback[0]).toMatchObject({ group: 'Chest', soreness: 'sore', effort: 'easy', pump: 'low', summaryDone: true, blockId: '2026-09-28T09:00:00.000Z' })
+    expect(saved.feedback[0]).toMatchObject({ group: 'Chest', soreness: 'sore', effort: 'easy', pump: 'low', summaryDone: true, blockId: '2026-09-28T09:00:00.000Z', workoutId: 'w2-d1', exerciseId: 'barbell-bench-press' })
 
     fireEvent.click(screen.getByRole('button', { name: /finish workout/i }))
     expect(screen.queryByRole('dialog')).toBeNull()
-    expect(screen.getByText(/week 2 of 5 · day 1 of 2/i)).toBeTruthy()
+    expect(screen.getByText(/week 2 of 5 · day 2 of 2/i)).toBeTruthy()
 
+    // the second Chest workout of the week follows the effort and pump answers but keeps the planned sets, and asks no recovery
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     expect((screen.getByLabelText('Set 1 weight') as HTMLInputElement).value).toBe('105')
     for (const toggle of screen.getAllByRole('button', { name: /last time & suggestion/i })) fireEvent.click(toggle)
     expect(screen.getAllByText(/last time was easy: \+5 lb\. low pump: \+1 rep/i)).toHaveLength(2)
     expect((screen.getByLabelText('Set 1 reps') as HTMLSelectElement).value).toBe('10')
+    expect(screen.getByLabelText('Set 3 weight')).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    fireEvent.click(screen.getByRole('button', { name: /finish workout/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Skip' }))
+
+    // next week's check workout starts the first exercise with the set that came off, and nothing else
+    expect(screen.getByText(/week 3 of 5 · day 1 of 2/i)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     expect(screen.getByLabelText('Set 2 weight')).toBeTruthy()
     expect(screen.queryByLabelText('Set 3 weight')).toBeNull()
+    expect(screen.getByLabelText('Barbell Incline Bench Press Set 3 weight')).toBeTruthy()
+  })
+
+  it('"recovered early" adds a set to the first exercise right away, keeps the sets already done, and leaves the others alone', () => {
+    chestWeekOne(['w1-d1', 'w1-d2'])
+
+    renderApp()
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
+    fireEvent.click(screen.getByRole('button', { name: /recovered early/i }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+    expect(screen.getByLabelText('Set 4 weight')).toBeTruthy()
+    expect(screen.queryByLabelText('Set 5 weight')).toBeNull()
+    expect(screen.getByRole('button', { name: 'Undo set 1' })).toBeTruthy()
+    expect(screen.queryByLabelText('Barbell Incline Bench Press Set 4 weight')).toBeNull()
+  })
+
+  it('does not ask recovery in the second Chest workout of the week, and does not move its sets', () => {
+    chestWeekOne(['w1-d1'], {}, [{ sessionId: 'a', blockId: '2026-09-28T09:00:00.000Z', group: 'Chest', soreness: 'early', workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', at: '2026-09-28T10:30:00.000Z' }])
+
+    renderApp()
+    expect(screen.getByText(/week 1 of 5 · day 2 of 2/i)).toBeTruthy()
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    expect(screen.queryByLabelText('Set 4 weight')).toBeNull()
+    expect(screen.getByLabelText('Set 3 weight')).toBeTruthy()
+    for (const n of [1, 2, 3]) fireEvent.click(screen.getByRole('button', { name: `Complete set ${n}` }))
+    expect(screen.queryByRole('dialog')).toBeNull()
+  })
+
+  it('keeps sets earned before workouts were recorded on answers, when they came from the week\'s check workout', () => {
+    const block = '2026-09-28T09:00:00.000Z'
+    // the entries have no workoutId: history places session 550e... in w1-d1 (the check workout), and "other" nowhere
+    chestWeekOne(['w1-d1', 'w1-d2'], {}, [
+      { sessionId: '550e8400-e29b-41d4-a716-446655440000', blockId: block, group: 'Chest', soreness: 'early', at: '2026-09-28T10:30:00.000Z' },
+      { sessionId: 'other', blockId: block, group: 'Chest', soreness: 'early', at: '2026-09-28T11:30:00.000Z' },
+    ])
+
+    renderApp()
+    fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
+    expect(screen.getByLabelText('Set 4 weight')).toBeTruthy()
+    expect(screen.queryByLabelText('Set 5 weight')).toBeNull()
+    expect(screen.queryByLabelText('Barbell Incline Bench Press Set 4 weight')).toBeNull()
   })
 
   it('asks the effort and pump question on finish for a muscle group you only started, and lets you skip', () => {
@@ -508,8 +569,8 @@ describe('Workout Forge gym flow', () => {
       ...[1, 2, 3].map((n) => row('deload', n, 100, 6, `2026-09-29T10:0${n}:00.000Z`, { weekNumber: 5, targetRir: 3, deload: true })),
     ]
     const feedback = [
-      { sessionId: 'a', blockId: OLD, group: 'Chest', soreness: 'early', at: '2026-09-02T10:00:00.000Z' },
-      { sessionId: 'b', blockId: OLD, group: 'Chest', soreness: 'early', at: '2026-09-09T10:00:00.000Z' },
+      { sessionId: 'a', blockId: OLD, group: 'Chest', soreness: 'early', workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', at: '2026-09-02T10:00:00.000Z' },
+      { sessionId: 'b', blockId: OLD, group: 'Chest', soreness: 'early', workoutId: 'w2-d1', exerciseId: 'barbell-bench-press', at: '2026-09-09T10:00:00.000Z' },
       { sessionId: 'fail', blockId: OLD, group: 'Chest', effort: 'right', pump: 'high', summaryDone: true, at: '2026-09-22T10:30:00.000Z' },
     ]
     window.localStorage.setItem('workout-forge:v3', JSON.stringify({ ...emptyState(), block, history, feedback }))
@@ -518,7 +579,7 @@ describe('Workout Forge gym flow', () => {
     fireEvent.click(screen.getByRole('button', { name: /start block/i }))
     expect(screen.getByRole('note').textContent).toMatch(/1 exercise starts from your last 0 RIR numbers/i)
     const stored = JSON.parse(window.localStorage.getItem('workout-forge:v3') ?? '{}') as { block: { startOffsets: Record<string, number> } }
-    expect(stored.block.startOffsets).toEqual({ Chest: 1 })
+    expect(stored.block.startOffsets).toEqual({ '0|Chest': 1 })
 
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     expect((screen.getByLabelText('Set 1 weight') as HTMLInputElement).value).toBe('185')

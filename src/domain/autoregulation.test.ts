@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { feedbackFor, isStalled, mergeFeedback, missedReps, nextPrompt, nextSetTarget, resizeEntries, setOffset, tuneWorkoutSets, tunedSets, upsertFeedback, weightIncrement, type SessionFeedback } from './autoregulation'
+import { feedbackFor, isAnchor, isStalled, mergeFeedback, missedReps, nextPrompt, nextSetTarget, resizeEntries, tuneWorkoutSets, tunedSets, upsertFeedback, weightIncrement, workoutOffset, type OffsetContext, type SessionFeedback } from './autoregulation'
 import { addExerciseToDay, createBlock, findWorkout, mergeCatalog, resolveWorkout, type Block } from './program'
 import { applyWorkoutSet, findWorkoutSet } from './workoutSets'
 import { buildInitialSets, describeLastSession, suggestionText } from './session'
@@ -19,14 +19,28 @@ const workoutFor = (block: Block, id: string) => resolveWorkout(block, findWorko
 const done = (weight = '100'): SetEntry => ({ weight, reps: '8', rir: '3', complete: true })
 const open = (weight = '100'): SetEntry => ({ weight, reps: '8', rir: '3', complete: false })
 
+/** An answer given in week 1's check workout (day 1), the way the app now stores it. */
+const answer = (patch: Partial<SessionFeedback> & Pick<SessionFeedback, 'sessionId' | 'at'>) => fb({ workoutId: 'w1-d1', exerciseId: 'barbell-bench-press', ...patch })
+const ctxFor = (feedback: SessionFeedback[], block: Block = chestBlock(), history: CompletedSetRecord[] = []): OffsetContext => ({ feedback, block, catalog, history })
+const setsAfter = (block: Block, workoutId: string, feedback: SessionFeedback[], history: CompletedSetRecord[] = []) => tuneWorkoutSets(workoutFor(block, workoutId), ctxFor(feedback, block, history)).exercises.map((exercise) => exercise.sets)
+const sessionSet = (sessionId: string, workoutId: string): CompletedSetRecord => ({ id: `${sessionId}-1`, sessionId, workoutId, exerciseId: 'barbell-bench-press', exerciseName: 'Barbell Bench Press', setIndex: 1, weight: 100, reps: 8, rir: 3, weightUnit: 'lb', completedAt: '2026-10-05T10:05:00.000Z', weekNumber: 1, repRange: { min: 6, max: 10 }, targetRir: 3 })
+
+/** Two workout templates that rotate over three days: week 1 is A, B, A and week 2 is B, A, B. Every template trains Chest. */
+const rotatingBlock = (): Block => {
+  let block: Block = { ...createBlock(3, 4), rotation: true, templates: [{ title: 'A', exercises: [] }, { title: 'B', exercises: [] }] }
+  for (const day of [0, 1]) for (const id of ['barbell-bench-press', 'barbell-incline-bench-press']) block = addExerciseToDay(block, day, id)
+  return { ...block, locked: true, startedAt: BLOCK }
+}
+
 describe('soreness changes sets', () => {
   it('adds up within the current block only, and never past 3 either way', () => {
-    const entries = [fb({ sessionId: 'a', at: '1', soreness: 'sore' }), fb({ sessionId: 'b', at: '2', soreness: 'sore' }), fb({ sessionId: 'c', at: '3', soreness: 'ontime' }), fb({ sessionId: 'd', at: '4', soreness: 'early', blockId: 'older block' })]
-    expect(setOffset(entries, BLOCK, 'Chest')).toBe(-2)
-    expect(setOffset(entries, BLOCK, 'Back')).toBe(0)
-    expect(setOffset(entries, null, 'Chest')).toBe(0)
-    const many = Array.from({ length: 6 }, (_, n) => fb({ sessionId: `s${n}`, at: String(n), soreness: 'early' }))
-    expect(setOffset(many, BLOCK, 'Chest')).toBe(3)
+    const week2 = workoutFor(chestBlock(), 'w2-d1')
+    const entries = [answer({ sessionId: 'a', at: '1', soreness: 'sore' }), answer({ sessionId: 'b', at: '2', soreness: 'sore' }), answer({ sessionId: 'c', at: '3', soreness: 'ontime' }), answer({ sessionId: 'd', at: '4', soreness: 'early', blockId: 'older block' })]
+    expect(workoutOffset(ctxFor(entries), week2, 'Chest')).toBe(-2)
+    expect(workoutOffset(ctxFor(entries), week2, 'Back')).toBe(0)
+    expect(workoutOffset(ctxFor(entries, { ...chestBlock(), startedAt: null }), week2, 'Chest')).toBe(0)
+    const many = Array.from({ length: 6 }, (_, n) => answer({ sessionId: `s${n}`, at: String(n), soreness: 'early' }))
+    expect(workoutOffset(ctxFor(many), week2, 'Chest')).toBe(3)
   })
 
   it('keeps sets between 2 and 6 (or the planned count if it is outside that)', () => {
@@ -39,21 +53,95 @@ describe('soreness changes sets', () => {
     expect(tunedSets(8, 0)).toBe(8)
   })
 
-  it('adds a set to every exercise in the muscle group, and leaves other groups alone', () => {
+  it('one "recovered early" adds exactly one set to the group\'s first exercise, and nothing else changes', () => {
     const block = chestBlock()
-    const entries = [fb({ sessionId: 'a', at: '1', soreness: 'early' })]
-    expect(tuneWorkoutSets(workoutFor(block, 'w1-d1'), entries, BLOCK).exercises.map((exercise) => exercise.sets)).toEqual([4, 4, 3])
+    expect(setsAfter(block, 'w2-d1', [answer({ sessionId: 'a', at: '1', soreness: 'early' })])).toEqual([4, 3, 3])
+    expect(setsAfter(block, 'w2-d1', [answer({ sessionId: 'a', at: '1', soreness: 'sore' })])).toEqual([2, 3, 3])
+  })
+
+  it('holds the 2-set floor and the 3-set cap however many answers pile up', () => {
+    const block = chestBlock()
+    const run = (soreness: 'sore' | 'early', count: number) => Array.from({ length: count }, (_, n) => answer({ sessionId: `s${n}`, at: String(n), soreness }))
+    expect(setsAfter(block, 'w2-d1', run('sore', 5))).toEqual([2, 3, 3])
+    expect(setsAfter(block, 'w2-d1', run('early', 5))).toEqual([6, 3, 3])
+    expect(setsAfter(block, 'w2-d1', run('early', 2))).toEqual([5, 3, 3])
+  })
+
+  it('a second workout for the group in the same week neither tunes nor is tuned by the answers', () => {
+    const block = chestBlock()
+    const entries = [answer({ sessionId: 'a', at: '1', soreness: 'early' })]
+    expect(setsAfter(block, 'w2-d1', entries)).toEqual([4, 3, 3])
+    expect(setsAfter(block, 'w2-d2', entries)).toEqual([3, 3, 3])
+    // even an answer filed against the second workout (older versions asked there) moves nothing
+    expect(setsAfter(block, 'w2-d2', [answer({ sessionId: 'b', at: '2', soreness: 'early', workoutId: 'w1-d2' })])).toEqual([3, 3, 3])
+    expect(setsAfter(block, 'w2-d1', [answer({ sessionId: 'b', at: '2', soreness: 'early', workoutId: 'w1-d2' })])).toEqual([3, 3, 3])
+  })
+
+  it('if the week\'s check workout is skipped, the check does not move to the next workout', () => {
+    const block = { ...chestBlock(), skippedIds: ['w2-d1'] }
+    const entries = [answer({ sessionId: 'a', at: '1', soreness: 'early' })]
+    expect(setsAfter(block, 'w2-d2', entries)).toEqual([3, 3, 3])
+    expect(setsAfter(block, 'w3-d1', entries)).toEqual([4, 3, 3])
+  })
+
+  it('each workout template keeps its own lever when the templates rotate', () => {
+    const block = rotatingBlock()
+    const entries = [answer({ sessionId: 'a', at: '1', soreness: 'early' })]
+    // week 1 checks Chest on A (day 1); week 2 on B (day 1); week 3 on A again
+    expect(setsAfter(block, 'w1-d3', entries)).toEqual([3, 3])
+    expect(setsAfter(block, 'w2-d1', entries)).toEqual([3, 3])
+    expect(setsAfter(block, 'w2-d2', entries)).toEqual([3, 3])
+    expect(setsAfter(block, 'w3-d1', entries)).toEqual([4, 3])
+    const both = [...entries, answer({ sessionId: 'b', at: '2', soreness: 'sore', workoutId: 'w2-d1' })]
+    expect(setsAfter(block, 'w3-d1', both)).toEqual([4, 3])
+    expect(setsAfter(block, 'w4-d1', both)).toEqual([2, 3])
+  })
+
+  it('starting levers are read per "template|group" key; old group-keyed ones are ignored', () => {
+    const block = chestBlock()
+    expect(setsAfter({ ...block, startOffsets: { '0|Chest': 1 } }, 'w1-d1', [])).toEqual([4, 3, 3])
+    expect(setsAfter({ ...block, startOffsets: { '0|Chest': 1 } }, 'w1-d2', [])).toEqual([3, 3, 3])
+    expect(setsAfter({ ...block, startOffsets: { '1|Chest': 1 } }, 'w1-d1', [])).toEqual([3, 3, 3])
+    expect(setsAfter({ ...block, startOffsets: { Chest: 1 } }, 'w1-d1', [])).toEqual([3, 3, 3])
+    expect(setsAfter({ ...block, startOffsets: { '0|Chest': 1 } }, 'w2-d1', [answer({ sessionId: 'a', at: '1', soreness: 'early' })])).toEqual([5, 3, 3])
+  })
+
+  describe('answers saved before workoutId existed', () => {
+    const legacy = (sessionId: string, soreness: 'sore' | 'early' = 'early') => fb({ sessionId, at: sessionId, soreness })
+
+    it('count when history places the session in the week\'s check workout', () => {
+      expect(setsAfter(chestBlock(), 'w2-d1', [legacy('a')], [sessionSet('a', 'w1-d1')])).toEqual([4, 3, 3])
+    })
+
+    it('move nothing when they came from a workout that was not the check, or cannot be placed', () => {
+      const block = chestBlock()
+      expect(setsAfter(block, 'w2-d1', [legacy('a')], [sessionSet('a', 'w1-d2')])).toEqual([3, 3, 3])
+      expect(setsAfter(block, 'w2-d1', [legacy('a')], [])).toEqual([3, 3, 3])
+      expect(setsAfter(block, 'w2-d1', [legacy('a')], [sessionSet('other', 'w1-d1')])).toEqual([3, 3, 3])
+      expect(setsAfter(block, 'w2-d1', [legacy('a')], [sessionSet('a', 'w9-d9')])).toEqual([3, 3, 3])
+    })
+
+    it('mix with new ones: only the placeable check-workout answers add up', () => {
+      const history = [sessionSet('a', 'w1-d1'), sessionSet('c', 'w1-d2')]
+      const entries = [legacy('a'), legacy('b'), legacy('c'), answer({ sessionId: 'd', at: 'd', soreness: 'early' })]
+      expect(setsAfter(chestBlock(), 'w2-d1', entries, history)).toEqual([5, 3, 3])
+    })
+
+    it('stay with the template they came from', () => {
+      expect(setsAfter(rotatingBlock(), 'w3-d1', [legacy('a')], [sessionSet('a', 'w1-d1')])).toEqual([4, 3])
+      expect(setsAfter(rotatingBlock(), 'w2-d1', [legacy('a')], [sessionSet('a', 'w1-d1')])).toEqual([3, 3])
+    })
   })
 
   it('tunes RIR work weeks only, never deloads or 5x5 blocks', () => {
     const block = chestBlock()
-    const entries = [fb({ sessionId: 'a', at: '1', soreness: 'early' })]
+    const entries = [answer({ sessionId: 'a', at: '1', soreness: 'early' })]
     const deload = workoutFor(block, 'w5-d1')
     expect(deload.target.kind).toBe('deload')
-    expect(tuneWorkoutSets(deload, entries, BLOCK).exercises.map((exercise) => exercise.sets)).toEqual([3, 3, 3])
-    const strength = applyWorkoutSet(createBlock(3, 4), findWorkoutSet('strength-5x5')!)
+    expect(tuneWorkoutSets(deload, ctxFor(entries, block)).exercises.map((exercise) => exercise.sets)).toEqual([3, 3, 3])
+    const strength = { ...applyWorkoutSet(createBlock(3, 4), findWorkoutSet('strength-5x5')!), startedAt: BLOCK }
     const linear = resolveWorkout(strength, findWorkout(strength, 'w1-d1')!, catalog)
-    expect(tuneWorkoutSets(linear, [fb({ sessionId: 'a', at: '1', soreness: 'early', group: 'Quads' })], BLOCK)).toBe(linear)
+    expect(tuneWorkoutSets(linear, ctxFor([fb({ sessionId: 'a', at: '1', soreness: 'early', group: 'Quads', workoutId: 'w1-d1' })], strength))).toBe(linear)
   })
 
   it('resizes only the unfinished tail of an exercise', () => {
@@ -176,11 +264,11 @@ describe('what happens next, from what you actually did', () => {
 
 describe('feedback bookkeeping', () => {
   it('upserts one entry per session and muscle group', () => {
-    const key = { sessionId: 's1', blockId: BLOCK, group: 'Chest' as const }
-    let list = upsertFeedback([], key, { soreness: 'sore' }, '1')
+    const key = { sessionId: 's1', blockId: BLOCK, group: 'Chest' as const, workoutId: 'w1-d1' }
+    let list = upsertFeedback([], key, { soreness: 'sore', exerciseId: 'barbell-bench-press' }, '1')
     list = upsertFeedback(list, key, { effort: 'easy', summaryDone: true }, '2')
     expect(list).toHaveLength(1)
-    expect(feedbackFor(list, 's1', 'Chest')).toMatchObject({ soreness: 'sore', effort: 'easy', summaryDone: true, at: '1' })
+    expect(feedbackFor(list, 's1', 'Chest')).toMatchObject({ soreness: 'sore', effort: 'easy', summaryDone: true, at: '1', workoutId: 'w1-d1', exerciseId: 'barbell-bench-press' })
     expect(upsertFeedback(list, { ...key, group: 'Back' }, { soreness: 'early' }, '3')).toHaveLength(2)
   })
 
@@ -199,11 +287,19 @@ describe('building the next session', () => {
   const week2 = workoutFor(block, 'w2-d1')
   const entries = [fb({ sessionId: 'prev', at: '2026-10-05T11:00:00.000Z', soreness: 'sore', effort: 'easy', pump: 'low', summaryDone: true })]
 
-  it('applies the answers: fewer sets, one more weight step, one more rep', () => {
-    const sets = buildInitialSets(week2, prior(100, 8), 'now', { feedback: entries, blockId: BLOCK })
+  it('applies the answers: fewer sets on the first exercise only, one more weight step, one more rep', () => {
+    // these entries predate workoutId: history places session "prev" in week 1's check workout
+    const tuned = tuneWorkoutSets(week2, ctxFor(entries, block, prior(100, 8)))
+    const sets = buildInitialSets(tuned, prior(100, 8), 'now', { feedback: entries, blockId: BLOCK })
     expect(sets['barbell-bench-press']).toHaveLength(2)
     expect(sets['barbell-bench-press'][0]).toMatchObject({ weight: '105', reps: '9', targetReps: 9 })
+    expect(sets['barbell-incline-bench-press']).toHaveLength(3)
     expect(sets['cable-pushdown']).toHaveLength(3)
+  })
+
+  it('takes the set counts as given: the workout is tuned in one place only', () => {
+    const sets = buildInitialSets(week2, prior(100, 8), 'now', { feedback: entries, blockId: BLOCK })
+    expect(sets['barbell-bench-press']).toHaveLength(3)
   })
 
   it('without any answers it adds a rep and keeps the weight', () => {
@@ -237,29 +333,41 @@ describe('building the next session', () => {
 describe('when the questions appear', () => {
   const workout = workoutFor(chestBlock(), 'w2-d1')
   const sets = (progress: Record<string, SetEntry[]>) => ({ 'barbell-bench-press': [open(), open(), open()], 'barbell-incline-bench-press': [open(), open(), open()], 'cable-pushdown': [open(), open(), open()], ...progress })
-  const ask = (progress: Record<string, SetEntry[]>, entries: SessionFeedback[] = [], extra: { trained?: boolean; finishing?: boolean } = {}) =>
-    nextPrompt({ workout, sets: sets(progress), entries, trainedBefore: () => extra.trained ?? true, finishing: extra.finishing ?? false })
+  const ask = (progress: Record<string, SetEntry[]>, entries: SessionFeedback[] = [], extra: { trained?: boolean; finishing?: boolean; anchor?: boolean } = {}) =>
+    nextPrompt({ workout, sets: sets(progress), entries, trainedBefore: () => extra.trained ?? true, anchors: () => extra.anchor ?? true, finishing: extra.finishing ?? false })
 
-  it('asks nothing until the first exercise of a muscle group is finished', () => {
+  it('asks nothing until a set of the muscle group\'s first exercise is finished', () => {
     expect(ask({})).toBeNull()
-    expect(ask({ 'barbell-bench-press': [done(), done(), open()] })).toBeNull()
+    expect(ask({ 'barbell-incline-bench-press': [done(), open(), open()] })).toBeNull()
   })
 
-  it('asks about soreness once the first exercise is done, but only if the muscle group was trained before', () => {
-    const progress = { 'barbell-bench-press': [done(), done(), done()] }
-    expect(ask(progress)).toEqual({ kind: 'soreness', group: 'Chest' })
+  it('asks about soreness after the first finished set of the first exercise, while that exercise is still under way', () => {
+    const started = { 'barbell-bench-press': [done(), open(), open()] }
+    expect(ask(started)).toEqual({ kind: 'soreness', group: 'Chest' })
+    const finished = { 'barbell-bench-press': [done(), done(), done()] }
+    expect(ask(finished)).toEqual({ kind: 'soreness', group: 'Chest' })
+  })
+
+  it('asks soreness only if the muscle group was trained before, and only once', () => {
+    const progress = { 'barbell-bench-press': [done(), open(), open()] }
     expect(ask(progress, [], { trained: false })).toBeNull()
     expect(ask(progress, [fb({ sessionId: 's', at: '1', soreness: 'ontime' })])).toBeNull()
   })
 
+  it('never asks soreness in a workout that is not the group\'s weekly check, but still asks effort and pump', () => {
+    const progress = { 'barbell-bench-press': [done(), done(), done()], 'barbell-incline-bench-press': [done(), done(), done()] }
+    expect(ask({ 'barbell-bench-press': [done(), open(), open()] }, [], { anchor: false })).toBeNull()
+    expect(ask(progress, [], { anchor: false })).toEqual({ kind: 'summary', group: 'Chest' })
+  })
+
   it('ignores skipped exercises, so they never hold up their muscle group', () => {
     const answered = [fb({ sessionId: 's', at: '1', soreness: 'ontime' })]
-    const base = { workout, entries: answered, trainedBefore: () => true, finishing: false, skipped: ['barbell-incline-bench-press'] }
+    const base = { workout, entries: answered, trainedBefore: () => true, anchors: () => true, finishing: false, skipped: ['barbell-incline-bench-press'] }
     expect(nextPrompt({ ...base, sets: sets({ 'barbell-bench-press': [done(), done(), done()] }) })).toEqual({ kind: 'summary', group: 'Chest' })
     expect(nextPrompt({ ...base, sets: sets({}) })).toBeNull()
-    // the first exercise skipped: soreness is asked after the next one is done
+    // the first exercise skipped: there is no check that week, so soreness is never asked for the group
     const noEntries = { ...base, entries: [], skipped: ['barbell-bench-press'] }
-    expect(nextPrompt({ ...noEntries, sets: sets({ 'barbell-incline-bench-press': [done(), done(), done()] }) })).toEqual({ kind: 'soreness', group: 'Chest' })
+    expect(nextPrompt({ ...noEntries, sets: sets({ 'barbell-incline-bench-press': [done(), done(), done()] }) })).toEqual({ kind: 'summary', group: 'Chest' })
     // every Chest exercise skipped: nothing to ask about Chest
     expect(nextPrompt({ ...noEntries, skipped: ['barbell-bench-press', 'barbell-incline-bench-press'], sets: sets({}) })).toBeNull()
   })
@@ -280,39 +388,49 @@ describe('when the questions appear', () => {
 
   it('when finishing, asks about groups that were started but not completed', () => {
     const partial = { 'barbell-bench-press': [done(), open(), open()] }
-    expect(ask(partial)).toBeNull()
-    expect(ask(partial, [], { finishing: true })).toEqual({ kind: 'summary', group: 'Chest' })
+    const answered = [fb({ sessionId: 's', at: '1', soreness: 'ontime' })]
+    expect(ask(partial, answered)).toBeNull()
+    expect(ask(partial, answered, { finishing: true })).toEqual({ kind: 'summary', group: 'Chest' })
     expect(ask({}, [], { finishing: true })).toBeNull()
   })
 
   it('never asks in a deload week or in 5x5', () => {
     const deload = workoutFor(chestBlock(), 'w5-d1')
-    expect(nextPrompt({ workout: deload, sets: { 'barbell-bench-press': [done(), done(), done()] }, entries: [], trainedBefore: () => true, finishing: true })).toBeNull()
+    expect(nextPrompt({ workout: deload, sets: { 'barbell-bench-press': [done(), done(), done()] }, entries: [], trainedBefore: () => true, anchors: () => true, finishing: true })).toBeNull()
     const strength = applyWorkoutSet(createBlock(3, 4), findWorkoutSet('strength-5x5')!)
     const linear = resolveWorkout(strength, findWorkout(strength, 'w1-d1')!, catalog)
-    expect(nextPrompt({ workout: linear, sets: { 'barbell-squat': [done(), done(), done(), done(), done()] }, entries: [], trainedBefore: () => true, finishing: true })).toBeNull()
+    expect(nextPrompt({ workout: linear, sets: { 'barbell-squat': [done(), done(), done(), done(), done()] }, entries: [], trainedBefore: () => true, anchors: () => true, finishing: true })).toBeNull()
+  })
+
+  it('knows which workout is the week\'s check for a group', () => {
+    const block = chestBlock()
+    expect(isAnchor(block, catalog, workoutFor(block, 'w2-d1'), 'Chest')).toBe(true)
+    expect(isAnchor(block, catalog, workoutFor(block, 'w2-d2'), 'Chest')).toBe(false)
+    expect(isAnchor(block, catalog, workoutFor(block, 'w2-d1'), 'Back')).toBe(false)
+    expect(isAnchor(null, catalog, workoutFor(block, 'w2-d1'), 'Chest')).toBe(false)
   })
 })
 
 describe('too hard: no extra set next time', () => {
-  const early = (effort?: SessionFeedback['effort'], sessionId = 'a') => fb({ sessionId, at: sessionId, soreness: 'early', effort })
+  const early = (effort?: SessionFeedback['effort'], sessionId = 'a') => answer({ sessionId, at: sessionId, soreness: 'early', effort })
+  const week2 = workoutFor(chestBlock(), 'w2-d1')
+  const offsetOf = (entries: SessionFeedback[]) => workoutOffset(ctxFor(entries), week2, 'Chest')
 
   it('cancels the set added by "recovered early" when the same session was rated too hard', () => {
-    expect(setOffset([early('easy')], BLOCK, 'Chest')).toBe(1)
-    expect(setOffset([early('right')], BLOCK, 'Chest')).toBe(1)
-    expect(setOffset([early(undefined)], BLOCK, 'Chest')).toBe(1)
-    expect(setOffset([early('hard')], BLOCK, 'Chest')).toBe(0)
+    expect(offsetOf([early('easy')])).toBe(1)
+    expect(offsetOf([early('right')])).toBe(1)
+    expect(offsetOf([early(undefined)])).toBe(1)
+    expect(offsetOf([early('hard')])).toBe(0)
   })
 
   it('only cancels that session\'s addition, keeping earlier ones and never removing sets by itself', () => {
-    expect(setOffset([early('easy', 'a'), early('hard', 'b')], BLOCK, 'Chest')).toBe(1)
-    expect(setOffset([fb({ sessionId: 'a', at: '1', soreness: 'sore', effort: 'hard' })], BLOCK, 'Chest')).toBe(-1)
-    expect(setOffset([fb({ sessionId: 'a', at: '1', soreness: 'ontime', effort: 'hard' })], BLOCK, 'Chest')).toBe(0)
+    expect(offsetOf([early('easy', 'a'), early('hard', 'b')])).toBe(1)
+    expect(offsetOf([answer({ sessionId: 'a', at: '1', soreness: 'sore', effort: 'hard' })])).toBe(-1)
+    expect(offsetOf([answer({ sessionId: 'a', at: '1', soreness: 'ontime', effort: 'hard' })])).toBe(0)
   })
 
   it('keeps next week\'s set count at the plan after recovered early + too hard', () => {
-    const workout = workoutFor(chestBlock(), 'w2-d1')
-    expect(tuneWorkoutSets(workout, [early('hard')], BLOCK).exercises.map((exercise) => exercise.sets)).toEqual([3, 3, 3])
-    expect(tuneWorkoutSets(workout, [early('right')], BLOCK).exercises.map((exercise) => exercise.sets)).toEqual([4, 4, 3])
+    expect(setsAfter(chestBlock(), 'w2-d1', [early('hard')])).toEqual([3, 3, 3])
+    expect(setsAfter(chestBlock(), 'w2-d1', [early('right')])).toEqual([4, 3, 3])
   })
 })

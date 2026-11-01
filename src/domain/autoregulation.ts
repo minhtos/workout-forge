@@ -1,11 +1,11 @@
 import { roundWeight } from './weights'
-import type { ExercisePrescription, MuscleGroup, ScheduledWorkout } from './program'
+import { anchorWorkout, firstExerciseOf, listWorkouts, offsetKey, type Block, type ExerciseCatalogItem, type ExercisePrescription, type MuscleGroup, type ScheduledWorkout } from './program'
 import type { CompletedSetRecord, SetEntry } from './storage'
 
 /**
  * Progression for RIR blocks. You pick a weight and reps that reach the week's target RIR; the app decides the next
  * session from what you did and three optional questions:
- *  - Soreness (asked after the first exercise of a muscle group)  -> number of sets
+ *  - Soreness (asked once a week, after the first set of a muscle group's first exercise) -> sets on that exercise
  *  - Effort   (asked after the last exercise of a muscle group)   -> weight
  *  - Pump     (asked after the last exercise of a muscle group)   -> reps
  * Missed reps override the questions: weight only goes down when every set missed its reps, and a completed workout
@@ -40,13 +40,38 @@ export const maxSetOffset = 3
 const sorenessDelta: Record<Soreness, number> = { sore: -1, ontime: 0, early: 1 }
 const clamp = (value: number, low: number, high: number) => Math.min(high, Math.max(low, value))
 
-/** Net set change for a muscle group, accumulated over the current block. */
-export function setOffset(feedback: SessionFeedback[], blockId: string | null, group: MuscleGroup, startOffset = 0): number {
-  if (!blockId) return 0
+/** Net set change of some soreness answers on top of a starting value, never more than 3 either way. */
+export function leverOf(answers: SessionFeedback[], startOffset = 0): number {
   // "Recovered early" adds a set, unless the same session was then rated too hard: no extra set for next time.
   const delta = (entry: SessionFeedback) => (entry.soreness === 'early' && entry.effort === 'hard' ? 0 : sorenessDelta[entry.soreness as Soreness])
-  const total = feedback.filter((entry) => entry.blockId === blockId && entry.group === group && entry.soreness).reduce((sum, entry) => sum + delta(entry), 0)
-  return clamp(startOffset + total, -maxSetOffset, maxSetOffset)
+  return clamp(startOffset + answers.filter((entry) => entry.soreness).reduce((sum, entry) => sum + delta(entry), 0), -maxSetOffset, maxSetOffset)
+}
+
+/** What the set lever needs to know: the answers, the block they belong to, and history to place answers saved without a workoutId. */
+export interface OffsetContext { feedback: SessionFeedback[]; block: Block | null; catalog: ExerciseCatalogItem[]; history: CompletedSetRecord[] }
+
+/** Whether this workout is the one that checks `group` in its week. */
+export function isAnchor(block: Block | null, catalog: ExerciseCatalogItem[], workout: Pick<ScheduledWorkout, 'id' | 'weekNumber'>, group: MuscleGroup): boolean {
+  return !!block && anchorWorkout(block, catalog, workout.weekNumber, group)?.id === workout.id
+}
+
+/**
+ * Net set change for a muscle group in one workout, accumulated over the current block. Only the workout that checks the
+ * group in its week has one, and it comes from that workout template's own earlier answers plus the carried-over start.
+ * An answer saved before workoutId existed is placed through history (the workout its session was performed under) and
+ * counts only if that workout was the week's check for the group; an unplaceable one moves nothing.
+ */
+export function workoutOffset(ctx: OffsetContext, workout: Pick<ScheduledWorkout, 'id' | 'weekNumber' | 'templateIndex'>, group: MuscleGroup): number {
+  const { block, catalog, feedback, history } = ctx
+  if (!block?.startedAt || !isAnchor(block, catalog, workout, group)) return 0
+  const refs = listWorkouts(block)
+  const counts = (entry: SessionFeedback): boolean => {
+    const workoutId = entry.workoutId ?? history.find((set) => set.sessionId === entry.sessionId)?.workoutId
+    const ref = refs.find((candidate) => candidate.id === workoutId)
+    return !!ref && ref.templateIndex === workout.templateIndex && isAnchor(block, catalog, ref, group)
+  }
+  const answers = feedback.filter((entry) => entry.blockId === block.startedAt && entry.group === group && entry.soreness && counts(entry))
+  return leverOf(answers, block.startOffsets?.[offsetKey(workout.templateIndex, group)] ?? 0)
 }
 
 /** Sets after applying the offset, never below 2 (or the planned count if lower) and never above 6 (or the planned count if higher). */
@@ -57,15 +82,16 @@ export function tunedSets(plannedSets: number, offset: number): number {
 /** Feedback only applies on RIR work weeks. */
 export const usesFeedback = (workout: Pick<ScheduledWorkout, 'progression' | 'target'>): boolean => workout.progression === 'rir' && workout.target.kind === 'work'
 
-export function tuneWorkoutSets(workout: ScheduledWorkout, feedback: SessionFeedback[], blockId: string | null, startOffsets: Partial<Record<MuscleGroup, number>> = {}): ScheduledWorkout {
+/** The one place sets are tuned: each group's lever moves only its first planned exercise in the week's check workout. */
+export function tuneWorkoutSets(workout: ScheduledWorkout, ctx: OffsetContext): ScheduledWorkout {
   if (!usesFeedback(workout)) return workout
-  return { ...workout, exercises: workout.exercises.map((exercise) => ({ ...exercise, sets: tunedSets(exercise.sets, setOffset(feedback, blockId, exercise.category, startOffsets[exercise.category] ?? 0)) })) }
+  return { ...workout, exercises: workout.exercises.map((exercise) => (firstExerciseOf(workout, exercise.category) === exercise ? { ...exercise, sets: tunedSets(exercise.sets, workoutOffset(ctx, workout, exercise.category)) } : exercise)) }
 }
 
 export const feedbackFor = (feedback: SessionFeedback[], sessionId: string, group: MuscleGroup): SessionFeedback | undefined =>
   feedback.find((entry) => entry.sessionId === sessionId && entry.group === group)
 
-export function upsertFeedback(feedback: SessionFeedback[], key: Pick<SessionFeedback, 'sessionId' | 'blockId' | 'group'>, patch: Partial<SessionFeedback>, at: string): SessionFeedback[] {
+export function upsertFeedback(feedback: SessionFeedback[], key: Pick<SessionFeedback, 'sessionId' | 'blockId' | 'group' | 'workoutId'>, patch: Partial<SessionFeedback>, at: string): SessionFeedback[] {
   const existing = feedbackFor(feedback, key.sessionId, key.group)
   if (!existing) return [...feedback, { ...key, ...patch, at }]
   return feedback.map((entry) => (entry === existing ? { ...entry, ...patch } : entry))
@@ -172,8 +198,9 @@ export function resizeEntries(entries: SetEntry[], count: number, maxSets = 10):
 export type FeedbackPrompt = { kind: 'soreness'; group: MuscleGroup } | { kind: 'summary'; group: MuscleGroup }
 
 /**
- * The next question to ask, if any. Soreness comes after the first exercise of a group is finished (only if that
- * muscle group was trained before). Effort and pump come after the whole group is finished, or, when
+ * The next question to ask, if any. Soreness comes after the first finished set of a group's first planned exercise,
+ * only in the workout that checks the group that week (`anchors`) and only if that muscle group was trained before; if
+ * that exercise is skipped there is no check. Effort and pump come after the whole group is finished, or, when
  * `finishing`, for any group with at least one finished set. Skipped exercises are ignored, so they never hold up a group.
  */
 export function nextPrompt(args: {
@@ -181,10 +208,11 @@ export function nextPrompt(args: {
   sets: Record<string, SetEntry[]>
   entries: SessionFeedback[]
   trainedBefore: (group: MuscleGroup) => boolean
+  anchors: (group: MuscleGroup) => boolean
   finishing: boolean
   skipped?: string[]
 }): FeedbackPrompt | null {
-  const { workout, sets, entries, trainedBefore, finishing, skipped = [] } = args
+  const { workout, sets, entries, trainedBefore, anchors, finishing, skipped = [] } = args
   if (!usesFeedback(workout)) return null
   const groups = [...new Set(workout.exercises.map((exercise) => exercise.category))]
   const done = (id: string) => (sets[id]?.length ?? 0) > 0 && sets[id].every((entry) => entry.complete)
@@ -193,7 +221,8 @@ export function nextPrompt(args: {
     const exercises = workout.exercises.filter((exercise) => exercise.category === group && !skipped.includes(exercise.id))
     if (!exercises.length) continue
     const entry = entries.find((item) => item.group === group)
-    if (done(exercises[0].id) && trainedBefore(group) && !entry?.soreness) return { kind: 'soreness', group }
+    const first = firstExerciseOf(workout, group)
+    if (first && !skipped.includes(first.id) && some(first.id) && anchors(group) && trainedBefore(group) && !entry?.soreness) return { kind: 'soreness', group }
     const groupDone = exercises.every((exercise) => done(exercise.id))
     const groupStarted = exercises.some((exercise) => some(exercise.id))
     if ((groupDone || (finishing && groupStarted)) && !entry?.summaryDone) return { kind: 'summary', group }

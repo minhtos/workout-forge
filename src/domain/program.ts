@@ -35,8 +35,8 @@ export interface Block {
   progression: Progression
   /** When true the templates (e.g. workouts A and B) alternate across the week's training days and carry over between weeks. */
   rotation: boolean
-  /** Sets carried over from the previous block (per muscle group): the larger of the plan or last block's final sets minus one. */
-  startOffsets?: Partial<Record<MuscleGroup, number>>
+  /** Sets carried over from the previous block, keyed "templateIndex|group" (see offsetKey): last block's lever for the same first exercise minus one. */
+  startOffsets?: Record<string, number>
   /** The Workout Set this plan started from, if any. */
   workoutSetId: string | null
   /** Once locked, exercises cannot change until the block is complete. */
@@ -197,4 +197,33 @@ export function resolveWorkout(block: Block, ref: WorkoutRef, catalog: ExerciseC
     return [{ ...item, sets: entry.sets, repRange: entry.reps ? { min: entry.reps, max: entry.reps } : repRangeFor(item) }]
   })
   return { ...ref, exercises }
+}
+
+/** Key of one workout template's set lever for a muscle group, as used in Block.startOffsets ("0|Chest"). */
+export const offsetKey = (templateIndex: number, group: MuscleGroup): string => `${templateIndex}|${group}`
+
+/** The first planned exercise of a muscle group in a workout: the only one its soreness lever moves. */
+export const firstExerciseOf = (workout: Pick<ScheduledWorkout, 'exercises'>, group: MuscleGroup): ExercisePrescription | undefined => workout.exercises.find((exercise) => exercise.category === group)
+
+/** The workout that checks a muscle group in a week: the first one in schedule order that trains it. Skipping it does not move the check. */
+export function anchorWorkout(block: Block, catalog: ExerciseCatalogItem[], weekNumber: number, group: MuscleGroup): ScheduledWorkout | undefined {
+  for (const ref of listWorkouts(block)) {
+    if (ref.weekNumber !== weekNumber) continue
+    const workout = resolveWorkout(block, ref, catalog)
+    if (firstExerciseOf(workout, group)) return workout
+  }
+  return undefined
+}
+
+/** Every (template, group, first exercise) that is the weekly check in at least one week of the block. */
+export function anchorSlots(block: Block, catalog: ExerciseCatalogItem[]): { templateIndex: number; group: MuscleGroup; exerciseId: string }[] {
+  const slots = new Map<string, { templateIndex: number; group: MuscleGroup; exerciseId: string }>()
+  for (let week = 1; week <= totalWeeks(block.durationWeeks); week += 1) {
+    for (const group of muscleGroups) {
+      const workout = anchorWorkout(block, catalog, week, group)
+      const first = workout && firstExerciseOf(workout, group)
+      if (workout && first) slots.set(offsetKey(workout.templateIndex, group), { templateIndex: workout.templateIndex, group, exerciseId: first.id })
+    }
+  }
+  return [...slots.values()]
 }
