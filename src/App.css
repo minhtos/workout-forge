@@ -549,3 +549,22 @@ a.landing-badge:hover { border-color: var(--primary); color: var(--ink); }
 .preview-card .auth-card { max-width: 440px; }
 .session-footer > button:only-child { margin-left: auto; }
 .exercise-card.is-skipped { opacity: 0.72; }
+
+/* ---------- Install banner ---------- */
+.install-banner, .install-chip { margin: 16px clamp(20px, 5vw, 72px) 0; border: 1px solid var(--hairline); border-radius: var(--radius-lg); background: var(--surface-2); }
+.install-banner { padding: 14px 8px 14px 14px; }
+.install-banner-head { display: flex; align-items: flex-start; gap: 14px; }
+.install-tile { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border-radius: var(--radius-md); background: var(--primary-tint); color: var(--primary-text); }
+.install-tile svg, .install-chip-main svg, .install-icon-button svg { width: 20px; height: 20px; flex: none; }
+.install-copy { flex: 1; min-width: 0; }
+.install-copy h2 { margin: 2px 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
+.install-copy p { margin: 0; color: var(--ink-muted); font-size: 14px; line-height: 1.45; }
+.install-controls { flex: none; display: flex; }
+.install-icon-button { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--ink-muted); transition: background-color var(--duration-hover) var(--ease-out), color var(--duration-hover) var(--ease-out); }
+.install-icon-button:hover { background: var(--surface-3); color: var(--ink); }
+.install-steps { margin: 12px 8px 0 0; padding: 0 0 0 40px; color: var(--ink-muted); font-size: 14px; line-height: 1.6; }
+.install-button { width: 100%; margin: 14px 6px 0 0; max-width: calc(100% - 6px); }
+.install-chip { display: flex; align-items: center; padding-left: 4px; }
+.install-chip-main { flex: 1; min-width: 0; min-height: 44px; display: flex; align-items: center; gap: 10px; padding: 0 10px; border: 0; background: transparent; color: var(--ink-muted); font-size: 14px; text-align: left; }
+.install-chip-main svg { color: var(--primary-text); }
+@media (max-width: 680px) { .install-banner, .install-chip { margin-left: 18px; margin-right: 18px; } }

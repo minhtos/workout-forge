@@ -22,6 +22,8 @@ import { FeedbackSheet } from './views/FeedbackSheet'
 import { Icon } from './views/Icon'
 import { LibraryView } from './views/LibraryView'
 import { useForeground } from './lib/useForeground'
+import { useInstallBanner } from './lib/useInstallBanner'
+import { InstallBanner } from './views/InstallBanner'
 import { PlanView } from './views/PlanView'
 import { BrandMark } from './views/BrandMark'
 import { LandingView } from './views/LandingView'
@@ -76,6 +78,7 @@ function App() {
   const [saveFailed, setSaveFailed] = useState(false)
   const [restTimer, setRestTimer] = useState(loadRestTimerEnabled)
   const [dismissedReport, setDismissedReport] = useState(loadReportDismissed)
+  const installBanner = useInstallBanner()
   const [now, setNow] = useState(() => new Date())
   const [online, setOnline] = useState(0)
   const [planStatus, setPlanStatus] = useState('')
@@ -490,6 +493,7 @@ function App() {
       </nav>
       <span className="local-badge"><i /> {owned ? (state.pendingSessionIds.length ? 'Syncing' : 'Backed up') : 'Local-first'}</span></header>
     {saveFailed && <p className="form-error banner" role="alert">This device could not save your data (storage full or blocked). Export your data from Settings now.</p>}
+    {!activeSession && (view === 'setup' || view === 'plan' || view === 'today') && <InstallBanner state={installBanner.state} platform={installBanner.platform} canInstall={installBanner.canInstall} onAction={installBanner.apply} onInstall={() => void installBanner.install()} />}
     {view === 'setup' && <SetupView days={setupDays} weeks={setupWeeks} intent={setupIntent} comebackWeeks={comeback?.weeks ?? null} hasHistory={history.length > 0} onDays={setSetupDays} onWeeks={setSetupWeeks} onIntent={setSetupIntent} onContinue={() => { const shape = shapeOf(setupWeeks); setState({ ...state, block: createBlock(setupDays, shape.durationWeeks, shape.parts, setupIntent) }); setView('plan') }} />}
     {view === 'plan' && block && <PlanView block={block} catalog={catalog} hiddenIds={state.hiddenExerciseIds} onApplySet={applySet} onCustomPlan={customPlan} onChoose={(day, position, id) => editPlan((current) => setSlotExercise(current, day, position, id))} onRename={(day, title) => editPlan((current) => renameDay(current, day, title))} onAdd={(day, id) => editPlan((current) => addExerciseToDay(current, day, id))} onCreate={createExercise} onRemove={(day, position) => editPlan((current) => removeExerciseFromDay(current, day, position))} onMove={(day, position, delta) => editPlan((current) => moveExercise(current, day, position, delta))} onSets={(day, position, sets) => editPlan((current) => setExerciseSets(current, day, position, sets))} onBack={() => { setState({ ...state, block: null }); setView('setup') }} onStart={startBlock} />}
     {view === 'today' && block?.locked && <TodayView workout={todayWorkout} trainingDays={block.trainingDays} totalWeeks={totalWeeks(block.durationWeeks)} finished={finished} total={total} carriedCount={carriedCount} nextPart={awaitingNextPart(block, !upcoming)} partLabel={block.parts === 2 ? `PART ${block.part ?? 1} OF 2` : null} outcome={blockName(block).outcome} onNextPart={beginNextPart} resuming={!!activeSession && activeSession.workoutId === todayWorkout?.id} onStart={startWorkout} onNewBlock={newBlock} report={todayReport} onDismissReport={() => { if (report) { saveReportDismissed(report.weekKey); setDismissedReport(report.weekKey) } }} />}
