@@ -1,6 +1,9 @@
 const icons = {
   workout: <path d="M6.5 6.5v11M17.5 6.5v11M3.5 9v6M20.5 9v6M6.5 12h11" />,
   progress: <path d="M5 20V11M12 20V5M19 20v-6" />,
+  download: <path d="M12 4v11M7.5 10.5 12 15l4.5-4.5M5 20h14" />,
+  chevron: <path d="m6 9 6 6 6-6" />,
+  close: <path d="M6 6l12 12M18 6 6 18" />,
   settings: <><path d="M4 7h10M18 7h2M4 17h2M10 17h10" /><circle cx="16" cy="7" r="2" /><circle cx="8" cy="17" r="2" /></>,
 }
 

@@ -13,6 +13,8 @@
 3. **Start the block** — exercises lock until the block is complete.
 4. **Train** — the Workout tab shows only the next workout. Each set auto-saves on this device and, when signed in, to Supabase. Progress is suggested from last session's matching set.
 
+An install banner on the setup, plan and Today screens walks people through adding the app to their home screen (one-tap on Chromium, steps on iOS Safari and other browsers). It can be minimized or closed per device (`wf.installBanner` in localStorage), and never shows in the installed app or during a workout.
+
 Unfinished sessions resume after a reload. Skip, undo-a-set and discard-session are supported.
 
 ## Data and backup
