@@ -51,6 +51,15 @@ describe('reading what the cloud sends back', () => {
     expect(parseProgramSnapshot(stored(snapshot(T1)))).toEqual(snapshot(T1))
     expect(parseProgramSnapshot(stored(snapshot(T1, { block: null })))?.block).toBeNull()
   })
+  it('keeps the workout and exercise a feedback entry came from', () => {
+    const feedback = [{ sessionId: 's1', blockId: T1, group: 'Chest' as const, soreness: 'early' as const, workoutId: 'w1-d1', templateIndex: 1, exerciseId: 'barbell-bench-press', at: T2 }]
+    expect(parseProgramSnapshot(stored(snapshot(T1, { feedback })))?.feedback).toEqual(feedback)
+    const legacy = [{ sessionId: 's0', blockId: T1, group: 'Chest' as const, soreness: 'sore' as const, at: T1 }]
+    expect(parseProgramSnapshot(stored(snapshot(T1, { feedback: legacy })))?.feedback).toEqual(legacy)
+    expect(parseProgramSnapshot(stored(snapshot(T1, { feedback: [{ ...feedback[0], workoutId: '' }] })))).toBeNull()
+    expect(parseProgramSnapshot(stored(snapshot(T1, { feedback: [{ ...feedback[0], exerciseId: 'x'.repeat(101) }] })))).toBeNull()
+    for (const templateIndex of [-1, 1.5, 101, '1']) expect(parseProgramSnapshot(stored(snapshot(T1, { feedback: [{ ...feedback[0], templateIndex: templateIndex as number }] })))).toBeNull()
+  })
   it('rejects malformed or tampered data instead of loading it', () => {
     expect(parseProgramSnapshot({ version: 1 })).toBeNull()
     expect(parseProgramSnapshot('nope')).toBeNull()

@@ -1,6 +1,6 @@
 import { roundWeight } from './weights'
-import { listWorkouts, type Block, type ExercisePrescription, type MuscleGroup, type ScheduledWorkout } from './program'
-import { feedbackFor, missedReps, nextSetTarget, setOffset, tunedSets, usesFeedback, type SessionFeedback } from './autoregulation'
+import { listWorkouts, type Block, type ExercisePrescription, type ScheduledWorkout } from './program'
+import { feedbackFor, missedReps, nextSetTarget, usesFeedback, type SessionFeedback } from './autoregulation'
 import { deloadLoad, linearIncrement } from './progression'
 import { carryOverFor } from './transition'
 import type { CompletedSetRecord, SetEntry } from './storage'
@@ -32,21 +32,21 @@ export function linearNext(exercise: ExercisePrescription, last: CompletedSetRec
 }
 
 /** Feedback the engine uses to tune a session: what was answered after earlier sessions, and which block it belongs to. */
-export interface TuneContext { feedback: SessionFeedback[]; blockId: string | null; startOffsets?: Partial<Record<MuscleGroup, number>> }
+export interface TuneContext { feedback: SessionFeedback[]; blockId: string | null }
 
 /** A fresh set. The rep target is remembered so a set that falls short can be recognised later. */
 const entryFor = (weight: number | string, reps: number, targetRir: string): SetEntry => ({ weight: String(weight), reps: String(reps), rir: targetRir, complete: false, targetReps: reps })
 
+/** Builds the session's rows from a workout whose sets are already tuned (see tuneWorkoutSets). */
 export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSetRecord[], sessionId: string, tune?: TuneContext): Record<string, SetEntry[]> {
   const targetRir = String(workout.target.targetRir)
   const tuning = tune && usesFeedback(workout) ? tune : undefined
   return Object.fromEntries(workout.exercises.map((exercise) => {
     const last = lastSessionSets(history, exercise.id, sessionId)
     const previous = previousSessionSets(history, exercise.id, sessionId)
-    const count = tuning ? tunedSets(exercise.sets, setOffset(tuning.feedback, tuning.blockId, exercise.category, tuning.startOffsets?.[exercise.category] ?? 0)) : exercise.sets
     const fb = tuning && last.length ? feedbackFor(tuning.feedback, last[0].sessionId, exercise.category) : undefined
     const carry = tuning ? carryOverFor({ exercise, last, blockId: tuning.blockId, feedback: tuning.feedback }) : null
-    const entries = Array.from({ length: count }, (_, index): SetEntry => {
+    const entries = Array.from({ length: exercise.sets }, (_, index): SetEntry => {
       const base = last[index] ?? last[last.length - 1]
       if (!base) return entryFor('', exercise.repRange.min, targetRir)
       if (workout.target.kind === 'deload') return entryFor(deloadLoad(Math.max(...last.map((set) => set.weight)), workout.target.loadMultiplier), base.reps, targetRir)
