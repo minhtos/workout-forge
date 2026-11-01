@@ -21,6 +21,10 @@ export interface SessionFeedback {
   /** The block's start time, so set changes only carry through the block they were made in. */
   blockId: string
   group: MuscleGroup
+  /** The workout the answer came from. Entries saved before this existed are matched through history instead. */
+  workoutId?: string
+  /** Soreness answers: the group's first planned exercise in that workout, the one whose sets the answer moves. */
+  exerciseId?: string
   soreness?: Soreness
   effort?: Effort
   pump?: Pump

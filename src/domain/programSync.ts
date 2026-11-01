@@ -37,6 +37,7 @@ const blockSchema = z.object({
 })
 const feedbackSchema = z.object({
   sessionId: z.string().min(1), blockId: z.string().min(1), group, at: z.string().datetime(),
+  workoutId: z.string().min(1).max(100).optional(), exerciseId: z.string().min(1).max(100).optional(),
   soreness: z.enum(['sore', 'ontime', 'early']).optional(), effort: z.enum(['easy', 'right', 'hard']).optional(), pump: z.enum(['low', 'high']).optional(), summaryDone: z.boolean().optional(),
 })
 const snapshotSchema = z.object({
