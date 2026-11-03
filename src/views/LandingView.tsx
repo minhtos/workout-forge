@@ -6,6 +6,7 @@ import { completedSessions } from '../domain/weekly'
 import { AuthForm, type AuthResult } from './AuthForm'
 import { BrandMark } from './BrandMark'
 import { FeedbackForm } from './FeedbackForm'
+import { faq } from './landingFaq'
 import { MuscleMap } from './MuscleMap'
 
 interface Props {
@@ -19,7 +20,7 @@ interface Props {
 
 const features = [
   { title: 'A plan built around your week', body: 'Choose 2, 3 or 4 training days and a 4, 6, 8 or 12-week program, with a deload at the end of each block. Start from a ready-made split or pick every exercise yourself.' },
-  { title: 'Log sets in seconds', body: 'Weight and reps for every set, with big touch targets for one-handed use at the gym. Each set saves the moment you check it off, even offline.' },
+  { title: 'Log sets in seconds', body: 'Weight and reps for every set, with big touch targets for one-handed use at the gym. Each set saves the moment you check it off, even offline. A plate calculator shows what to load on each side of the bar.' },
   { title: 'Know what to lift next', body: 'Targets follow reps in reserve, and your answers on soreness, effort and pump set the next weight, reps and sets. Stall for two sessions and the weight backs off.' },
   { title: 'What is a deload?', body: 'The last week of every block is a deload: the same exercises at about half your usual weight, stopping well short of failure. Hard weeks stack up fatigue in your muscles, joints and recovery. A lighter week lets it clear while you keep your strength, so you start the next block fresher and ready to lift heavier. The app works out the weight for you.' },
 ]
@@ -32,12 +33,7 @@ const steps = [
 
 // Offline: the app shell is precached by the service worker (vite.config.ts) and every set is written to localStorage
 // as it is checked off. Data: localStorage on the device; signed-in users also back up sessions (sync.ts) and the plan (programSync.ts).
-const faq = [
-  { question: 'Is it free?', answer: 'Yes. Everything in Workout Forge is free to use.' },
-  { question: 'Does it work offline?', answer: 'Yes. It installs like an app and every set saves on your device, with or without a connection.' },
-  { question: 'Where is my data stored?', answer: 'In your browser on this device. If you create an account, your workouts and plan also back up to it.' },
-  { question: 'Do I need an account?', answer: 'No. An account is only for backup and using more than one device.' },
-]
+// The FAQ lives in landingFaq.ts so the build can emit the same text as structured data.
 
 /** The hero's visuals are drawn by the app's own code from fixed sample data, not from mock-ups. */
 const sampleRecord = findPersonalRecord(sampleHistory, sampleRecordSessionId, 'barbell-bench-press')
@@ -75,17 +71,18 @@ export function LandingView({ cloudEnabled, onStart, onSignIn, onSignUp, onReset
         <a className="landing-badge" href="#feedback">Early access · feedback welcome</a>
       </nav>
     </header>
+    <main className="landing-main">
     <section className="landing-hero" aria-labelledby="landing-title">
       <div className="landing-copy">
         <h1 id="landing-title">Get measurably stronger, <span>week after week.</span></h1>
-        <p>Workout Forge builds your training block, logs your sets, and tells you what to lift next, based on how the last session actually went. Free, and it works offline.</p>
+        <p>Workout Forge is a free workout planner and training log. It builds your training block, logs your sets, and tells you what to lift next, based on how the last session actually went. It works offline.</p>
         <div className="landing-actions"><button type="button" className="primary-button large" onClick={onStart}>Get started free</button><span>No account needed. Your data stays on your device.</span></div>
         <p className="landing-note">Early access, built in public. What ships next comes from your feedback.</p>
       </div>
       <div className="landing-visuals">
         {sampleRecord && <article className="sample-record" aria-label="Sample personal record">
           <span className="eyebrow">Personal record</span>
-          <h2>{sampleRecord.set.exerciseName}</h2>
+          <strong className="sample-record-name">{sampleRecord.set.exerciseName}</strong>
           <p>{recordText(sampleRecord)}</p>
           <p className="sample-caption">Sample data</p>
         </article>}
@@ -147,6 +144,7 @@ export function LandingView({ cloudEnabled, onStart, onSignIn, onSignUp, onReset
           : <p className="landing-lede">Feedback is unavailable in this build.</p>}
       </div>
     </section>
+    </main>
     <footer className="landing-foot"><span>Workouts save on your device, and back up to your account if you create one.</span><span>Workout Forge · early access</span></footer>
   </div>
 }

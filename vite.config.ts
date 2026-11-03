@@ -7,11 +7,12 @@ export default defineConfig({
     react(),
     VitePWA({
       registerType: 'autoUpdate',
-      workbox: { globPatterns: ['**/*.{js,css,html,svg,woff2}'], globIgnores: ['og-image.svg'] },
+      workbox: { globPatterns: ['**/*.{js,css,html,svg,woff2}'], globIgnores: ['og-image.svg'], navigateFallbackDenylist: [/^\/(robots\.txt|sitemap\.xml|llms\.txt)$/] },
       manifest: {
         name: 'Workout Forge',
         short_name: 'Workout Forge',
-        description: 'A focused, local-first workout planner and training log.',
+        description: 'Free workout planner and training log. Build 2-, 3- or 4-day programs in 4- to 12-week blocks, log sets offline and get your next targets. No account needed.',
+        categories: ['fitness', 'health'],
         theme_color: '#16181b',
         background_color: '#16181b',
         display: 'standalone',

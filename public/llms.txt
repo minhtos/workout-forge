@@ -1,0 +1,23 @@
+# Workout Forge
+
+> Workout Forge is a free, local-first workout planner and training log that runs in the browser and installs as an app (PWA). It builds a training block, logs every set, and sets the next session's targets from how the last one went. No account, no subscription, and it works offline.
+
+## What it does
+
+- Plans 2-, 3- or 4-day weeks in 4-, 6-, 8- or 12-week blocks, with a deload week at the end of each block. Start from a ready-made split or pick every exercise yourself.
+- Logs weight and reps set by set. Each set saves on the device, with or without a connection.
+- Sets the next session's weight, reps and sets from reps in reserve (RIR) and your soreness, effort and pump answers, and backs off the weight after two stalled sessions.
+- Includes a plate calculator that shows what to load on each side of the bar.
+
+## Data and pricing
+
+- Free. There is no paid tier and no subscription.
+- Your data is stored in the browser, on your device. An optional account backs it up and syncs it across devices.
+
+## Status
+
+- Early access, built in public. Features ship from user feedback.
+
+## Links
+
+- App: https://workoutforge.app/

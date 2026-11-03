@@ -471,9 +471,10 @@ a.landing-link { display: inline-flex; align-items: center; min-height: 44px; pa
 a.landing-link:hover { background: var(--surface-2); }
 .landing-visuals { flex: 1 1 380px; max-width: 480px; min-width: 0; display: grid; gap: 16px; }
 .landing-visuals .muscle-map { margin-top: 0; }
-.landing-visuals .chart-card h2, .sample-record h2 { font: 500 20px var(--font-sans); text-transform: none; letter-spacing: -0.02em; }
+.landing-visuals .chart-card h2, .sample-record .sample-record-name { font: 500 20px var(--font-sans); text-transform: none; letter-spacing: -0.02em; }
 .sample-record { padding: 20px 22px; border: 1px solid var(--hairline); border-left: 3px solid var(--success); border-radius: var(--radius-lg); background: color-mix(in srgb, var(--success) 12%, var(--surface-1)); box-shadow: var(--elevation-raised); }
-.sample-record h2 { margin: 8px 0 4px; }
+.sample-record .sample-record-name { display: block; margin: 8px 0 4px; }
+.landing-main { display: flex; flex-direction: column; flex: 1; }
 .sample-record p { margin: 0; color: var(--ink-muted); font-size: 15px; line-height: 1.45; font-variant-numeric: tabular-nums; }
 .sample-record .sample-caption, .muscle-caption { margin-top: 10px; font-size: 13px; color: var(--ink-subtle); }
 .landing-faq { background: var(--surface-1); border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline); }
