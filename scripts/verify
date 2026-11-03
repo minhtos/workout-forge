@@ -14,8 +14,13 @@ echo "verify: lint"
 npm run lint
 echo "verify: test"
 npm test
-echo "verify: build (tsc -b + vite build)"
+echo "verify: build (tsc -b + vite build + prerender)"
 npm run build
+
+echo "verify: prerendered dist"
+grep -q 'Get measurably stronger' dist/index.html || { echo "dist/index.html is missing the prerendered landing h1"; exit 1; }
+grep -q '"@type": "FAQPage"' dist/index.html || { echo "dist/index.html is missing the FAQPage JSON-LD"; exit 1; }
+for f in robots.txt sitemap.xml llms.txt; do test -s "dist/$f" || { echo "dist/$f is missing"; exit 1; }; done
 
 mkdir -p "$(dirname "$MARKER")"
 touch "$MARKER"

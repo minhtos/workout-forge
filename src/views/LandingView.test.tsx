@@ -6,6 +6,7 @@ import { muscleVolume } from '../domain/muscleVolume'
 import { sampleHistory, sampleRecordSessionId, sampleWeekStart } from '../domain/sampleData'
 import { completedSessions } from '../domain/weekly'
 import { LandingView } from './LandingView'
+import { faqJsonLd } from './landingFaq'
 
 afterEach(cleanup)
 
@@ -49,7 +50,7 @@ describe('LandingView', () => {
   it('leads with the outcome headline, the existing sub-line and the build-in-public note', () => {
     setup()
     expect(screen.getByRole('heading', { level: 1, name: 'Get measurably stronger, week after week.' })).toBeTruthy()
-    expect(screen.getByText(/builds your training block, logs your sets/)).toBeTruthy()
+    expect(screen.getByText(/It builds your training block, logs your sets/)).toBeTruthy()
     expect(screen.getByRole('button', { name: 'Get started free' })).toBeTruthy()
     expect(screen.getByText('Early access, built in public. What ships next comes from your feedback.')).toBeTruthy()
   })
@@ -76,16 +77,40 @@ describe('LandingView', () => {
     for (const row of rows) expect(row.getAttribute('tabindex')).toBe('0')
   })
 
-  it('has a four-question FAQ with the agreed answers', () => {
+  it('has a six-question FAQ with the agreed answers', () => {
     setup()
     const section = screen.getByRole('region', { name: 'Questions' })
     const items = [...section.querySelectorAll('details')].map((item) => [item.querySelector('summary')?.textContent, item.querySelector('p')?.textContent])
     expect(items).toEqual([
       ['Is it free?', 'Yes. Everything in Workout Forge is free to use.'],
+      ['Is there a subscription?', 'No. There are no paid plans or in-app purchases.'],
       ['Does it work offline?', 'Yes. It installs like an app and every set saves on your device, with or without a connection.'],
+      ['Does it work on iPhone and Android?', 'Yes. On both, you install it from your browser as a web app, with no app store.'],
       ['Where is my data stored?', 'In your browser on this device. If you create an account, your workouts and plan also back up to it.'],
       ['Do I need an account?', 'No. An account is only for backup and using more than one device.'],
     ])
+  })
+
+  it('emits FAQPage structured data that matches the rendered FAQ word for word', () => {
+    setup()
+    const rendered = [...document.querySelectorAll('.faq-item')].map((item) => ({ '@type': 'Question', name: item.querySelector('summary')?.textContent, acceptedAnswer: { '@type': 'Answer', text: item.querySelector('p')?.textContent } }))
+    expect(faqJsonLd().mainEntity).toEqual(rendered)
+  })
+
+  it('wraps the sections in a main landmark with one h1 and no heading inside the sample record card', () => {
+    setup()
+    const main = screen.getByRole('main')
+    expect(within(main).getByRole('heading', { level: 1 })).toBeTruthy()
+    expect(main.contains(screen.getByLabelText('Sample personal record'))).toBe(true)
+    expect(screen.getByLabelText('Sample personal record').querySelector('h2')).toBeNull()
+    expect(main.contains(screen.getByRole('banner'))).toBe(false)
+    expect(main.contains(screen.getByRole('contentinfo'))).toBe(false)
+  })
+
+  it('names the category in the lede and mentions the plate calculator', () => {
+    setup()
+    expect(screen.getByText(/is a free workout planner and training log/)).toBeTruthy()
+    expect(screen.getByText(/A plate calculator shows what to load on each side of the bar\./)).toBeTruthy()
   })
 
   it('moves the sign-in form to its own #signin section, reached from the bar', () => {
@@ -108,7 +133,8 @@ describe('LandingView', () => {
     setup()
     const text = document.body.textContent ?? ''
     expect(text).not.toMatch(/[$€£]/)
-    expect(text).not.toMatch(/pricing|per month|\/mo\b|subscription|premium|upgrade|discount|trial/i)
+    // "subscription" is allowed only in the FAQ answer that says there is none.
+    expect(text.replace('Is there a subscription?', '')).not.toMatch(/pricing|per month|\/mo\b|subscription|premium|upgrade|discount|trial/i)
     expect(text).not.toMatch(/★|⭐|\d(\.\d)?\s*\/\s*5|\bstars?\b|\brated\b|\brating|review(s|ed)?\b|testimonial/i)
     expect(text).not.toMatch(/\d[\d,.]*\s*(\+\s*)?(users|lifters|members|athletes|downloads|people|customers)/i)
   })

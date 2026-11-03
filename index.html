@@ -6,19 +6,67 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="theme-color" content="#16181b" media="(prefers-color-scheme: dark)" />
     <meta name="theme-color" content="#f6f7f9" media="(prefers-color-scheme: light)" />
-    <title>Workout Forge</title>
+    <title>Workout Forge — Free Workout Planner &amp; Training Log</title>
+    <meta name="description" content="Free workout planner and training log. Build 2-, 3- or 4-day programs in 4- to 12-week blocks, log sets offline and get your next targets. No account needed." />
+    <link rel="canonical" href="https://workoutforge.app/" />
+
+    <!-- Returning visitors (a saved block or logged sets) skip the prerendered landing; see scripts/prerender.mjs -->
+    <script>
+      try {
+        var saved = JSON.parse(localStorage.getItem('workout-forge:v3') || 'null')
+        if (saved && (saved.block || (Array.isArray(saved.history) && saved.history.length))) document.documentElement.classList.add('returning')
+      } catch (e) {}
+    </script>
+    <style>html.returning .prerendered { display: none }</style>
+
+    <!-- Structured data. The FAQPage node is added at build time from src/views/landingFaq.ts (scripts/prerender.mjs). -->
+    <script type="application/ld+json">
+    {
+      "@context": "https://schema.org",
+      "@graph": [
+        {
+          "@type": "WebSite",
+          "@id": "https://workoutforge.app/#website",
+          "name": "Workout Forge",
+          "url": "https://workoutforge.app/"
+        },
+        {
+          "@type": "WebApplication",
+          "@id": "https://workoutforge.app/#app",
+          "name": "Workout Forge",
+          "url": "https://workoutforge.app/",
+          "applicationCategory": "HealthApplication",
+          "operatingSystem": "Web browser (installable PWA)",
+          "browserRequirements": "Requires JavaScript",
+          "isAccessibleForFree": true,
+          "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+          "image": "https://workoutforge.app/og-image.png",
+          "isPartOf": { "@id": "https://workoutforge.app/#website" },
+          "featureList": [
+            "2-, 3- or 4-day programs in 4-, 6-, 8- or 12-week blocks",
+            "Automatic deload week at the end of each block",
+            "Ready-made splits or fully custom exercise selection",
+            "Set-by-set logging that works offline",
+            "Next-session weight, reps and sets from soreness, effort and pump feedback",
+            "Plate calculator that shows what to load on each side of the bar",
+            "Data stored on-device; optional account for backup and multi-device sync"
+          ]
+        }
+      ]
+    }
+    </script>
 
     <!-- Social sharing (image source: scripts/generate-og.mjs, `npm run og`) -->
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://workoutforge.app/" />
-    <meta property="og:title" content="Workout Forge — Workout Planner &amp; Training Log" />
+    <meta property="og:title" content="Workout Forge — Free Workout Planner &amp; Training Log" />
     <meta property="og:description" content="A focused, local-first workout planner and training log. Build 2-, 3- or 4-day programs in 4- to 12-week blocks and log every set — works fully offline." />
     <meta property="og:image" content="https://workoutforge.app/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Workout Forge: the orange plate mark above the words Workout Forge and the tagline Get measurably stronger, week after week." />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Workout Forge — Workout Planner &amp; Training Log" />
+    <meta name="twitter:title" content="Workout Forge — Free Workout Planner &amp; Training Log" />
     <meta name="twitter:description" content="A focused, local-first workout planner and training log. Build 2-, 3- or 4-day programs in 4- to 12-week blocks and log every set — works fully offline." />
     <meta name="twitter:image" content="https://workoutforge.app/og-image.png" />
   </head>
