@@ -39,6 +39,13 @@ describe('MuscleMap', () => {
     expect(within(table).getAllByRole('row', { hidden: true })).toHaveLength(3)
   })
 
+  it('leaves the Usual range column out of the table view when guidance is off', () => {
+    show(muscleMapView(thisWeek, catalog, NOW, null), { guidance: false })
+    const table = screen.getByRole('table', { hidden: true })
+    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((cell) => cell.textContent)).toEqual(['Group', 'Sets', 'Volume', 'Plan'])
+    for (const tr of table.querySelectorAll('tbody tr')) expect(tr.querySelectorAll('td')).toHaveLength(4)
+  })
+
   it('shows a hit group as done and the rest as sets to go, never both on one row', () => {
     show(muscleMapView(thisWeek, catalog, NOW, { Chest: 4, Back: 3, Quads: 5 }))
     expect(screen.getByText('Target hit')).toBeTruthy()
@@ -99,15 +106,16 @@ describe('MuscleMap', () => {
     it('adds a Usual range column to the table view', () => {
       show(muscleMapView(thisWeek, catalog, NOW, null))
       const table = screen.getByRole('table', { hidden: true })
-      expect(within(table).getAllByRole('row', { hidden: true })[1].textContent).toContain('8–20')
+      expect(table.querySelector('tbody tr:first-child td:last-child')?.textContent).toBe('8–20')
     })
 
-    it('renders no guidance, no note and dashes in the table when switched off', () => {
+    it('renders no guidance, no note and no Usual range column when switched off', () => {
       show(muscleMapView(completedSessions([...chestSets(21, new Date(2026, 9, 12), { deload: true })], null), catalog, NOW, null), { guidance: false })
       expect(document.querySelector('.muscle-rows')!.textContent).not.toMatch(/usual range|below|in range|above/i)
       expect(screen.queryByText(/deload week/i)).toBeNull()
       const table = screen.getByRole('table', { hidden: true })
-      expect(within(table).getAllByRole('row', { hidden: true })[1].textContent).toContain('—')
+      expect(within(table).queryByRole('columnheader', { name: 'Usual range', hidden: true })).toBeNull()
+      expect(table.textContent).not.toMatch(/usual range|\d+–\d+/i)
     })
 
     it('never uses the word optimal', () => {

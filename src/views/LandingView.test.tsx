@@ -76,6 +76,9 @@ describe('LandingView', () => {
     expect(text).not.toMatch(/usual range|deload week/i)
     expect(document.querySelector('.landing-visuals .muscle-guidance, .landing-visuals .muscle-verdict')).toBeNull()
     expect(document.querySelector('.landing-visuals .muscle-map')!.textContent).not.toMatch(/deload week/i)
+    const headers = [...document.querySelectorAll('.landing-visuals thead th')].map((cell) => cell.textContent)
+    expect(headers).toEqual(['Group', 'Sets', 'Volume', 'Plan'])
+    expect(headers).not.toContain('Usual range')
     for (const cell of document.querySelectorAll('.landing-visuals tbody tr td:last-child')) expect(cell.textContent).toBe('—')
   })
 

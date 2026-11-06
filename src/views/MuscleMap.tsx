@@ -59,7 +59,7 @@ export function MuscleMap({ view, idPrefix, focusable = false, caption, period, 
     {guidance && data.deload && <p className="chart-sub muscle-caption">Deload week — low volume is the point</p>}
     {caption && <p className="chart-sub muscle-caption">{caption}</p>}
     <details className="chart-table"><summary>Table view</summary>
-      <table><thead><tr><th>Group</th><th>Sets</th><th>Volume</th><th>Plan</th><th>Usual range</th></tr></thead><tbody>{data.rows.map((row) => <tr key={row.group}><td>{row.group}</td><td>{row.sets}</td><td>{lb(row.volume)}</td><td>{row.target ? `${row.target} sets` : '—'}</td><td>{guidance ? rangeOf(row.group) : '—'}</td></tr>)}</tbody></table>
+      <table><thead><tr><th>Group</th><th>Sets</th><th>Volume</th><th>Plan</th>{guidance && <th>Usual range</th>}</tr></thead><tbody>{data.rows.map((row) => <tr key={row.group}><td>{row.group}</td><td>{row.sets}</td><td>{lb(row.volume)}</td><td>{row.target ? `${row.target} sets` : '—'}</td>{guidance && <td>{rangeOf(row.group)}</td>}</tr>)}</tbody></table>
     </details>
   </section>
 }
