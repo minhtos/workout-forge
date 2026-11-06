@@ -88,18 +88,60 @@ describe('warm-up hint in the session', () => {
     expect(hint()).toBe('Warm-up (not logged): bar × 10 · 60 × 3 · 80 × 1')
   })
 
-  it('GUARD: rendering the hint changes no state, and completing set 1 adds exactly one history record', () => {
-    startWith(lockedBlock('barbell-squat'), '135')
+  it('GUARD: showing the hint writes nothing, and completing set 1 adds exactly one history record', () => {
+    const open = () => {
+      render(<App />)
+      const start = screen.queryByRole('button', { name: /get started/i })
+      if (start) fireEvent.click(start)
+    }
+    const seed = { ...emptyState(), block: lockedBlock('barbell-squat') }
+    const row = { weight: '', reps: '6', rir: '3', complete: false, targetReps: 6 }
+    const draft = (weight: string) => ({ workoutId: 'w1-d1', sessionId: '550e8400-e29b-41d4-a716-446655440001', sets: { 'barbell-squat': [1, 2, 3].map(() => ({ ...row, weight })) } })
+
+    // Baseline BEFORE the hint exists: a session that has no weight yet, so no hint has rendered.
+    window.localStorage.setItem(key, JSON.stringify({ ...seed, activeSession: draft('') }))
+    open()
+    expect(hint()).toBeNull()
+    const typing = vi.spyOn(Storage.prototype, 'setItem')
+    // Control: typing a weight at the bar shows no hint, so its writes are only the legitimate draft save.
+    fireEvent.change(screen.getAllByLabelText(/Set 1 weight$/)[0], { target: { value: '45' } })
+    expect(hint()).toBeNull()
+    const controlWrites = typing.mock.calls.length
+    // Typing 135 makes the hint appear: it must cost the same writes as the control.
+    fireEvent.change(screen.getAllByLabelText(/Set 1 weight$/)[0], { target: { value: '135' } })
     expect(hint()).not.toBeNull()
+    expect(typing.mock.calls.length).toBe(controlWrites * 2)
     expect(saved().history).toHaveLength(0)
-    const before = stored()
+    typing.mockRestore()
     cleanup()
-    render(<App />)
-    const start = screen.queryByRole('button', { name: /get started/i })
-    if (start) fireEvent.click(start)
+
+    // A session that opens with the hint already due. The app saves on mount regardless, so the control is the
+    // same session on a lift with no hint (barbell curls): the hint's render must add no writes of its own.
+    const mountWrites = (exerciseId: string) => {
+      const draftFor = { ...draft('135'), sets: { [exerciseId]: draft('135').sets['barbell-squat'] } }
+      window.localStorage.setItem(key, JSON.stringify({ ...emptyState(), block: lockedBlock(exerciseId), activeSession: draftFor }))
+      const spy = vi.spyOn(Storage.prototype, 'setItem')
+      open()
+      const count = spy.mock.calls.length
+      spy.mockRestore()
+      return count
+    }
+    const controlMount = mountWrites('barbell-curls')
+    expect(hint()).toBeNull()
+    cleanup()
+    expect(mountWrites('barbell-squat')).toBe(controlMount)
     expect(hint()).not.toBeNull()
-    expect(stored()).toBe(before)
+
     fireEvent.click(screen.getByRole('button', { name: 'Complete set 1' }))
     expect(saved().history).toHaveLength(1)
+  })
+
+  it('shows no hint for a working weight at or below the bar', () => {
+    for (const weight of ['45', '40']) {
+      startWith(lockedBlock('barbell-squat'), weight)
+      expect(hint()).toBeNull()
+      cleanup()
+      window.localStorage.clear()
+    }
   })
 })

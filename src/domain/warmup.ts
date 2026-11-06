@@ -12,17 +12,17 @@ const warmupIds = new Set(baseExercises.filter((item) => item.compound && item.b
 
 const deadliftId = 'barbell-deadlift'
 
-/** Compound barbell lifts get a warm-up hint; custom exercises are never barbell, so they never match. */
+/** Compound barbell lifts get a warm-up hint; custom exercises never match because the trigger set is built only from the built-in exercises. */
 export const hasWarmup = (exerciseId: string): boolean => warmupIds.has(exerciseId)
 
 /**
  * The warm-up ramp (lb) to reach working weight `w`: the bar x10, then 40% x5, 60% x3 and 80% x1 rounded to the nearest 5.
  * Percentage steps at or under the bar, at or over `w`, or repeating the one before are dropped, so the weights strictly increase.
- * Under 95 lb it is only the bar. `noBarStep` (the deadlift: an empty bar sits too low to pull) leaves the bar step off.
+ * Above the bar and under 95 lb it is only the bar; at or below the bar there is no ramp (a warm-up would out-weigh the work set). `noBarStep` (the deadlift: an empty bar sits too low to pull) leaves the bar step off.
  */
 export function warmupSteps(w: number, noBarStep = false): WarmupStep[] {
-  if (!Number.isFinite(w) || w <= 0) return []
   const bar = barWeight()
+  if (!Number.isFinite(w) || w <= bar) return []
   const steps: WarmupStep[] = [{ weight: bar, reps: 10 }]
   if (w >= rampFloor) {
     for (const { fraction, reps } of ramp) {

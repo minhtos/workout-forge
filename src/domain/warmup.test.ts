@@ -12,11 +12,20 @@ describe('warmupSteps', () => {
     expect(warmupSteps(225)).toEqual([{ weight: 45, reps: 10 }, { weight: 90, reps: 5 }, { weight: 135, reps: 3 }, { weight: 180, reps: 1 }])
   })
 
-  it('gives only the bar below 95 (and nothing without a weight)', () => {
+  it('gives only the bar from just above the bar up to 94 (and nothing without a weight)', () => {
     expect(warmupSteps(0)).toEqual([])
     expect(warmupSteps(Number.NaN)).toEqual([])
+    expect(warmupSteps(46)).toEqual([{ weight: 45, reps: 10 }])
     expect(warmupSteps(60)).toEqual([{ weight: 45, reps: 10 }])
     expect(warmupSteps(94)).toEqual([{ weight: 45, reps: 10 }])
+  })
+
+  it('gives no ramp at or below the bar, deadlift included', () => {
+    for (const w of [45, 40, 20]) {
+      expect(warmupSteps(w)).toEqual([])
+      expect(warmupSteps(w, true)).toEqual([])
+      expect(warmupLine(w)).toBeNull()
+    }
   })
 
   it('starts the percentage steps at 95', () => {
@@ -42,7 +51,8 @@ describe('warmupSteps', () => {
         if (i > 0) { expect(weight).toBeGreaterThan(ws[i - 1]); expect(weight).toBeGreaterThan(bar); expect(weight).toBeLessThan(w) }
         expect(weight % 5).toBe(0)
       })
-      if (w > 0) expect(ws[0]).toBe(bar)
+      if (w > bar) expect(ws[0]).toBe(bar)
+      else expect(ws).toEqual([])
     }
   })
 
