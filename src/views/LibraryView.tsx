@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { isEnabled, maxExercisesPerGroup } from '../domain/exercises'
+import { equipmentLabels, guideFor } from '../domain/exerciseGuide'
+import { FormCues } from './FormCues'
 import { compoundRepMax, muscleGroups, repMaxFor, standardRepMax, type ExerciseCatalogItem, type MuscleGroup } from '../domain/program'
 
 interface Props {
@@ -59,6 +61,7 @@ export function LibraryView({ catalog, custom, hidden, inUse, onToggle, onToggle
         {items.map((item) => {
           const enabled = isEnabled(hidden, item.id)
           const isCustom = customIds.has(item.id)
+          const guide = guideFor(item.id)
           if (editing === item.id) return <form className="library-row editing" key={item.id} onSubmit={(event) => { event.preventDefault(); run(onUpdate(item.id, editName, editCategory, editCompound), () => setEditing(null)) }}>
             <input aria-label={`Rename ${item.name}`} value={editName} maxLength={40} onChange={(event) => setEditName(event.target.value)} />
             <select aria-label="Muscle group" value={editCategory} onChange={(event) => setEditCategory(event.target.value as MuscleGroup)}>{muscleGroups.map((option) => <option key={option}>{option}</option>)}</select>
@@ -68,7 +71,8 @@ export function LibraryView({ catalog, custom, hidden, inUse, onToggle, onToggle
           </form>
           return <div className={enabled ? 'library-row' : 'library-row is-off'} key={item.id}>
             <button type="button" role="switch" className="switch" aria-checked={enabled} aria-label={`Use ${item.name}`} onClick={() => onToggle(item.id, !enabled)}><span className="switch-thumb" /></button>
-            <span className="library-name">{item.name}{isCustom && <small className="badge">Yours</small>}{inUse(item.id) && <small className="badge">In program</small>}<small className="rep-max" aria-label={`Rep max ${repMaxFor(item)}`}>max {repMaxFor(item)}</small></span>
+            <span className="library-name">{item.name}{guide && <small className="badge">{equipmentLabels[guide.equipment]}</small>}{isCustom && <small className="badge">Yours</small>}{inUse(item.id) && <small className="badge">In program</small>}<small className="rep-max" aria-label={`Rep max ${repMaxFor(item)}`}>max {repMaxFor(item)}</small></span>
+            <FormCues id={item.id} name={item.name} />
             {isCustom && <span className="library-actions">
               <button className="chip" aria-label={`Edit ${item.name}`} onClick={() => { setEditing(item.id); setEditName(item.name); setEditCategory(item.category); setEditCompound(!!item.compound); setError('') }}>Edit</button>
               <button className="chip" aria-label={`Delete ${item.name}`} onClick={() => { if (window.confirm(`Delete ${item.name} from your library?`)) run(onDelete(item.id)) }}>Delete</button>

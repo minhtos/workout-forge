@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { RestTimer } from './RestTimer'
 import { findPersonalRecord, recordText } from '../domain/personalRecord'
 import { PlateBlocks } from './PlateBlocks'
+import { FormCues } from './FormCues'
 import { warmupHint } from '../domain/warmup'
 import type { RepNotice } from '../domain/repAdjust'
 import { describeLastSession, lastSessionSets, maxSetsPerExercise, previousSessionSets, suggestionText, type TuneContext } from '../domain/session'
@@ -65,7 +66,7 @@ export function SessionView({ workout, session, history, syncLabel, restTimer, t
         <div className="set-actions"><button className="add-set" aria-label={`Restore ${exercise.name}`} onClick={() => onRestore(exercise.id)}>Restore exercise</button></div>
       </article>
       return <article className="exercise-card" key={exercise.id}>
-        <div className="exercise-title"><div><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><h2>{exercise.name}</h2><p>{rows.length || exercise.sets} {(rows.length || exercise.sets) === 1 ? 'set' : 'sets'} × {exercise.repRange.min === exercise.repRange.max ? exercise.repRange.min : `${exercise.repRange.min}–${exercise.repRange.max}`} reps{linear ? '' : ` · RIR ${workout.target.targetRir}`}</p></div></div>
+        <div className="exercise-title"><div><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><h2>{exercise.name}</h2><p>{rows.length || exercise.sets} {(rows.length || exercise.sets) === 1 ? 'set' : 'sets'} × {exercise.repRange.min === exercise.repRange.max ? exercise.repRange.min : `${exercise.repRange.min}–${exercise.repRange.max}`} reps{linear ? '' : ` · RIR ${workout.target.targetRir}`}</p><FormCues id={exercise.id} name={exercise.name} /></div></div>
         <button type="button" className="last-toggle" aria-expanded={openLast[exercise.id] === true} aria-controls={`${exercise.id}-last`} aria-label={`${exercise.name} last time & suggestion`} onClick={() => setOpenLast((open) => ({ ...open, [exercise.id]: !open[exercise.id] }))}><span>Last time &amp; suggestion</span><svg className="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5" /></svg></button>
         <div id={`${exercise.id}-last`} hidden={openLast[exercise.id] !== true}>
           {last.length > 0 && <p className="last-time">Last time: {describeLastSession(last)}</p>}
