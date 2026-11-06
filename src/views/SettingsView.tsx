@@ -18,12 +18,14 @@ interface Props {
   onBackupAll: () => void
   onRestore: () => void
   onExport: () => void
+  onExportCsv: () => void
+  canExportCsv: boolean
   onImport: (text: string) => void
   onNewBlock: () => void
   onFeedback: (message: string, email: string) => Promise<AuthResult>
 }
 
-export function SettingsView({ planStatus, librarySummary, onOpenLibrary, restTimer, onRestTimer, cloudEnabled, accountEmail, status, pendingCount, onSignIn, onSignUp, onReset, onSignOut, onBackupAll, onRestore, onExport, onImport, onNewBlock, onFeedback }: Props) {
+export function SettingsView({ planStatus, librarySummary, onOpenLibrary, restTimer, onRestTimer, cloudEnabled, accountEmail, status, pendingCount, onSignIn, onSignUp, onReset, onSignOut, onBackupAll, onRestore, onExport, onExportCsv, canExportCsv, onImport, onNewBlock, onFeedback }: Props) {
   return <section className="workspace" aria-labelledby="settings-title">
     <div className="workspace-heading"><div><div className="eyebrow">SETTINGS</div><h1 id="settings-title">Settings</h1><p>Workouts always save on this device first.</p></div></div>
     {cloudEnabled && <section className="preview-card"><div><span className="preview-label">CLOUD BACKUP</span><h2>{accountEmail ? `Signed in: ${accountEmail}` : 'Protect your training history'}</h2><p>{status || (accountEmail ? (pendingCount ? `${pendingCount} session(s) waiting to back up.` : 'Your sets, plan and exercises back up automatically. You stay signed in on this device.') : 'Create an account or sign in to back up and use multiple devices.')}</p>{planStatus && <p className="hint">{planStatus}</p>}</div>
@@ -39,8 +41,8 @@ export function SettingsView({ planStatus, librarySummary, onOpenLibrary, restTi
     {cloudEnabled && <section className="preview-card feedback-card"><div><span className="preview-label">FEEDBACK</span><h2>Help shape Workout Forge</h2><p>Missing an exercise, or something feels off? Send it straight to the developer — every note is read.</p></div>
       <FeedbackForm idPrefix="settings-feedback" onSubmit={onFeedback} />
     </section>}
-    <section className="preview-card"><div><span className="preview-label">DEVICE COPY</span><h2>Export or import</h2><p>Download everything on this device as a file, or merge a file from another device.</p></div>
-      <div className="button-row"><button className="secondary-button" onClick={onExport}>Export</button><label className="secondary-button file-button">Import<input type="file" accept="application/json,.json" aria-label="Import backup file" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then(onImport); event.target.value = '' }} /></label></div>
+    <section className="preview-card"><div><span className="preview-label">DEVICE COPY</span><h2>Export or import</h2><p>Download a full backup (JSON) or your sets as a spreadsheet (CSV), or merge a backup from another device.</p></div>
+      <div className="button-row"><button className="secondary-button" onClick={onExport}>Export JSON</button><button className="secondary-button" onClick={onExportCsv} disabled={!canExportCsv}>Export CSV</button><label className="secondary-button file-button">Import<input type="file" accept="application/json,.json" aria-label="Import backup file" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then(onImport); event.target.value = '' }} /></label></div>
     </section>
   </section>
 }
