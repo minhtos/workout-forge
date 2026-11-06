@@ -38,6 +38,20 @@ describe('toCsv', () => {
     expect(csv).not.toContain(',=SUM')
   })
 
+  it('guards cells that start with - or +', () => {
+    const csv = toCsv([set('a', 1, new Date('2026-10-01T10:00:00Z'), { exerciseName: '-1' }), set('a', 2, new Date('2026-10-01T10:00:00Z'), { exerciseName: '+a' })], catalog, utcDate)
+    expect(csv).toContain(",'-1,")
+    expect(csv).toContain(",'+a,")
+    expect(csv).not.toContain(',-1,')
+    expect(csv).not.toContain(',+a,')
+  })
+
+  it('applies the formula guard before quoting', () => {
+    const csv = toCsv([set('a', 1, new Date('2026-10-01T10:00:00Z'), { exerciseName: '-1, "x"' })], catalog, utcDate)
+    expect(csv).toContain(`,"'-1, ""x""",`)
+    expect(csv).not.toContain(`'"-1`)
+  })
+
   it('starts with a UTF-8 BOM and uses CRLF line endings', () => {
     const csv = toCsv([set('a', 1, new Date('2026-10-01T10:00:00Z'))], catalog, utcDate)
     expect(csv.startsWith('﻿')).toBe(true)
