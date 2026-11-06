@@ -70,6 +70,15 @@ describe('LandingView', () => {
     expect(screen.getAllByText('Sample data')).toHaveLength(2)
   })
 
+  it('renders the sample map without usual-range guidance', () => {
+    setup()
+    const text = document.querySelector('.landing-visuals .muscle-rows')!.textContent ?? ''
+    expect(text).not.toMatch(/usual range|deload week/i)
+    expect(document.querySelector('.landing-visuals .muscle-guidance, .landing-visuals .muscle-verdict')).toBeNull()
+    expect(document.querySelector('.landing-visuals .muscle-map')!.textContent).not.toMatch(/deload week/i)
+    for (const cell of document.querySelectorAll('.landing-visuals tbody tr td:last-child')) expect(cell.textContent).toBe('—')
+  })
+
   it('gives each sample map row a keyboard stop', () => {
     setup()
     const rows = document.querySelectorAll('.landing-visuals .muscle-row')
