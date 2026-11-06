@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { RestTimer } from './RestTimer'
 import { findPersonalRecord, recordText } from '../domain/personalRecord'
 import { PlateBlocks } from './PlateBlocks'
+import { warmupHint } from '../domain/warmup'
 import type { RepNotice } from '../domain/repAdjust'
 import { describeLastSession, lastSessionSets, maxSetsPerExercise, previousSessionSets, suggestionText, type TuneContext } from '../domain/session'
 import type { ExercisePrescription, ScheduledWorkout } from '../domain/program'
@@ -57,6 +58,8 @@ export function SessionView({ workout, session, history, syncLabel, restTimer, t
       const prefix = exerciseIndex === 0 ? '' : `${exercise.name} `
       const record = dismissedPrs[exercise.id] ? null : findPersonalRecord(history, session.sessionId, exercise.id)
       const showPlates = exercise.barbell && current >= 0
+      // Display-only: derived from the rows at render time, never written anywhere (it is not a logged set).
+      const warmup = rows.some((row) => row.complete) ? null : warmupHint(exercise.id, rows[0]?.weight)
       if (skipped.includes(exercise.id)) return <article className="exercise-card is-skipped" key={exercise.id}>
         <div className="exercise-title"><div><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><h2>{exercise.name}</h2><p>Skipped for this session. Nothing is logged for it.</p></div></div>
         <div className="set-actions"><button className="add-set" aria-label={`Restore ${exercise.name}`} onClick={() => onRestore(exercise.id)}>Restore exercise</button></div>
@@ -69,6 +72,7 @@ export function SessionView({ workout, session, history, syncLabel, restTimer, t
           <p className="suggestion">{suggestionText(exercise, workout, last, tune, previousSessionSets(history, exercise.id, session.sessionId), skippedLast(exercise.id))}</p>
         </div>
         {showPlates && <PlateBlocks weight={Number(rows[current].weight)} />}
+        {warmup && <p className="warmup-hint">{warmup}</p>}
         <div className="set-table set-table-rir" role="table" aria-label={`${exercise.name} set log`}>
           <div className="set-head" role="row"><span>SET</span><span>WEIGHT</span><span>REPS</span><span>DONE</span></div>
           {rows.map((set, index) => <div className={set.complete ? 'set-row is-done' : index === current ? 'set-row is-current' : 'set-row'} role="row" key={index}>
