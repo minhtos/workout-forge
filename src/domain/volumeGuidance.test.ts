@@ -4,8 +4,8 @@ import { usualRanges, verdictFor } from './volumeGuidance'
 describe('usualRanges', () => {
   it('holds the final weekly direct-set table', () => {
     expect(usualRanges).toEqual({
-      Chest: [6, 20], Back: [10, 22], Shoulders: [8, 22], Triceps: [6, 14], Biceps: [8, 20], Forearms: [0, 16],
-      Quads: [8, 18], Hamstrings: [6, 16], Glutes: [0, 12], Calves: [8, 16], Core: [0, 20],
+      Chest: [8, 20], Back: [10, 22], Shoulders: [8, 22], Triceps: [6, 14], Biceps: [8, 20], Forearms: [0, 12],
+      Quads: [8, 18], Hamstrings: [6, 16], Glutes: [0, 12], Calves: [8, 16], Core: [0, 16],
     })
   })
 })

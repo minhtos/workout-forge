@@ -67,7 +67,7 @@ describe('MuscleMap', () => {
     it('adds a usual-range line under the volume text, with the plan target still the main label', () => {
       show(muscleMapView(thisWeek, catalog, NOW, { Chest: 4 }))
       const chest = document.querySelector('.muscle-row')!
-      expect(chest.querySelector('.muscle-guidance')?.textContent).toBe('Usual range 6–20 sets/wk')
+      expect(chest.querySelector('.muscle-guidance')?.textContent).toBe('Usual range 8–20 sets/wk')
       expect(chest.textContent).toContain('Target hit')
     })
 
@@ -99,7 +99,7 @@ describe('MuscleMap', () => {
     it('adds a Usual range column to the table view', () => {
       show(muscleMapView(thisWeek, catalog, NOW, null))
       const table = screen.getByRole('table', { hidden: true })
-      expect(within(table).getAllByRole('row', { hidden: true })[1].textContent).toContain('6–20')
+      expect(within(table).getAllByRole('row', { hidden: true })[1].textContent).toContain('8–20')
     })
 
     it('renders no guidance, no note and dashes in the table when switched off', () => {
