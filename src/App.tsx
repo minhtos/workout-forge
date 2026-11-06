@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { mergeSets } from './domain/backup'
+import { localDate, toCsv } from './domain/csvExport'
 import { standardRepMax, addExerciseToDay, createBlock, findWorkout, firstExerciseOf, listWorkouts, mergeCatalog, moveExercise, nextWorkout, planProblem, removeExerciseFromDay, renameDay, resolveWorkout, setExerciseSets, setSlotExercise, blockName, type Block, type BlockIntent, type ExercisePrescription, type MuscleGroup, type TrainingDaysPerWeek } from './domain/program'
 import { planTargets } from './domain/muscleVolume'
 import { applyProgramSnapshot, hasProgramContent, runProgramSync } from './domain/programSync'
@@ -460,13 +461,19 @@ function App() {
     setOnline((value) => value + 1)
     setCloudStatus('Backing up all sessions…')
   }
-  function exportData() {
-    const url = URL.createObjectURL(new Blob([exportWorkoutState(state)], { type: 'application/json' }))
+  function download(content: string, type: string, filename: string) {
+    const url = URL.createObjectURL(new Blob([content], { type }))
     const link = document.createElement('a')
     link.href = url
-    link.download = `workout-forge-${new Date().toISOString().slice(0, 10)}.json`
+    link.download = filename
     link.click()
     URL.revokeObjectURL(url)
+  }
+  function exportData() {
+    download(exportWorkoutState(state), 'application/json', `workout-forge-${new Date().toISOString().slice(0, 10)}.json`)
+  }
+  function exportCsv() {
+    download(toCsv(state.history, catalog), 'text/csv;charset=utf-8', `workout-forge-history-${localDate(new Date().toISOString())}.csv`)
   }
   function importData(text: string) {
     const imported = parseImportedState(text)
@@ -501,7 +508,7 @@ function App() {
     {prompt && <FeedbackSheet key={`${prompt.kind}-${prompt.group}`} prompt={prompt} onSoreness={(value) => answerSoreness(prompt.group, value)} onSummary={(effort, pump) => answerSummary(prompt.group, { effort, pump })} onSkip={skipPrompt} />}
     {view === 'progress' && <ProgressView history={history} catalog={catalog} finished={finished} total={total} activeSessionId={activeSession?.sessionId ?? null} targets={mapTargets} />}
     {view === 'library' && <LibraryView catalog={catalog} custom={state.customExercises} hidden={state.hiddenExerciseIds} inUse={(id) => exerciseInUse(block, id)} onToggle={toggleExercise} onToggleGroup={toggleGroup} onAdd={addToLibrary} onUpdate={updateInLibrary} onDelete={deleteFromLibrary} onBack={() => setView('settings')} />}
-    {view === 'settings' && <SettingsView librarySummary={`${enabledCatalog(catalog, state.hiddenExerciseIds).length} of ${catalog.length} exercises on`} onOpenLibrary={() => setView('library')} restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} planStatus={planStatus} onRestore={() => { void restoreFromCloud(false); setOnline((value) => value + 1) }} onExport={exportData} onImport={importData} onNewBlock={newBlock} onFeedback={submitFeedback} />}
+    {view === 'settings' && <SettingsView librarySummary={`${enabledCatalog(catalog, state.hiddenExerciseIds).length} of ${catalog.length} exercises on`} onOpenLibrary={() => setView('library')} restTimer={restTimer} onRestTimer={(enabled) => { setRestTimer(enabled); saveRestTimerEnabled(enabled) }} cloudEnabled={!!supabase} accountEmail={accountEmail} status={cloudStatus} pendingCount={state.pendingSessionIds.length} onSignIn={signIn} onSignUp={signUp} onReset={resetPassword} onSignOut={() => void supabase?.auth.signOut()} onBackupAll={backupAll} planStatus={planStatus} onRestore={() => { void restoreFromCloud(false); setOnline((value) => value + 1) }} onExport={exportData} onExportCsv={exportCsv} canExportCsv={state.history.length > 0} onImport={importData} onNewBlock={newBlock} onFeedback={submitFeedback} />}
   </main>
 }
 
