@@ -1,6 +1,9 @@
 export type PlateUnit = 'lb' | 'kg'
 
 const bars: Record<PlateUnit, number> = { lb: 45, kg: 20 }
+/** The empty bar's weight in the unit. */
+export const barWeight = (unit: PlateUnit = 'lb'): number => bars[unit]
+
 const plates: Record<PlateUnit, number[]> = { lb: [45, 35, 25, 10, 5, 2.5], kg: [25, 20, 15, 10, 5, 2.5, 1.25] }
 
 /** Trim float noise from sums of halves and quarters (2.5, 1.25) so 97.5 never prints as 97.50000000000001. */
