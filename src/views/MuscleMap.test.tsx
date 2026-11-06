@@ -35,8 +35,15 @@ describe('MuscleMap', () => {
     expect(screen.getByRole('group', { name: /sets per muscle group for the week of oct 11: chest 4, back 1/i })).toBeTruthy()
     expect(screen.getByRole('region', { name: 'Where the work went' })).toBeTruthy()
     const table = screen.getByRole('table', { hidden: true })
-    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((cell) => cell.textContent)).toEqual(['Group', 'Sets', 'Volume', 'Plan'])
+    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((cell) => cell.textContent)).toEqual(['Group', 'Sets', 'Volume', 'Plan', 'Usual range'])
     expect(within(table).getAllByRole('row', { hidden: true })).toHaveLength(3)
+  })
+
+  it('leaves the Usual range column out of the table view when guidance is off', () => {
+    show(muscleMapView(thisWeek, catalog, NOW, null), { guidance: false })
+    const table = screen.getByRole('table', { hidden: true })
+    expect(within(table).getAllByRole('columnheader', { hidden: true }).map((cell) => cell.textContent)).toEqual(['Group', 'Sets', 'Volume', 'Plan'])
+    for (const tr of table.querySelectorAll('tbody tr')) expect(tr.querySelectorAll('td')).toHaveLength(4)
   })
 
   it('shows a hit group as done and the rest as sets to go, never both on one row', () => {
@@ -58,6 +65,63 @@ describe('MuscleMap', () => {
     show(muscleMapView([], catalog, NOW, null))
     expect(screen.getByText('Your first workout fills this in.')).toBeTruthy()
     expect(document.querySelector('.muscle-row')).toBeNull()
+  })
+
+  describe('usual-range guidance', () => {
+    const chestSets = (count: number, at: Date, patch: Partial<Parameters<typeof set>[3]> = {}) => Array.from({ length: count }, (_, index) => set('g', index + 1, at, { ...bench, ...patch }))
+    const verdicts = () => [...document.querySelectorAll('.muscle-verdict')].map((node) => node.textContent)
+
+    it('adds a usual-range line under the volume text, with the plan target still the main label', () => {
+      show(muscleMapView(thisWeek, catalog, NOW, { Chest: 4 }))
+      const chest = document.querySelector('.muscle-row')!
+      expect(chest.querySelector('.muscle-guidance')?.textContent).toBe('Usual range 8–20 sets/wk')
+      expect(chest.textContent).toContain('Target hit')
+    })
+
+    it('never says below mid-week, but says in range or above', () => {
+      show(muscleMapView(thisWeek, catalog, NOW, null))
+      expect(verdicts()).toEqual([])
+      cleanup()
+      show(muscleMapView(completedSessions([...chestSets(8, new Date(2026, 9, 12))], null), catalog, NOW, null))
+      expect(verdicts()).toEqual(['in range'])
+      cleanup()
+      show(muscleMapView(completedSessions([...chestSets(21, new Date(2026, 9, 12))], null), catalog, NOW, null))
+      expect(verdicts()).toEqual(['above'])
+    })
+
+    it('says below for a group under its floor once the week is complete (last week)', () => {
+      show(muscleMapView(completedSessions([...chestSets(4, new Date(2026, 9, 6))], null), catalog, NOW, null))
+      expect(verdicts()).toEqual(['below'])
+    })
+
+    it('suppresses every verdict in a deload week and shows the note once', () => {
+      show(muscleMapView(completedSessions([...chestSets(21, new Date(2026, 9, 12), { deload: true })], null), catalog, NOW, null))
+      expect(verdicts()).toEqual([])
+      expect(screen.getAllByText('Deload week — low volume is the point')).toHaveLength(1)
+      cleanup()
+      show(muscleMapView(completedSessions([...chestSets(4, new Date(2026, 9, 6), { deload: true })], null), catalog, NOW, null))
+      expect(verdicts()).toEqual([])
+    })
+
+    it('adds a Usual range column to the table view', () => {
+      show(muscleMapView(thisWeek, catalog, NOW, null))
+      const table = screen.getByRole('table', { hidden: true })
+      expect(table.querySelector('tbody tr:first-child td:last-child')?.textContent).toBe('8–20')
+    })
+
+    it('renders no guidance, no note and no Usual range column when switched off', () => {
+      show(muscleMapView(completedSessions([...chestSets(21, new Date(2026, 9, 12), { deload: true })], null), catalog, NOW, null), { guidance: false })
+      expect(document.querySelector('.muscle-rows')!.textContent).not.toMatch(/usual range|below|in range|above/i)
+      expect(screen.queryByText(/deload week/i)).toBeNull()
+      const table = screen.getByRole('table', { hidden: true })
+      expect(within(table).queryByRole('columnheader', { name: 'Usual range', hidden: true })).toBeNull()
+      expect(table.textContent).not.toMatch(/usual range|\d+–\d+/i)
+    })
+
+    it('never uses the word optimal', () => {
+      show(muscleMapView(completedSessions([...chestSets(4, new Date(2026, 9, 6))], null), catalog, NOW, null))
+      expect(document.body.textContent).not.toMatch(/optimal/i)
+    })
   })
 
   it('can make rows focusable and carry a caption', () => {

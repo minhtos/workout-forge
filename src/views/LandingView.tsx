@@ -86,7 +86,7 @@ export function LandingView({ cloudEnabled, onStart, onSignIn, onSignUp, onReset
           <p>{recordText(sampleRecord)}</p>
           <p className="sample-caption">Sample data</p>
         </article>}
-        <MuscleMap view={sampleMap} idPrefix="landing-map" focusable caption="Sample data" period="A sample week" />
+        <MuscleMap view={sampleMap} idPrefix="landing-map" focusable guidance={false} caption="Sample data" period="A sample week" />
       </div>
     </section>
     <section className="landing-peek" aria-labelledby="peek-title">

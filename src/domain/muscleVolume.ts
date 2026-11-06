@@ -24,6 +24,8 @@ export interface MuscleVolume {
   totalSets: number
   totalVolume: number
   workouts: number
+  /** The week includes a deload session: low volume is expected, so no usual-range verdicts. */
+  deload: boolean
 }
 
 /**
@@ -61,7 +63,7 @@ export function muscleVolume(sessions: CompletedSession[], catalog: ExerciseCata
     .map((group): GroupVolume => ({ group, sets: byGroup.get(group)?.sets ?? 0, volume: byGroup.get(group)?.volume ?? 0, target: targets ? (targets[group] ?? 0) : null }))
     .filter((row) => row.sets > 0 || (row.target ?? 0) > 0)
     .sort((a, b) => b.sets - a.sets)
-  return { weekStart: week, rows, maxSets: Math.max(0, ...rows.map((row) => row.sets)), totalSets, totalVolume, workouts: inWeek.length }
+  return { weekStart: week, rows, maxSets: Math.max(0, ...rows.map((row) => row.sets)), totalSets, totalVolume, workouts: inWeek.length, deload: inWeek.some((session) => session.deload) }
 }
 
 export type MuscleMapView =

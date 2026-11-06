@@ -423,9 +423,11 @@ select option { background: var(--surface-2); color: var(--ink); }
 .muscle-count { font-size: 14px; color: var(--ink-muted); text-align: right; font-variant-numeric: tabular-nums; }
 .muscle-count strong { color: var(--ink); font-size: 16px; font-weight: 600; }
 .muscle-plan { grid-column: 2 / -1; font-size: 13px; color: var(--ink-muted); }
+.muscle-guidance { grid-column: 2 / -1; font-size: 13px; color: var(--ink-subtle); }
+.muscle-verdict { font-weight: 500; color: var(--ink-muted); }
 .muscle-row.is-hit .muscle-plan { color: var(--success-text); }
 .muscle-caption { margin: 12px 0 0; }
-@media (max-width: 680px) { .muscle-row { grid-template-columns: 1fr auto; } .muscle-bar { grid-column: 1 / -1; grid-row: 2; } .muscle-plan { grid-column: 1 / -1; } }
+@media (max-width: 680px) { .muscle-row { grid-template-columns: 1fr auto; } .muscle-bar { grid-column: 1 / -1; grid-row: 2; } .muscle-plan, .muscle-guidance { grid-column: 1 / -1; } }
 @media (prefers-reduced-motion: reduce) { .chart-bar { transition: none; } }
 
 /* ---------- Display type (Barlow Condensed) ---------- */

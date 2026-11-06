@@ -25,6 +25,12 @@ describe('muscleVolume', () => {
     expect(data.rows.every((entry) => entry.target === null)).toBe(true)
   })
 
+  it('flags a week with a deload session', () => {
+    expect(muscleVolume(completedSessions(history, null), catalog, THIS_WEEK).deload).toBe(false)
+    const deload = [set('d', 1, new Date(2026, 9, 12), { ...bench, deload: true })]
+    expect(muscleVolume(completedSessions(deload, null), catalog, THIS_WEEK).deload).toBe(true)
+  })
+
   it('counts deload sets', () => {
     const deload = [set('d', 1, new Date(2026, 9, 12), { ...bench, deload: true, weight: 50, reps: 10 })]
     expect(muscleVolume(completedSessions(deload, null), catalog, THIS_WEEK).rows[0]).toMatchObject({ group: 'Chest', sets: 1, volume: 500 })
