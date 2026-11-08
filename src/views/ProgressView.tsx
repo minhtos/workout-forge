@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react'
 import { exerciseOptions, rangeOptions, rangeStart, sessionPoints, trainedGroups, weeklyBuckets, type RangeWeeks, type SessionPoint, type WeekBucket } from '../domain/charts'
 import { muscleMapView, type PlanTargets } from '../domain/muscleVolume'
-import type { ExerciseCatalogItem, MuscleGroup } from '../domain/program'
+import { displayName, type ExerciseCatalogItem, type MuscleGroup } from '../domain/program'
 import type { CompletedSetRecord } from '../domain/storage'
 import { completedSessions } from '../domain/weekly'
 import { weeklyReport } from '../domain/weeklyReport'
@@ -38,7 +38,7 @@ const weeklySummary = (buckets: WeekBucket[], scope: string) => {
 export function ProgressView({ history, catalog, finished, total, activeSessionId, targets }: Props) {
   const [now] = useState(() => new Date())
   const sessions = useMemo(() => completedSessions(history, activeSessionId), [history, activeSessionId])
-  const report = useMemo(() => weeklyReport(history, activeSessionId, now), [history, activeSessionId, now])
+  const report = useMemo(() => weeklyReport(history, activeSessionId, now, catalog), [history, activeSessionId, now, catalog])
   const mapView = useMemo(() => muscleMapView(sessions, catalog, now, targets), [sessions, catalog, now, targets])
   const [weeks, setWeeks] = useState<RangeWeeks>(12)
   const [group, setGroup] = useState<MuscleGroup | 'all'>('all')
@@ -52,9 +52,9 @@ export function ProgressView({ history, catalog, finished, total, activeSessionI
     return [...byExercise.values()].map((sets) => {
       const newest = sets.reduce((a, b) => (b.completedAt > a.completedAt ? b : a))
       const best = sets.reduce((a, b) => (b.weight * b.reps > a.weight * a.reps ? b : a))
-      return { id: newest.exerciseId, name: newest.exerciseName, sets: sets.length, newest, best }
+      return { id: newest.exerciseId, name: displayName(catalog, newest.exerciseId, newest.exerciseName), sets: sets.length, newest, best }
     }).sort((a, b) => a.name.localeCompare(b.name))
-  }, [history])
+  }, [history, catalog])
 
   const from = rangeStart(weeks, now).getTime()
   const scope = group === 'all' ? null : group
@@ -119,7 +119,7 @@ export function ProgressView({ history, catalog, finished, total, activeSessionI
       </section>
     </>}
 
-    <section className="progress-empty"><span>LATEST COMPLETED SET</span>{latest ? <><h2>{latest.exerciseName}: {latest.weight} lb × {latest.reps}</h2><p>Week {latest.weekNumber}, target RIR {latest.targetRir}.</p></> : <><h2>Your first completed set starts the record.</h2><p>Start a workout and log weight and reps.</p></>}</section>
+    <section className="progress-empty"><span>LATEST COMPLETED SET</span>{latest ? <><h2>{displayName(catalog, latest.exerciseId, latest.exerciseName)}: {latest.weight} lb × {latest.reps}</h2><p>Week {latest.weekNumber}, target RIR {latest.targetRir}.</p></> : <><h2>Your first completed set starts the record.</h2><p>Start a workout and log weight and reps.</p></>}</section>
     {exercises.length > 0 && <section className="progress-empty"><span>BY EXERCISE</span><table className="exercise-table"><thead><tr><th>Exercise</th><th>Last set</th><th>Best set</th><th>Sets</th></tr></thead><tbody>{exercises.map((row) => <tr key={row.id}><td>{row.name}</td><td>{row.newest.weight}×{row.newest.reps}</td><td>{row.best.weight}×{row.best.reps}</td><td>{row.sets}</td></tr>)}</tbody></table></section>}
   </section>
 }

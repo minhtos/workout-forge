@@ -99,6 +99,9 @@ export function mergeCatalog(custom: ExerciseCatalogItem[]): ExerciseCatalogItem
   return [...baseExercises, ...custom.filter((item) => !seen.has(item.id))]
 }
 
+/** The name to show for a logged set: the catalog's current name for its id, or the name stored with the set when the id is gone (a deleted custom exercise). Never matches by name. */
+export const displayName = (catalog: ExerciseCatalogItem[], exerciseId: string, storedName: string): string => catalog.find((item) => item.id === exerciseId)?.name ?? storedName
+
 /** An empty block: the user decides what to train on each day (or applies a Workout Set). */
 export function createBlock(trainingDays: TrainingDaysPerWeek, durationWeeks: ProgramDurationWeeks, parts: ProgramParts = 1, intent: BlockIntent | null = null): Block {
   return {
