@@ -58,7 +58,7 @@ const names: Record<MuscleGroup, string[]> = {
   Chest: ['Barbell Bench Press', 'Barbell Incline Bench Press', 'Dumbbell Incline Bench Press', 'Machine Incline Press', 'Machine Chest Press', 'Machine Fly', 'Dumbbell Fly'],
   Back: ['Pull-ups', 'Assisted Pull-ups', 'Pull-down', 'Row Machine', 'TBar Row', 'Barbell Row', 'Barbell Deadlift'],
   Shoulders: ['Barbell Overhead Press', 'Dumbbell Shoulder Press', 'Lateral Raise', 'Rear Delt Fly', 'Face Pull'],
-  Triceps: ['Dumbbell Tricep Extension', 'Cable Pushdown', 'Cable Single Arm Pulldown', 'Cable Pulldown', 'Cable Overhead Extension'],
+  Triceps: ['Dumbbell Tricep Extension', 'Cable Pushdown', 'Cable Single Arm Pushdown', 'Cable Rope Pushdown', 'Cable Overhead Extension'],
   Biceps: ['Incline Dumbbell Curls', 'Cable Curls', 'Barbell Curls'],
   Forearms: ['Barbell Wrist Curl', 'Reverse Wrist Curl', 'Reverse Barbell Curl', 'Cable Wrist Curl', 'Farmers Carry'],
   Quads: ['Leg Extension', 'Barbell Squat', 'Leg Press Machine', 'Hack Squat'],
@@ -90,8 +90,8 @@ const compoundNames = new Set([
 ])
 
 export const slugify = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
-/** Ids of exercises that were renamed, so saved plans and history keep matching (Quad Extension is now Leg Extension). */
-const legacyIds: Record<string, string> = { 'Leg Extension': 'quad-extension' }
+/** Ids of exercises that were renamed, so saved plans and history keep matching (Quad Extension is now Leg Extension; the two triceps "Pulldown" typos are now Pushdowns). */
+const legacyIds: Record<string, string> = { 'Leg Extension': 'quad-extension', 'Cable Rope Pushdown': 'cable-pulldown', 'Cable Single Arm Pushdown': 'cable-single-arm-pulldown' }
 export const baseExercises: ExerciseCatalogItem[] = muscleGroups.flatMap((category) => names[category].map((name): ExerciseCatalogItem => ({ id: legacyIds[name] ?? slugify(name), name, category, ...(compoundNames.has(name) ? { compound: true } : {}), ...(name.startsWith('Barbell ') ? { barbell: true } : {}) })))
 
 export function mergeCatalog(custom: ExerciseCatalogItem[]): ExerciseCatalogItem[] {
