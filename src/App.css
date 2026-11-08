@@ -278,13 +278,21 @@ select option { background: var(--surface-2); color: var(--ink); }
 .library-group-head h2 { font-size: 18px; font-weight: 500; letter-spacing: -0.02em; margin: 0; }
 .library-count { color: var(--ink-subtle); font: 12px var(--font-mono); letter-spacing: 0.04em; }
 .library-bulk { margin-left: auto; display: flex; gap: 6px; }
-.library-row { display: flex; align-items: center; gap: 14px; min-height: 56px; padding: 6px 0; border-bottom: 1px solid var(--hairline); }
+.library-row { display: flex; flex-wrap: wrap; align-items: center; gap: 14px; min-height: 56px; padding: 6px 0; border-bottom: 1px solid var(--hairline); }
 .library-row.is-off .library-name { color: var(--ink-subtle); text-decoration: line-through; text-decoration-color: var(--hairline-strong); }
 .library-name { flex: 1; min-width: 0; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 15px; }
 .library-actions { display: flex; gap: 6px; }
 .library-row.editing { flex-wrap: wrap; gap: 8px; padding: 10px 0; }
 .library-row.editing input, .library-row.editing select { flex: 1 1 160px; min-width: 0; min-height: 44px; background: var(--surface-2); border: 1px solid var(--hairline-strong); border-radius: var(--radius-md); color: var(--ink); padding: 0 10px; font-size: 16px; }
 .library-row .badge { font-size: 10px; }
+.cues-toggle { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0; background: none; border: 0; color: var(--ink-subtle); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cues-toggle .chevron { flex: none; transition: transform var(--duration-hover) var(--ease-out); }
+.cues-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
+.cues-list { margin: 0; padding: 0 0 0 18px; color: var(--ink-subtle); font-size: 13px; line-height: 1.5; }
+.cues-list[hidden] { display: none; }
+.exercise-title .cues-toggle, .exercise-title .cues-list { grid-column: 2; justify-self: start; }
+.exercise-title .cues-list { margin-top: 2px; }
+.library-row .cues-list { flex-basis: 100%; padding-bottom: 8px; }
 @media (max-width: 680px) { .library-bulk { margin-left: 0; } }
 
 /* ---------- Feedback sheet (soreness, effort, pump) ---------- */
