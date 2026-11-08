@@ -285,7 +285,7 @@ select option { background: var(--surface-2); color: var(--ink); }
 .library-row.editing { flex-wrap: wrap; gap: 8px; padding: 10px 0; }
 .library-row.editing input, .library-row.editing select { flex: 1 1 160px; min-width: 0; min-height: 44px; background: var(--surface-2); border: 1px solid var(--hairline-strong); border-radius: var(--radius-md); color: var(--ink); padding: 0 10px; font-size: 16px; }
 .library-row .badge { font-size: 10px; }
-.cues-toggle { display: inline-flex; align-items: center; gap: 4px; min-height: 36px; padding: 0; background: none; border: 0; color: var(--ink-subtle); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
+.cues-toggle { display: inline-flex; align-items: center; gap: 4px; min-height: 44px; padding: 0; background: none; border: 0; color: var(--ink-subtle); font: inherit; font-size: 13px; font-weight: 600; cursor: pointer; }
 .cues-toggle .chevron { flex: none; transition: transform var(--duration-hover) var(--ease-out); }
 .cues-toggle[aria-expanded="true"] .chevron { transform: rotate(90deg); }
 .cues-list { margin: 0; padding: 0 0 0 18px; color: var(--ink-subtle); font-size: 13px; line-height: 1.5; }
