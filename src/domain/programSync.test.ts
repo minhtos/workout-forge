@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
-import { addExerciseToDay, createBlock } from './program'
+import { guideFor } from './exerciseGuide'
+import { addExerciseToDay, baseExercises, createBlock } from './program'
 import { applyProgramSnapshot, decideSync, hasProgramContent, parseProgramSnapshot, runProgramSync, type ProgramSnapshot } from './programSync'
 import { emptyState, type SavedWorkoutState } from './storage'
 
@@ -59,6 +60,15 @@ describe('reading what the cloud sends back', () => {
     expect(parseProgramSnapshot(stored(snapshot(T1, { feedback: [{ ...feedback[0], workoutId: '' }] })))).toBeNull()
     expect(parseProgramSnapshot(stored(snapshot(T1, { feedback: [{ ...feedback[0], exerciseId: 'x'.repeat(101) }] })))).toBeNull()
     for (const templateIndex of [-1, 1.5, 101, '1']) expect(parseProgramSnapshot(stored(snapshot(T1, { feedback: [{ ...feedback[0], templateIndex: templateIndex as number }] })))).toBeNull()
+  })
+  it('a synced program saved with the old Pulldown ids still resolves to the renamed Pushdowns, cues intact', () => {
+    const old = ['cable-pulldown', 'cable-single-arm-pulldown'].reduce((b, id) => addExerciseToDay(b, 0, id), createBlock(2, 4))
+    const loaded = parseProgramSnapshot(stored(snapshot(T1, { block: old })))
+    const ids = loaded?.block?.templates[0].exercises.map((e) => e.exerciseId) ?? []
+    expect(ids).toEqual(['cable-pulldown', 'cable-single-arm-pulldown'])
+    expect(ids.map((id) => baseExercises.find((item) => item.id === id)?.name)).toEqual(['Cable Rope Pushdown', 'Cable Single Arm Pushdown'])
+    expect(guideFor('cable-pulldown')?.cues).toEqual(guideFor('cable-pushdown')?.cues)
+    expect(guideFor('cable-single-arm-pulldown')?.cues[0]).toMatch(/elbow/)
   })
   it('rejects malformed or tampered data instead of loading it', () => {
     expect(parseProgramSnapshot({ version: 1 })).toBeNull()

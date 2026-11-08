@@ -1,7 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
-import { addExerciseToDay, createBlock } from './domain/program'
+import { addExerciseToDay, baseExercises, createBlock } from './domain/program'
 import { applyWorkoutSet, findWorkoutSet } from './domain/workoutSets'
 import { emptyState } from './domain/storage'
 
@@ -236,8 +236,8 @@ describe('Workout Forge gym flow', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Use Push | Pull | Legs' }))
     const start = screen.getByRole('button', { name: /start block/i }) as HTMLButtonElement
 
-    const days = [['Barbell Bench Press', 'Barbell Incline Bench Press', 'Dumbbell Incline Bench Press', 'Machine Incline Press', 'Cable Pushdown', 'Cable Pulldown'], ['Pull-ups', 'Pull-down', 'Row Machine', 'Barbell Row', 'Cable Curls', 'Barbell Curls'], ['Barbell Squat', 'Hack Squat', 'Leg Press Machine', 'Dumbbell RDL', 'Seated Leg Curl', 'Lying Leg Curl']]
-    const idFor = (name: string) => name.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+    const days = [['Barbell Bench Press', 'Barbell Incline Bench Press', 'Dumbbell Incline Bench Press', 'Machine Incline Press', 'Cable Pushdown', 'Cable Rope Pushdown'], ['Pull-ups', 'Pull-down', 'Row Machine', 'Barbell Row', 'Cable Curls', 'Barbell Curls'], ['Barbell Squat', 'Hack Squat', 'Leg Press Machine', 'Dumbbell RDL', 'Seated Leg Curl', 'Lying Leg Curl']]
+    const idFor = (name: string) => baseExercises.find((item) => item.name === name)?.id ?? name
     days.forEach((names, day) => names.forEach((name, slot) => fireEvent.change(screen.getByLabelText(`Day ${day + 1} exercise ${slot + 1} choice`), { target: { value: idFor(name) } })))
     expect(start.disabled).toBe(false)
     fireEvent.click(start)

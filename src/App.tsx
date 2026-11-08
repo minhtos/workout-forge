@@ -127,7 +127,7 @@ function App() {
   const gated = isLoadingGate({ hasLocalData: deviceHadData, sessionHint, authResolved, signedIn: userId !== null, firstSyncSettled, timedOut: gateExpired })
   // The report is for the last finished Sun–Sat week. `now` is refreshed on coming back to the app and on navigating, so a Sunday that arrives while the app sits open is picked up.
   const sessions = useMemo(() => completedSessions(history, activeSession?.sessionId ?? null), [history, activeSession?.sessionId])
-  const report = useMemo(() => weeklyReport(history, activeSession?.sessionId ?? null, now), [history, activeSession?.sessionId, now])
+  const report = useMemo(() => weeklyReport(history, activeSession?.sessionId ?? null, now, catalog), [history, activeSession?.sessionId, now, catalog])
   const todayReport = showReportOnToday(report, sessions, now, dismissedReport) ? report : null
   const comeback = useMemo(() => suggestComeback(history, now), [history, now])
   const mapTargets = useMemo(() => planTargets(block, catalog), [block, catalog])

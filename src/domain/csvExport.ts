@@ -1,4 +1,4 @@
-import type { ExerciseCatalogItem } from './program'
+import { displayName, type ExerciseCatalogItem } from './program'
 import type { CompletedSetRecord } from './storage'
 
 const columns = ['date', 'completed_at', 'workout_id', 'week', 'deload', 'exercise', 'exercise_id', 'muscle_group', 'set', 'weight', 'unit', 'reps', 'target_reps', 'rep_min', 'rep_max', 'target_rir', 'session_id']
@@ -24,7 +24,7 @@ export function toCsv(history: CompletedSetRecord[], catalog: ExerciseCatalogIte
   const groups = new Map(catalog.map((item) => [item.id, item.category]))
   const sorted = [...history].sort((a, b) => a.completedAt.localeCompare(b.completedAt) || a.setIndex - b.setIndex)
   const lines = sorted.map((s) => [
-    formatDate(s.completedAt), s.completedAt, s.workoutId, s.weekNumber, !!s.deload, s.exerciseName, s.exerciseId, groups.get(s.exerciseId) ?? '',
+    formatDate(s.completedAt), s.completedAt, s.workoutId, s.weekNumber, !!s.deload, displayName(catalog, s.exerciseId, s.exerciseName), s.exerciseId, groups.get(s.exerciseId) ?? '',
     s.setIndex, s.weight, s.weightUnit, s.reps, s.targetReps, s.repRange.min, s.repRange.max, s.targetRir, s.sessionId,
   ].map(cell).join(','))
   return `﻿${[columns.join(','), ...lines].map((line) => `${line}\r\n`).join('')}`

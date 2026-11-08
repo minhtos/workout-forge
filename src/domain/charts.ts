@@ -1,5 +1,5 @@
 import { historicalOneRepMax } from './repAdjust'
-import { muscleGroups, type ExerciseCatalogItem, type MuscleGroup } from './program'
+import { displayName, muscleGroups, type ExerciseCatalogItem, type MuscleGroup } from './program'
 import type { CompletedSetRecord } from './storage'
 import { addDays, weekStart } from './weekly'
 
@@ -69,7 +69,7 @@ export interface ExerciseOption { id: string; name: string; sessions: number }
 /** Exercises with at least one non-deload session in range, most-trained first. */
 export function exerciseOptions(history: CompletedSetRecord[], catalog: ExerciseCatalogItem[], group: MuscleGroup | null, fromMs: number): ExerciseOption[] {
   const ids = new Map<string, string>()
-  for (const set of history) if (!set.deload && (!group || categoryOf(catalog, set.exerciseId) === group)) ids.set(set.exerciseId, catalog.find((item) => item.id === set.exerciseId)?.name ?? set.exerciseName)
+  for (const set of history) if (!set.deload && (!group || categoryOf(catalog, set.exerciseId) === group)) ids.set(set.exerciseId, displayName(catalog, set.exerciseId, set.exerciseName))
   return [...ids.entries()]
     .map(([id, name]) => ({ id, name, sessions: sessionPoints(history, id, fromMs).length }))
     .filter((option) => option.sessions > 0)

@@ -1,11 +1,13 @@
 import { cleanup, fireEvent, render, screen, within } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { mergeCatalog } from '../domain/program'
 import { set } from '../domain/testSets'
 import { weeklyReport } from '../domain/weeklyReport'
 import { WeeklyReport } from './WeeklyReport'
 
 afterEach(cleanup)
 
+const catalog = mergeCatalog([])
 const NOW = new Date(2026, 9, 12, 12) // Monday 12 Oct; the report week is Sun 4 – Sat 10 Oct
 const at = (day: number, hour = 12) => new Date(2026, 9, day, hour)
 const history = [
@@ -13,7 +15,7 @@ const history = [
   set('p', 1, at(6), { weight: 110 }), set('p', 2, at(6, 13), { exerciseId: 'pull-ups', exerciseName: 'Pull-ups', weight: 0, reps: 8 }),
   set('q', 1, at(8), { weight: 105, reps: 8 }),
 ]
-const report = weeklyReport(history, null, NOW)!
+const report = weeklyReport(history, null, NOW, catalog)!
 
 describe('WeeklyReport', () => {
   it('states last week in plain numbers', () => {
@@ -33,14 +35,14 @@ describe('WeeklyReport', () => {
   })
 
   it('says so, without celebrating, when there are no records', () => {
-    const quiet = weeklyReport([set('o', 1, new Date(2026, 8, 29)), set('q', 1, at(8), { weight: 90 })], null, NOW)!
+    const quiet = weeklyReport([set('o', 1, new Date(2026, 8, 29)), set('q', 1, at(8), { weight: 90 })], null, NOW, catalog)!
     render(<WeeklyReport report={quiet} placement="today" onDismiss={() => {}} />)
     expect(screen.getByText('No new personal records.')).toBeTruthy()
     expect(screen.queryByRole('heading', { name: 'Personal records' })).toBeNull()
   })
 
   it('reports a week with no workouts as zeros', () => {
-    const empty = weeklyReport([set('o', 1, new Date(2026, 8, 29))], null, NOW)!
+    const empty = weeklyReport([set('o', 1, new Date(2026, 8, 29))], null, NOW, catalog)!
     render(<WeeklyReport report={empty} placement="progress" />)
     expect(screen.getByRole('region', { name: 'No workouts last week' })).toBeTruthy()
     expect([...document.querySelectorAll('.report-stats dd')].map((item) => item.textContent)).toEqual(['0', '0', '0 lb', '0'])

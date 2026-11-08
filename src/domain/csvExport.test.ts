@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import type { ExerciseCatalogItem } from './program'
+import { mergeCatalog, type ExerciseCatalogItem } from './program'
 import { set } from './testSets'
 import { toCsv } from './csvExport'
 
@@ -27,19 +27,19 @@ describe('toCsv', () => {
   })
 
   it('escapes commas, quotes and newlines in a custom exercise name', () => {
-    const csv = toCsv([set('a', 1, new Date('2026-10-01T10:00:00Z'), { exerciseName: 'Curl, "heavy"\nstrict' })], catalog, utcDate)
+    const csv = toCsv([set('a', 1, new Date('2026-10-01T10:00:00Z'), { exerciseId: 'custom-x', exerciseName: 'Curl, "heavy"\nstrict' })], catalog, utcDate)
     expect(csv).toContain('"Curl, ""heavy""\nstrict"')
   })
 
   it('guards cells that start with = + - @ with a leading single quote', () => {
-    const csv = toCsv([set('a', 1, new Date('2026-10-01T10:00:00Z'), { exerciseName: '=SUM(A1)' }), set('a', 2, new Date('2026-10-01T10:00:00Z'), { exerciseName: '@x' })], catalog, utcDate)
+    const csv = toCsv([set('a', 1, new Date('2026-10-01T10:00:00Z'), { exerciseId: 'custom-x', exerciseName: '=SUM(A1)' }), set('a', 2, new Date('2026-10-01T10:00:00Z'), { exerciseId: 'custom-x', exerciseName: '@x' })], catalog, utcDate)
     expect(csv).toContain(",'=SUM(A1),")
     expect(csv).toContain(",'@x,")
     expect(csv).not.toContain(',=SUM')
   })
 
   it('guards cells that start with - or +', () => {
-    const csv = toCsv([set('a', 1, new Date('2026-10-01T10:00:00Z'), { exerciseName: '-1' }), set('a', 2, new Date('2026-10-01T10:00:00Z'), { exerciseName: '+a' })], catalog, utcDate)
+    const csv = toCsv([set('a', 1, new Date('2026-10-01T10:00:00Z'), { exerciseId: 'custom-x', exerciseName: '-1' }), set('a', 2, new Date('2026-10-01T10:00:00Z'), { exerciseId: 'custom-x', exerciseName: '+a' })], catalog, utcDate)
     expect(csv).toContain(",'-1,")
     expect(csv).toContain(",'+a,")
     expect(csv).not.toContain(',-1,')
@@ -47,7 +47,7 @@ describe('toCsv', () => {
   })
 
   it('applies the formula guard before quoting', () => {
-    const csv = toCsv([set('a', 1, new Date('2026-10-01T10:00:00Z'), { exerciseName: '-1, "x"' })], catalog, utcDate)
+    const csv = toCsv([set('a', 1, new Date('2026-10-01T10:00:00Z'), { exerciseId: 'custom-x', exerciseName: '-1, "x"' })], catalog, utcDate)
     expect(csv).toContain(`,"'-1, ""x""",`)
     expect(csv).not.toContain(`'"-1`)
   })
@@ -62,6 +62,19 @@ describe('toCsv', () => {
   it('leaves muscle_group blank for an exercise no longer in the catalog', () => {
     const csv = toCsv([set('a', 1, new Date('2026-10-01T10:00:00Z'), { exerciseId: 'custom-gone', exerciseName: 'Gone' })], catalog, utcDate)
     expect(rows(csv)[1]).toContain(',custom-gone,,1,')
+  })
+
+  it('writes the current catalog name for the id, keeps the stored id, and falls back to the stored name when the id is gone', () => {
+    const live = mergeCatalog([{ id: 'custom-curl', name: 'Preacher Curl', category: 'Biceps' }])
+    const at = new Date('2026-10-01T10:00:00Z')
+    const csv = toCsv([
+      set('a', 1, at, { exerciseId: 'cable-pulldown', exerciseName: 'Cable Pulldown' }),
+      set('a', 2, at, { exerciseId: 'quad-extension', exerciseName: 'Quad Extension' }),
+      set('a', 3, at, { exerciseId: 'custom-curl', exerciseName: 'My Curl' }),
+      set('a', 4, at, { exerciseId: 'custom-gone', exerciseName: 'Deleted Curl' }),
+    ], live, utcDate)
+    const cells = rows(csv).slice(1, 5).map((row) => row.split(',').slice(5, 7))
+    expect(cells).toEqual([['Cable Rope Pushdown', 'cable-pulldown'], ['Leg Extension', 'quad-extension'], ['Preacher Curl', 'custom-curl'], ['Deleted Curl', 'custom-gone']])
   })
 
   it('derives date from completed_at with the injected formatter and keeps completed_at unchanged', () => {
