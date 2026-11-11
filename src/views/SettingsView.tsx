@@ -46,7 +46,7 @@ export function SettingsView({ planStatus, librarySummary, onOpenLibrary, restTi
       <div className="button-row"><button className="secondary-button" onClick={onExport}>Export JSON</button><button className="secondary-button" onClick={onExportCsv} disabled={!canExportCsv}>Export CSV</button><label className="secondary-button file-button">Import<input type="file" accept="application/json,.json" aria-label="Import backup file" onChange={(event) => { const file = event.target.files?.[0]; if (file) void file.text().then(onImport); event.target.value = '' }} /></label></div>
     </section>
     <section className="preview-card changelog-card"><div><span className="preview-label">CHANGELOG</span><h2>Changelog</h2></div>
-      <ol className="changelog-list">{changelog.map((entry) => <li key={entry.date}>
+      <ol className="changelog-list">{changelog.map((entry, i) => <li key={`${entry.date}-${i}`}>
         <h3>{entry.version ? `Version ${entry.version} · ` : ''}{formatChangelogDate(entry.date)}</h3>
         <ul>{entry.notes.map((note) => <li key={note}>{note}</li>)}</ul>
       </li>)}</ol>
