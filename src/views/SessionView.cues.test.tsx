@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { SessionView } from './SessionView'
+import { fullInventory } from '../domain/equipment'
 import type { ScheduledWorkout } from '../domain/program'
 import type { ActiveSession } from '../domain/storage'
 
@@ -18,7 +19,7 @@ const session: ActiveSession = { workoutId: 'w1', sessionId: 's1', sets: { 'barb
 
 function renderSession() {
   const handlers = { onDismissPr: vi.fn(), onBack: vi.fn(), onUpdate: vi.fn(), onToggle: vi.fn(() => true), onAddSet: vi.fn(), onRemoveSet: vi.fn(), onSkip: vi.fn(), onRestore: vi.fn(), onFinish: vi.fn(), onDiscard: vi.fn() }
-  render(<SessionView workout={workout} session={session} history={[]} syncLabel="" restTimer={false} tune={{ feedback: [], blockId: null }} repNotices={{}} error="" dismissedPrs={{}} skippedLast={() => false} {...handlers} />)
+  render(<SessionView equipment={fullInventory} workout={workout} session={session} history={[]} syncLabel="" restTimer={false} tune={{ feedback: [], blockId: null }} repNotices={{}} error="" dismissedPrs={{}} skippedLast={() => false} {...handlers} />)
   return handlers
 }
 
