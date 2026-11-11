@@ -50,14 +50,15 @@ export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSe
     const entries = Array.from({ length: exercise.sets }, (_, index): SetEntry => {
       const base = last[index] ?? last[last.length - 1]
       if (!base) return entryFor('', exercise.repRange.min, targetRir)
+      const top = Math.max(...last.map((set) => set.weight))
       const fitted = (target: { weight: number; reps: number }, from: { weight: number; reps: number }): SetEntry => {
         const fit = fitTarget({ exercise, target, from, inventory })
         return entryFor(fit.weight, fit.reps, targetRir)
       }
-      if (workout.target.kind === 'deload') return fitted({ weight: deloadLoad(Math.max(...last.map((set) => set.weight)), workout.target.loadMultiplier), reps: base.reps }, { weight: Math.max(...last.map((set) => set.weight)), reps: base.reps })
+      if (workout.target.kind === 'deload') return fitted({ weight: deloadLoad(top, workout.target.loadMultiplier), reps: base.reps }, { weight: top, reps: base.reps })
       if (workout.progression === 'linear') {
         const next = linearNext(exercise, last)
-        return fitted(next, { weight: Math.max(...last.map((set) => set.weight)), reps: base.reps })
+        return fitted(next, { weight: top, reps: base.reps })
       }
       if (carry) return fitted(carry, { weight: carry.fromWeight, reps: carry.fromReps })
       const next = nextSetTarget({ exercise, last, previous, index, fb, all: tuning?.feedback ?? [] })

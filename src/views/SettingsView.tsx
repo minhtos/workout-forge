@@ -36,7 +36,7 @@ function SizeChips({ legend, sizes, missing, noun, onChange }: { legend: string;
     <div className="equipment-chips">{sizes.map((size) => {
       const owned = !missing.includes(size)
       const last = owned && ownedCount === 1
-      return <button key={size} type="button" className="equipment-chip" aria-pressed={owned} aria-label={`${size} lb ${noun}`} disabled={last} title={last ? 'Keep at least one size checked' : undefined} onClick={() => onChange(sizes.filter((candidate) => (candidate === size ? owned : missing.includes(candidate))))}>{size}</button>
+      return <button key={size} type="button" className="equipment-chip" aria-pressed={owned} aria-label={`${size} lb ${noun}`} disabled={last} title={last ? 'Keep at least one size checked' : undefined} onClick={() => onChange(owned ? sizes.filter((candidate) => candidate === size || missing.includes(candidate)) : missing.filter((candidate) => candidate !== size))}>{size}</button>
     })}</div>
   </fieldset>
 }
