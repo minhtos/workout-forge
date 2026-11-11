@@ -1,4 +1,4 @@
-import { barWeight } from './plateGuide'
+import { barWeight, loadableTotal } from './plateGuide'
 import { baseExercises } from './program'
 
 export interface WarmupStep { weight: number; reps: number }
@@ -19,14 +19,15 @@ export const hasWarmup = (exerciseId: string): boolean => warmupIds.has(exercise
  * The warm-up ramp (lb) to reach working weight `w`: the bar x10, then 40% x5, 60% x3 and 80% x1 rounded to the nearest 5.
  * Percentage steps at or under the bar, at or over `w`, or repeating the one before are dropped, so the weights strictly increase.
  * Above the bar and under 95 lb it is only the bar; at or below the bar there is no ramp (a warm-up would out-weigh the work set). `noBarStep` (the deadlift: an empty bar sits too low to pull) leaves the bar step off.
+ * With `owned` plates each step is first snapped down to a weight those plates make (before the drop rules above, so collisions disappear).
  */
-export function warmupSteps(w: number, noBarStep = false): WarmupStep[] {
+export function warmupSteps(w: number, noBarStep = false, owned: readonly number[] | null = null): WarmupStep[] {
   const bar = barWeight()
   if (!Number.isFinite(w) || w <= bar) return []
   const steps: WarmupStep[] = [{ weight: bar, reps: 10 }]
   if (w >= rampFloor) {
     for (const { fraction, reps } of ramp) {
-      const weight = nearest5(w * fraction)
+      const weight = owned ? loadableTotal(nearest5(w * fraction), 'down', owned) : nearest5(w * fraction)
       if (weight > steps[steps.length - 1].weight && weight < w) steps.push({ weight, reps })
     }
   }
@@ -34,12 +35,12 @@ export function warmupSteps(w: number, noBarStep = false): WarmupStep[] {
 }
 
 /** The hint for an exercise from set 1's typed weight: null unless it is a warm-up lift with a usable ramp. */
-export const warmupHint = (exerciseId: string, weight: string | undefined): string | null =>
-  hasWarmup(exerciseId) ? warmupLine(Number(weight), exerciseId === deadliftId) : null
+export const warmupHint = (exerciseId: string, weight: string | undefined, owned: readonly number[] | null = null): string | null =>
+  hasWarmup(exerciseId) ? warmupLine(Number(weight), exerciseId === deadliftId, owned) : null
 
 /** The hint line for set 1's working weight, or null when the ramp is empty. */
-export function warmupLine(w: number, noBarStep = false): string | null {
-  const steps = warmupSteps(w, noBarStep)
+export function warmupLine(w: number, noBarStep = false, owned: readonly number[] | null = null): string | null {
+  const steps = warmupSteps(w, noBarStep, owned)
   if (!steps.length) return null
   return `Warm-up (not logged): ${steps.map(({ weight, reps }) => `${weight === barWeight() ? 'bar' : weight} × ${reps}`).join(' · ')}`
 }
