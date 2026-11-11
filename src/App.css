@@ -571,6 +571,12 @@ a.landing-badge:hover { border-color: var(--primary); color: var(--ink); }
 .install-copy { flex: 1; min-width: 0; }
 .install-copy h2 { margin: 2px 0 4px; font-size: 17px; font-weight: 600; letter-spacing: -0.01em; }
 .install-copy p { margin: 0; color: var(--ink-muted); font-size: 14px; line-height: 1.45; }
+.whats-new-notes { margin: 6px 0 0; padding: 0 0 0 18px; color: var(--ink-muted); font-size: 14px; line-height: 1.5; }
+.preview-card.changelog-card { flex-direction: column; align-items: stretch; }
+.changelog-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.changelog-list > li { padding: 14px 16px; border-radius: var(--radius-md); background: var(--surface-2); }
+.changelog-list h3 { margin: 0 0 6px; font-size: 14px; font-weight: 600; }
+.changelog-list ul { margin: 0; padding: 0 0 0 18px; color: var(--ink-muted); font-size: 14px; line-height: 1.5; }
 .install-controls { flex: none; display: flex; }
 .install-icon-button { flex: none; width: 44px; height: 44px; display: grid; place-items: center; border: 0; border-radius: var(--radius-md); background: transparent; color: var(--ink-muted); transition: background-color var(--duration-hover) var(--ease-out), color var(--duration-hover) var(--ease-out); }
 .install-icon-button:hover { background: var(--surface-3); color: var(--ink); }

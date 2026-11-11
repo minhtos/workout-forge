@@ -1,9 +1,11 @@
 import { act, cleanup, fireEvent, render, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import App from './App'
+import { appVersion } from './domain/changelog'
 import { bannerStateKey } from './domain/installBanner'
 import { addExerciseToDay, createBlock } from './domain/program'
 import { emptyState } from './domain/storage'
+import { lastSeenVersionKey } from './domain/whatsNew'
 
 const stubStandalone = (standalone: boolean) => vi.stubGlobal('matchMedia', (query: string) => ({ matches: standalone && query === '(display-mode: standalone)', media: query, addEventListener: () => {}, removeEventListener: () => {} }))
 const bannerHeading = () => screen.queryByRole('heading', { name: 'Install Workout Forge' })
@@ -11,6 +13,7 @@ const chip = () => screen.queryByText(/get the app — tap for install steps/i)
 
 beforeEach(() => {
   window.localStorage.clear()
+  window.localStorage.setItem(lastSeenVersionKey, appVersion) // seeded data would otherwise put What's New in the banner slot
   stubStandalone(false)
   let block = createBlock(2, 4, 1, 'push')
   for (const day of [0, 1]) block = addExerciseToDay(block, day, 'barbell-bench-press')
