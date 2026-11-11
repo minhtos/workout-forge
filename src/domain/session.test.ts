@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { addExerciseToDay, createBlock, findWorkout, mergeCatalog, resolveWorkout } from './program'
 import { addSetEntry, applyEntryPatch, buildInitialSets, lastSessionSets, maxSetsPerExercise, previousSessionSets, skippedSinceLast, suggestionText, parseEntry, removeLastSetEntry, type TuneContext } from './session'
+import { dumbbellsLb, fullInventory, type EquipmentInventory } from './equipment'
 import type { CompletedSetRecord } from './storage'
 
 const catalog = mergeCatalog([])
@@ -148,12 +149,15 @@ const goldenScenarios: GoldenScenario[] = [
 describe('golden: default-path session targets are frozen (equipment inventory plan, T28/T29)', () => {
   it('T28 buildInitialSets output', () => {
     const out: Record<string, unknown> = {}
+    const withFull: Record<string, unknown> = {}
     for (const scenario of goldenScenarios) {
       for (const id of goldenIds) {
         const workout = { ...scenario.workout, exercises: scenario.workout.exercises.filter((exercise) => exercise.id === id) }
         out[`${id}|${scenario.name}`] = buildInitialSets(workout, scenario.history(id), 'new', scenario.tune?.(id))[id]
+        withFull[`${id}|${scenario.name}`] = buildInitialSets(workout, scenario.history(id), 'new', scenario.tune?.(id), fullInventory)[id]
       }
     }
+    expect(withFull).toEqual(out)
     expect(out).toMatchInlineSnapshot(`
       {
         "barbell-bench-press|carry-over": [
@@ -862,13 +866,17 @@ describe('golden: default-path session targets are frozen (equipment inventory p
 
   it('T29 suggestionText output', () => {
     const out: Record<string, string> = {}
+    const withFull: Record<string, string> = {}
     for (const scenario of goldenScenarios) {
       for (const id of goldenIds) {
         const history = scenario.history(id)
         const exercise = scenario.workout.exercises.find((item) => item.id === id)!
-        out[`${id}|${scenario.name}`] = suggestionText(exercise, scenario.workout, lastSessionSets(history, id, 'new'), scenario.tune?.(id), previousSessionSets(history, id, 'new'), false)
+        const args = [exercise, scenario.workout, lastSessionSets(history, id, 'new'), scenario.tune?.(id), previousSessionSets(history, id, 'new'), false] as const
+        out[`${id}|${scenario.name}`] = suggestionText(...args)
+        withFull[`${id}|${scenario.name}`] = suggestionText(...args, fullInventory)
       }
     }
+    expect(withFull).toEqual(out)
     expect(out).toMatchInlineSnapshot(`
       {
         "barbell-bench-press|carry-over": "Aim for 130 lb × 6. New block: based on 135 lb × 6 at 0 RIR last block (estimated max 162 lb), plus a step because it felt easy.",
@@ -901,5 +909,39 @@ describe('golden: default-path session targets are frozen (equipment inventory p
         "leg-press-machine|stalled": "Aim for 180 lb × 10. Missed reps two sessions in a row: weight drops about 10% to clear fatigue, same reps.",
       }
     `)
+  })
+})
+
+describe('session targets fitted to owned equipment', () => {
+  const fiveLbRack = (): EquipmentInventory => ({ missingPlates: [2.5], missingDumbbells: dumbbellsLb.filter((size) => size % 5 !== 0) })
+  const mixBlock = addExerciseToDay(addExerciseToDay(createBlock(2, 4), 0, 'barbell-bench-press'), 0, 'incline-dumbbell-curls')
+  const mixWeek = resolveWorkout(mixBlock, findWorkout(mixBlock, 'w2-d1')!, catalog)
+  const mixHistory = [...sessionOf3('barbell-bench-press', 135, 10), ...sessionOf3('incline-dumbbell-curls', 25, 12)]
+  const mixTune: TuneContext = { blockId: '2026-09-01T00:00:00.000Z', feedback: ['Chest', 'Biceps'].map((group) => ({ sessionId: 'a', blockId: '2026-09-01T00:00:00.000Z', group: group as 'Chest', effort: 'easy' as const, at: '2026-10-01T11:00:00.000Z' })) }
+
+  function sessionOf3(id: string, weight: number, reps: number): CompletedSetRecord[] {
+    return [1, 2, 3].map((index) => goldenSet(id, 'a', index, weight, reps, reps, '2026-10-01T10:00:00.000Z', 3))
+  }
+
+  it('T30 snaps an easy barbell step up and holds a too-big dumbbell step for a rep', () => {
+    const sets = buildInitialSets(mixWeek, mixHistory, 'new', mixTune, fiveLbRack())
+    expect(sets['barbell-bench-press'][0]).toMatchObject({ weight: '145', reps: '10' })
+    expect(sets['incline-dumbbell-curls'][0]).toMatchObject({ weight: '25', reps: '13', targetReps: 13 })
+  })
+
+  it('T31 appends the fit note after the engine note and before the skipped sentence', () => {
+    const curls = mixWeek.exercises.find((exercise) => exercise.id === 'incline-dumbbell-curls')!
+    const last = lastSessionSets(mixHistory, 'incline-dumbbell-curls', 'new')
+    expect(suggestionText(curls, mixWeek, last, mixTune, [], true, fiveLbRack())).toBe(
+      'Aim for 25 lb × 13. Last time was easy: +2.5 lb. The next dumbbell you have (30 lb) is a big jump: staying at 25 lb, +1 rep. You skipped this last time, so the target repeats.')
+  })
+
+  it('T32 leaves a machine prefill identical with both kinds restricted', () => {
+    const restricted: EquipmentInventory = { missingPlates: [2.5, 35], missingDumbbells: [7.5, 12.5, 17.5, 22.5] }
+    for (const scenario of goldenScenarios) {
+      const workout = { ...scenario.workout, exercises: scenario.workout.exercises.filter((exercise) => exercise.id === 'leg-press-machine') }
+      const history = scenario.history('leg-press-machine')
+      expect(buildInitialSets(workout, history, 'new', scenario.tune?.('leg-press-machine'), restricted)).toEqual(buildInitialSets(workout, history, 'new', scenario.tune?.('leg-press-machine')))
+    }
   })
 })

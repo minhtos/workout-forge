@@ -3,6 +3,7 @@ import { listWorkouts, type Block, type ExercisePrescription, type ScheduledWork
 import { feedbackFor, missedReps, nextSetTarget, usesFeedback, type SessionFeedback } from './autoregulation'
 import { deloadLoad, linearIncrement } from './progression'
 import { carryOverFor } from './transition'
+import { fitTarget, fullInventory, type EquipmentInventory } from './equipment'
 import type { CompletedSetRecord, SetEntry } from './storage'
 
 /** The most recent earlier sessions that included this exercise, newest first, each with its sets in order. */
@@ -37,8 +38,8 @@ export interface TuneContext { feedback: SessionFeedback[]; blockId: string | nu
 /** A fresh set. The rep target is remembered so a set that falls short can be recognised later. */
 const entryFor = (weight: number | string, reps: number, targetRir: string): SetEntry => ({ weight: String(weight), reps: String(reps), rir: targetRir, complete: false, targetReps: reps })
 
-/** Builds the session's rows from a workout whose sets are already tuned (see tuneWorkoutSets). */
-export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSetRecord[], sessionId: string, tune?: TuneContext): Record<string, SetEntry[]> {
+/** Builds the session's rows from a workout whose sets are already tuned (see tuneWorkoutSets). Each target is fitted to the equipment owned (see fitTarget). */
+export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSetRecord[], sessionId: string, tune?: TuneContext, inventory: EquipmentInventory = fullInventory): Record<string, SetEntry[]> {
   const targetRir = String(workout.target.targetRir)
   const tuning = tune && usesFeedback(workout) ? tune : undefined
   return Object.fromEntries(workout.exercises.map((exercise) => {
@@ -49,14 +50,18 @@ export function buildInitialSets(workout: ScheduledWorkout, history: CompletedSe
     const entries = Array.from({ length: exercise.sets }, (_, index): SetEntry => {
       const base = last[index] ?? last[last.length - 1]
       if (!base) return entryFor('', exercise.repRange.min, targetRir)
-      if (workout.target.kind === 'deload') return entryFor(deloadLoad(Math.max(...last.map((set) => set.weight)), workout.target.loadMultiplier), base.reps, targetRir)
+      const fitted = (target: { weight: number; reps: number }, from: { weight: number; reps: number }): SetEntry => {
+        const fit = fitTarget({ exercise, target, from, inventory })
+        return entryFor(fit.weight, fit.reps, targetRir)
+      }
+      if (workout.target.kind === 'deload') return fitted({ weight: deloadLoad(Math.max(...last.map((set) => set.weight)), workout.target.loadMultiplier), reps: base.reps }, { weight: Math.max(...last.map((set) => set.weight)), reps: base.reps })
       if (workout.progression === 'linear') {
         const next = linearNext(exercise, last)
-        return entryFor(next.weight, next.reps, targetRir)
+        return fitted(next, { weight: Math.max(...last.map((set) => set.weight)), reps: base.reps })
       }
-      if (carry) return entryFor(carry.weight, carry.reps, targetRir)
+      if (carry) return fitted(carry, { weight: carry.fromWeight, reps: carry.fromReps })
       const next = nextSetTarget({ exercise, last, previous, index, fb, all: tuning?.feedback ?? [] })
-      return entryFor(next.weight, next.reps, targetRir)
+      return fitted(next, { weight: base.weight, reps: base.reps })
     })
     return [exercise.id, entries]
   }))
@@ -80,24 +85,35 @@ export function skippedSinceLast(block: Block, exerciseId: string, last: Complet
   return order.slice(from + 1, to).some((workout) => block.completedIds.includes(workout.id) && block.templates[workout.templateIndex].exercises.some((entry) => entry.exerciseId === exerciseId))
 }
 
-export function suggestionText(exercise: ExercisePrescription, workout: ScheduledWorkout, last: CompletedSetRecord[], tune?: TuneContext, previous: CompletedSetRecord[] = [], skippedLast = false): string {
-  const text = baseSuggestion(exercise, workout, last, tune, previous)
+export function suggestionText(exercise: ExercisePrescription, workout: ScheduledWorkout, last: CompletedSetRecord[], tune?: TuneContext, previous: CompletedSetRecord[] = [], skippedLast = false, inventory: EquipmentInventory = fullInventory): string {
+  const text = baseSuggestion(exercise, workout, last, tune, previous, inventory)
   return skippedLast && last.length ? `${text} You skipped this last time, so the target repeats.` : text
 }
 
-function baseSuggestion(exercise: ExercisePrescription, workout: ScheduledWorkout, last: CompletedSetRecord[], tune: TuneContext | undefined, previous: CompletedSetRecord[]): string {
+function baseSuggestion(exercise: ExercisePrescription, workout: ScheduledWorkout, last: CompletedSetRecord[], tune: TuneContext | undefined, previous: CompletedSetRecord[], inventory: EquipmentInventory): string {
   const base = last[last.length - 1]
   if (!base) return workout.progression === 'linear' ? 'First time: start light and add weight each session.' : `First time: pick a weight and reps that leave about ${workout.target.targetRir} in reserve.`
-  if (workout.target.kind === 'deload') return `Deload: ${deloadLoad(Math.max(...last.map((set) => set.weight)), workout.target.loadMultiplier)} lb for ${base.reps} reps (half your last load).`
+  const fitted = (target: { weight: number; reps: number }, from: { weight: number; reps: number }) => fitTarget({ exercise, target, from, inventory })
+  const withNote = (text: string, note: string | null) => (note ? `${text} ${note}` : text)
+  if (workout.target.kind === 'deload') {
+    const top = Math.max(...last.map((set) => set.weight))
+    const fit = fitted({ weight: deloadLoad(top, workout.target.loadMultiplier), reps: base.reps }, { weight: top, reps: base.reps })
+    return withNote(`Deload: ${fit.weight} lb for ${fit.reps} reps (half your last load).`, fit.note)
+  }
   if (workout.progression === 'linear') {
     const next = linearNext(exercise, last)
-    return next.added ? `Hit every rep last time. Add weight: ${next.weight} lb × ${next.reps}.` : `Missed reps last time. Repeat ${next.weight} lb × ${next.reps}.`
+    const fit = fitted(next, { weight: Math.max(...last.map((set) => set.weight)), reps: base.reps })
+    return withNote(next.added ? `Hit every rep last time. Add weight: ${fit.weight} lb × ${fit.reps}.` : `Missed reps last time. Repeat ${fit.weight} lb × ${fit.reps}.`, fit.note)
   }
   const carry = tune && usesFeedback(workout) ? carryOverFor({ exercise, last, blockId: tune.blockId, feedback: tune.feedback }) : null
-  if (carry) return `Aim for ${carry.weight} lb × ${carry.reps}. New block: based on ${carry.fromWeight} lb × ${carry.fromReps} at 0 RIR last block (estimated max ${Math.round(carry.oneRepMax)} lb)${carry.easy ? ', plus a step because it felt easy' : ''}.`
+  if (carry) {
+    const fit = fitted(carry, { weight: carry.fromWeight, reps: carry.fromReps })
+    return withNote(`Aim for ${fit.weight} lb × ${fit.reps}. New block: based on ${carry.fromWeight} lb × ${carry.fromReps} at 0 RIR last block (estimated max ${Math.round(carry.oneRepMax)} lb)${carry.easy ? ', plus a step because it felt easy' : ''}.`, fit.note)
+  }
   const fb = tune && usesFeedback(workout) ? feedbackFor(tune.feedback, base.sessionId, exercise.category) : undefined
   const next = nextSetTarget({ exercise, last, previous, index: last.length - 1, fb, all: tune?.feedback ?? [] })
-  return `Aim for ${next.weight} lb × ${next.reps}. ${next.note}`
+  const fit = fitted(next, { weight: base.weight, reps: base.reps })
+  return withNote(`Aim for ${fit.weight} lb × ${fit.reps}. ${next.note}`, fit.note)
 }
 
 /**
