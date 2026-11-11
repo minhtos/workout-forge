@@ -23,9 +23,13 @@ describe('changelog', () => {
   })
 
   it('announces itself in the latest notes', () => {
-    const latest = changelog[0].notes.join(' ')
-    expect(latest).toContain("What's New")
-    expect(latest).toContain('Settings → Changelog')
+    expect(changelog[0].notes.join(' ')).toContain('Settings → Equipment')
+  })
+
+  it('keeps the 0.1.0 entry announcing What’s New and the changelog', () => {
+    const first = changelog.find((entry) => entry.version === '0.1.0')!.notes.join(' ')
+    expect(first).toContain("What's New")
+    expect(first).toContain('Settings → Changelog')
   })
 
   it('formats dates in local time', () => {

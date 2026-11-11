@@ -12,6 +12,14 @@ export const appVersion: string = __APP_VERSION__
 /** Newest first. A feature PR adds its entry here and bumps package.json; changelog.test.ts keeps the two together. */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '0.2.0',
+    date: '2026-11-11',
+    notes: [
+      "New: Settings → Equipment — uncheck the plates and dumbbells your gym doesn't have, and suggested weights, plate loads and warm-ups fit what's left.",
+      'A weight you type is always kept, and nothing changes until you edit the list.',
+    ],
+  },
+  {
     version: '0.1.0',
     date: '2026-11-11',
     notes: [
