@@ -30,16 +30,16 @@ function startWith(block: ReturnType<typeof lockedBlock>, weight: string) {
 describe('warm-up hint in the session', () => {
   it('shows the ramp above the set table for a compound barbell lift, and follows the typed weight', () => {
     startWith(lockedBlock('barbell-squat'), '135')
-    expect(hint()).toBe('Warm-up (not logged): bar × 10 · 55 × 5 · 80 × 3 · 110 × 1')
+    expect(hint()).toBe('Warm-up (not logged): bar × 10 · 55 × 5 · 85 × 3 · 105 × 1')
     fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '225' } })
-    expect(hint()).toBe('Warm-up (not logged): bar × 10 · 90 × 5 · 135 × 3 · 180 × 1')
+    expect(hint()).toBe('Warm-up (not logged): bar × 10 · 95 × 5 · 135 × 3 · 185 × 1')
     fireEvent.change(screen.getByLabelText('Set 1 weight'), { target: { value: '' } })
     expect(hint()).toBeNull()
   })
 
   it('skips the bar step for the deadlift', () => {
     startWith(lockedBlock('barbell-deadlift'), '225')
-    expect(hint()).toBe('Warm-up (not logged): 90 × 5 · 135 × 3 · 180 × 1')
+    expect(hint()).toBe('Warm-up (not logged): 95 × 5 · 135 × 3 · 185 × 1')
   })
 
   it('stays off barbell curls, dumbbell and machine compounds', () => {
@@ -71,7 +71,7 @@ describe('warm-up hint in the session', () => {
   it('shows in a StrongLifts 5x5 session, following that weight', () => {
     const strength = { ...applyWorkoutSet(createBlock(3, 4), findWorkoutSet('strength-5x5')!), locked: true, startedAt: '2026-09-28T09:00:00.000Z' }
     startWith(strength, '100')
-    expect(hint()).toBe('Warm-up (not logged): bar × 10 · 60 × 3 · 80 × 1')
+    expect(hint()).toBe('Warm-up (not logged): bar × 10 · 65 × 3 · 85 × 1')
   })
 
   it('shows in a deload week, following the lighter prefilled weight', () => {
@@ -85,7 +85,7 @@ describe('warm-up hint in the session', () => {
     fireEvent.click(screen.getByRole('button', { name: /start workout/i }))
     expect(screen.getByText(/week 5 · deload/i)).toBeTruthy()
     expect((screen.getByLabelText('Set 1 weight') as HTMLInputElement).value).toBe('100')
-    expect(hint()).toBe('Warm-up (not logged): bar × 10 · 60 × 3 · 80 × 1')
+    expect(hint()).toBe('Warm-up (not logged): bar × 10 · 65 × 3 · 85 × 1')
   })
 
   it('GUARD: showing the hint writes nothing, and completing set 1 adds exactly one history record', () => {
