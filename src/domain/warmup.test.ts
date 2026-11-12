@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { barWeight } from './plateGuide'
 import { baseExercises } from './program'
-import { hasWarmup, warmupLine, warmupSteps } from './warmup'
+import { hasWarmup, warmupHint, warmupLine, warmupSteps } from './warmup'
 
 const bar = barWeight()
 const weights = (w: number, deadlift = false) => warmupSteps(w, deadlift).map((step) => step.weight)
@@ -86,5 +86,30 @@ describe('hasWarmup (trigger matrix)', () => {
   it('excludes non-compound barbell lifts, dumbbell and machine compounds, and custom exercises', () => {
     expect(hasWarmup('barbell-squat')).toBe(true)
     for (const id of ['barbell-curls', 'barbell-wrist-curl', 'dumbbell-incline-bench-press', 'leg-press-machine', 'machine-hip-thrust', 'custom-my-lift']) expect(hasWarmup(id)).toBe(false)
+  })
+})
+
+describe('warmupSteps with owned plates', () => {
+  const noTwoPointFives = [45, 35, 25, 10, 5]
+  const line = (w: number, owned: number[]) => warmupSteps(w, false, owned).map((step) => `${step.weight}×${step.reps}`).join(' · ')
+
+  it('T25 loads each ramp step with the owned plates', () => {
+    expect(line(225, noTwoPointFives)).toBe('45×10 · 85×5 · 135×3 · 175×1')
+    expect(line(225, [45, 25])).toBe('45×10 · 135×3 · 145×1')
+    expect(line(135, noTwoPointFives)).toBe('45×10 · 55×5 · 75×3 · 105×1')
+    expect(line(135, [45, 25])).toBe('45×10 · 95×1')
+    expect(line(315, noTwoPointFives)).toBe('45×10 · 125×5 · 185×3 · 245×1')
+    expect(line(315, [45, 25])).toBe('45×10 · 95×5 · 185×3 · 245×1')
+  })
+
+  it('T26 GOLDEN: no owned plates (the default) is the unchanged ramp at every weight', () => {
+    for (let w = 0; w <= 600; w += 2.5) {
+      for (const noBarStep of [false, true]) expect(warmupSteps(w, noBarStep)).toEqual(warmupSteps(w, noBarStep, null))
+    }
+    expect(warmupSteps(135)).toEqual([{ weight: 45, reps: 10 }, { weight: 55, reps: 5 }, { weight: 80, reps: 3 }, { weight: 110, reps: 1 }])
+  })
+
+  it('T27 passes the owned plates through the hint', () => {
+    expect(warmupHint('barbell-squat', '225', [45, 35, 25, 10, 5])).toBe('Warm-up (not logged): bar × 10 · 85 × 5 · 135 × 3 · 175 × 1')
   })
 })

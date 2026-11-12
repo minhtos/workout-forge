@@ -2,8 +2,8 @@ import type { CSSProperties } from 'react'
 import { plateLoad } from '../domain/plateGuide'
 
 /** The barbell plate guide: [Bar 45] then one labeled block per plate on one side, heaviest first (the other side mirrors it). */
-export function PlateBlocks({ weight }: { weight: number }) {
-  const load = plateLoad(weight, 'lb')
+export function PlateBlocks({ weight, owned = null }: { weight: number; owned?: readonly number[] | null }) {
+  const load = plateLoad(weight, 'lb', owned)
   if (!load) return null
   const { bar, plates, total, exact } = load
   const heaviest = plates[0]

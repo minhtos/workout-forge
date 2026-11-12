@@ -6,7 +6,7 @@ export type MuscleGroup = 'Chest' | 'Back' | 'Shoulders' | 'Triceps' | 'Biceps' 
 /** `compound` marks a large compound lift (rep max 12); everything else has a rep max of 15. */
 /** `barbell` marks a lift loaded with plates on a barbell (the session view shows a plate guide for it). */
 export interface ExerciseCatalogItem { id: string; name: string; category: MuscleGroup; compound?: boolean; barbell?: boolean }
-export interface ExercisePrescription { id: string; name: string; category: MuscleGroup; sets: number; repRange: RepRange; barbell?: boolean }
+export interface ExercisePrescription { id: string; name: string; category: MuscleGroup; sets: number; repRange: RepRange; barbell?: boolean; compound?: boolean }
 
 /**
  * One exercise on a training day. `exerciseId` is null for a slot that came from a Workout Set and

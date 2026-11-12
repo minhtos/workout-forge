@@ -4,6 +4,7 @@ import { findPersonalRecord, recordText } from '../domain/personalRecord'
 import { PlateBlocks } from './PlateBlocks'
 import { FormCues } from './FormCues'
 import { warmupHint } from '../domain/warmup'
+import { ownedPlates, type EquipmentInventory } from '../domain/equipment'
 import type { RepNotice } from '../domain/repAdjust'
 import { describeLastSession, lastSessionSets, maxSetsPerExercise, previousSessionSets, suggestionText, type TuneContext } from '../domain/session'
 import type { ExercisePrescription, ScheduledWorkout } from '../domain/program'
@@ -12,6 +13,7 @@ import type { ActiveSession, CompletedSetRecord, SetEntry } from '../domain/stor
 const repOptions = Array.from({ length: 30 }, (_, index) => index + 1)
 
 interface Props {
+  equipment: EquipmentInventory
   workout: ScheduledWorkout
   session: ActiveSession
   history: CompletedSetRecord[]
@@ -38,7 +40,7 @@ interface Props {
   onDiscard: () => void
 }
 
-export function SessionView({ workout, session, history, syncLabel, restTimer, tune, repNotices, error, dismissedPrs, onDismissPr, onBack, onUpdate, onToggle, onAddSet, onRemoveSet, onSkip, onRestore, skippedLast, onFinish, onDiscard }: Props) {
+export function SessionView({ equipment, workout, session, history, syncLabel, restTimer, tune, repNotices, error, dismissedPrs, onDismissPr, onBack, onUpdate, onToggle, onAddSet, onRemoveSet, onSkip, onRestore, skippedLast, onFinish, onDiscard }: Props) {
   const linear = workout.progression === 'linear'
   const skipped = session.skipped ?? []
   const entries = Object.entries(session.sets).filter(([id]) => !skipped.includes(id)).flatMap(([, rows]) => rows)
@@ -60,7 +62,7 @@ export function SessionView({ workout, session, history, syncLabel, restTimer, t
       const record = dismissedPrs[exercise.id] ? null : findPersonalRecord(history, session.sessionId, exercise.id)
       const showPlates = exercise.barbell && current >= 0
       // Display-only: derived from the rows at render time, never written anywhere (it is not a logged set).
-      const warmup = rows.some((row) => row.complete) ? null : warmupHint(exercise.id, rows[0]?.weight)
+      const warmup = rows.some((row) => row.complete) ? null : warmupHint(exercise.id, rows[0]?.weight, ownedPlates(equipment))
       if (skipped.includes(exercise.id)) return <article className="exercise-card is-skipped" key={exercise.id}>
         <div className="exercise-title"><div><span className="exercise-index">{String(exerciseIndex + 1).padStart(2, '0')}</span><h2>{exercise.name}</h2><p>Skipped for this session. Nothing is logged for it.</p></div></div>
         <div className="set-actions"><button className="add-set" aria-label={`Restore ${exercise.name}`} onClick={() => onRestore(exercise.id)}>Restore exercise</button></div>
@@ -70,9 +72,9 @@ export function SessionView({ workout, session, history, syncLabel, restTimer, t
         <button type="button" className="last-toggle" aria-expanded={openLast[exercise.id] === true} aria-controls={`${exercise.id}-last`} aria-label={`${exercise.name} last time & suggestion`} onClick={() => setOpenLast((open) => ({ ...open, [exercise.id]: !open[exercise.id] }))}><span>Last time &amp; suggestion</span><svg className="chevron" width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><path d="M6 3l5 5-5 5" /></svg></button>
         <div id={`${exercise.id}-last`} hidden={openLast[exercise.id] !== true}>
           {last.length > 0 && <p className="last-time">Last time: {describeLastSession(last)}</p>}
-          <p className="suggestion">{suggestionText(exercise, workout, last, tune, previousSessionSets(history, exercise.id, session.sessionId), skippedLast(exercise.id))}</p>
+          <p className="suggestion">{suggestionText(exercise, workout, last, tune, previousSessionSets(history, exercise.id, session.sessionId), skippedLast(exercise.id), equipment)}</p>
         </div>
-        {showPlates && <PlateBlocks weight={Number(rows[current].weight)} />}
+        {showPlates && <PlateBlocks weight={Number(rows[current].weight)} owned={ownedPlates(equipment)} />}
         {warmup && <p className="warmup-hint">{warmup}</p>}
         <div className="set-table set-table-rir" role="table" aria-label={`${exercise.name} set log`}>
           <div className="set-head" role="row"><span>SET</span><span>WEIGHT</span><span>REPS</span><span>DONE</span></div>
