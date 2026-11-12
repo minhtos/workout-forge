@@ -84,4 +84,9 @@ describe('SettingsView equipment', () => {
     expect(chip('45 lb plates').disabled).toBe(false)
     expect(chip('50 lb dumbbells').disabled).toBe(false)
   })
+
+  it('T44 shows the keep-one-checked hint where everyone can read it', () => {
+    renderSettings()
+    expect(screen.getByText('At least one size stays checked in each list.').tagName).toBe('P')
+  })
 })

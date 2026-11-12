@@ -57,6 +57,7 @@ export function SettingsView({ planStatus, librarySummary, onOpenLibrary, restTi
     <section className="preview-card equipment-card"><div><span className="preview-label">EQUIPMENT</span><h2>Plates and dumbbells</h2><p>Uncheck what your gym doesn't have. Suggested weights, plate loads and warm-ups then fit what's left. A weight you type is always kept.</p></div>
       <SizeChips legend="Plates (pairs, lb)" sizes={platesLb} missing={equipment.missingPlates} noun="plates" onChange={(missingPlates) => onEquipment({ ...equipment, missingPlates })} />
       <SizeChips legend="Dumbbells (pairs, lb, per dumbbell)" sizes={dumbbellsLb} missing={equipment.missingDumbbells} noun="dumbbells" onChange={(missingDumbbells) => onEquipment({ ...equipment, missingDumbbells })} />
+      <p className="hint">At least one size stays checked in each list.</p>
       <button type="button" className="secondary-button" disabled={equipment.missingPlates.length === 0 && equipment.missingDumbbells.length === 0} onClick={() => onEquipment(fullInventory)}>Check all</button>
     </section>
     {cloudEnabled && <section className="preview-card feedback-card"><div><span className="preview-label">FEEDBACK</span><h2>Help shape Workout Forge</h2><p>Missing an exercise, or something feels off? Send it straight to the developer — every note is read.</p></div>
