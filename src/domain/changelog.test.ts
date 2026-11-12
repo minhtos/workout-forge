@@ -26,8 +26,12 @@ describe('changelog', () => {
     expect(changelog.find((entry) => entry.version === '0.2.0')!.notes.join(' ')).toContain('Settings → Equipment')
   })
 
-  it('announces the heaviest-dumbbell fix in the latest notes', () => {
-    expect(changelog[0].notes.join(' ')).toContain('heaviest dumbbell')
+  it('keeps the 0.2.1 entry announcing the heaviest-dumbbell fix', () => {
+    expect(changelog.find((e) => e.version === '0.2.1')!.notes.join(' ')).toContain('heaviest dumbbell')
+  })
+
+  it('announces the warm-up simplification in the latest notes', () => {
+    expect(changelog[0].notes.join(' ')).toContain('Simpler warm-ups')
   })
 
   it('keeps the 0.1.0 entry announcing What’s New and the changelog', () => {
