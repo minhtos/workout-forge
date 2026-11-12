@@ -12,6 +12,14 @@ export const appVersion: string = __APP_VERSION__
 /** Newest first. A feature PR adds its entry here and bumps package.json; changelog.test.ts keeps the two together. */
 export const changelog: ChangelogEntry[] = [
   {
+    version: '0.3.0',
+    date: '2026-11-11',
+    notes: [
+      "Simpler warm-ups: every warm-up weight now loads with at most two plate sizes per side, from the plates you have — and never the 2.5 lb plates. Less to load and strip between warm-up sets.",
+      "Warm-up weights may move a few pounds off the exact 40/60/80% to land on those loads. Your working sets don't change.",
+    ],
+  },
+  {
     version: '0.2.1',
     date: '2026-11-11',
     notes: [
