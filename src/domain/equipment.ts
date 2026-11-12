@@ -82,18 +82,22 @@ export function fitTarget(args: { exercise: ExercisePrescription; target: { weig
   }
   const limit = exercise.compound ? jumpLimit.compound : jumpLimit.isolation
   const next = owned.find((size) => size >= target.weight)
-  if (next !== undefined && (from.weight <= 0 || (next - from.weight) / from.weight <= limit + 1e-9)) return { weight: next, reps: target.reps, note: `Next dumbbell you have: ${next} lb.` }
+  const heaviest = owned[owned.length - 1]
+  // Past the top of the rack the heaviest owned size is the step, when it is above the last weight.
+  const beyondRack = next === undefined && heaviest > from.weight
+  const step = beyondRack ? heaviest : next
+  if (step !== undefined && (from.weight <= 0 || (step - from.weight) / from.weight <= limit + 1e-9)) return { weight: step, reps: target.reps, note: beyondRack ? `Heaviest dumbbell you have: ${step} lb.` : `Next dumbbell you have: ${step} lb.` }
   // Below every owned size there is nothing to hold at: take the lightest dumbbell at the target reps, no rep bonus.
   if (from.weight < smallest) return { weight: smallest, reps: target.reps, note: `Lightest dumbbell you have: ${smallest} lb.` }
   const hold = [...owned].reverse().find((size) => size <= from.weight) ?? smallest
   // "Staying" is only true when the weight really is unchanged; a typed off-inventory weight drops to the size below it.
   const staying = hold === from.weight
   if (from.reps < max) {
-    const note = next !== undefined
-      ? `The next dumbbell you have (${next} lb) is a big jump: ${staying ? 'staying at' : 'adjusted to'} ${hold} lb, +1 rep.`
+    const note = step !== undefined
+      ? `${beyondRack ? `Your heaviest dumbbell (${step} lb)` : `The next dumbbell you have (${step} lb)`} is a big jump: ${staying ? 'staying at' : 'adjusted to'} ${hold} lb, +1 rep.`
       : staying ? `${hold} lb is your heaviest dumbbell: staying there, +1 rep.` : `Adjusted to ${hold} lb, your heaviest dumbbell, +1 rep.`
     return { weight: hold, reps: Math.min(from.reps + 1, max), note }
   }
-  if (next !== undefined) return { weight: next, reps: min, note: `Top of the rep range: up to ${next} lb, the next dumbbell you have, back to ${min} reps.` }
+  if (step !== undefined) return { weight: step, reps: min, note: `Top of the rep range: up to ${step} lb, ${beyondRack ? 'your heaviest dumbbell' : 'the next dumbbell you have'}, back to ${min} reps.` }
   return { weight: hold, reps: max, note: staying ? `${hold} lb is your heaviest dumbbell: staying there at ${max} reps.` : `Adjusted to ${hold} lb, your heaviest dumbbell, at ${max} reps.` }
 }
