@@ -82,12 +82,18 @@ export function fitTarget(args: { exercise: ExercisePrescription; target: { weig
   }
   const limit = exercise.compound ? jumpLimit.compound : jumpLimit.isolation
   const next = owned.find((size) => size >= target.weight)
-  const hold = [...owned].reverse().find((size) => size <= from.weight) ?? smallest
   if (next !== undefined && (from.weight <= 0 || (next - from.weight) / from.weight <= limit + 1e-9)) return { weight: next, reps: target.reps, note: `Next dumbbell you have: ${next} lb.` }
+  // Below every owned size there is nothing to hold at: take the lightest dumbbell at the target reps, no rep bonus.
+  if (from.weight < smallest) return { weight: smallest, reps: target.reps, note: `Lightest dumbbell you have: ${smallest} lb.` }
+  const hold = [...owned].reverse().find((size) => size <= from.weight) ?? smallest
+  // "Staying" is only true when the weight really is unchanged; a typed off-inventory weight drops to the size below it.
+  const staying = hold === from.weight
   if (from.reps < max) {
-    const note = next !== undefined ? `The next dumbbell you have (${next} lb) is a big jump: staying at ${hold} lb, +1 rep.` : `${hold} lb is your heaviest dumbbell: staying there, +1 rep.`
+    const note = next !== undefined
+      ? `The next dumbbell you have (${next} lb) is a big jump: ${staying ? 'staying at' : 'adjusted to'} ${hold} lb, +1 rep.`
+      : staying ? `${hold} lb is your heaviest dumbbell: staying there, +1 rep.` : `Adjusted to ${hold} lb, your heaviest dumbbell, +1 rep.`
     return { weight: hold, reps: Math.min(from.reps + 1, max), note }
   }
   if (next !== undefined) return { weight: next, reps: min, note: `Top of the rep range: up to ${next} lb, the next dumbbell you have, back to ${min} reps.` }
-  return { weight: hold, reps: max, note: `${hold} lb is your heaviest dumbbell: staying there at ${max} reps.` }
+  return { weight: hold, reps: max, note: staying ? `${hold} lb is your heaviest dumbbell: staying there at ${max} reps.` : `Adjusted to ${hold} lb, your heaviest dumbbell, at ${max} reps.` }
 }

@@ -146,4 +146,25 @@ describe('fitTarget', () => {
     }
     expect(weights).toEqual([145, 155, 165, 175])
   })
+
+  it('T42 fits a below-range dumbbell increase to the lightest owned size at the target reps', () => {
+    const rack = onlyDumbbells([10, 12.5, 15])
+    const lateralRaise = curl
+    expect(fit(lateralRaise, [7.5, 12], [5, 12], rack)).toEqual({ weight: 10, reps: 12, note: 'Lightest dumbbell you have: 10 lb.' })
+    // maxed reps still take the target reps, not the top-of-range reset
+    expect(fit(lateralRaise, [7.5, 8], [5, 15], rack)).toEqual({ weight: 10, reps: 8, note: 'Lightest dumbbell you have: 10 lb.' })
+    // in range is untouched: 10 -> 12.5 is a 25% jump, so it holds and adds a rep
+    expect(fit(lateralRaise, [11, 12], [10, 12], rack)).toEqual({ weight: 10, reps: 13, note: 'The next dumbbell you have (12.5 lb) is a big jump: staying at 10 lb, +1 rep.' })
+  })
+
+  it('T43 a hold or drop that lands above the from weight keeps its reps and says "Adjusted", never "staying"', () => {
+    expect(fit(curl, [5, 12], [5, 12], onlyDumbbells([10, 12.5]))).toEqual({ weight: 10, reps: 12, note: 'Adjusted to 10 lb to match your dumbbells.' })
+  })
+
+  it('T45 never says "staying" when a typed off-inventory weight drops to the size below it', () => {
+    const fiveLbRack = onlyDumbbells(dumbbellsLb.filter((size) => size % 5 === 0 && size <= 25))
+    expect(fit(curl, [30, 10], [27.5, 10], fiveLbRack)).toEqual({ weight: 25, reps: 11, note: 'Adjusted to 25 lb, your heaviest dumbbell, +1 rep.' })
+    expect(fit(curl, [30, 8], [27.5, 15], fiveLbRack)).toEqual({ weight: 25, reps: 15, note: 'Adjusted to 25 lb, your heaviest dumbbell, at 15 reps.' })
+    expect(fit(curl, [30, 10], [27.5, 10], onlyDumbbells([20, 25, 40]))).toEqual({ weight: 25, reps: 11, note: 'The next dumbbell you have (40 lb) is a big jump: adjusted to 25 lb, +1 rep.' })
+  })
 })
