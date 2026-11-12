@@ -137,6 +137,23 @@ describe('fitTarget', () => {
     expect(fit(curl, [55, 8], [50, 15], rack)).toEqual({ weight: 50, reps: 15, note: '50 lb is your heaviest dumbbell: staying there at 15 reps.' })
   })
 
+  it('T46 judges a target past the top of the rack against the heaviest owned size, not the size at or below the last weight', () => {
+    const rack = onlyDumbbells([10, 15, 20, 22.5])
+    // 20 -> 22.5 is 12.5%: inside the compound limit, so it steps to the heaviest instead of holding at 20
+    expect(fit(press, [25, 10], [20, 10], rack)).toEqual({ weight: 22.5, reps: 10, note: 'Heaviest dumbbell you have: 22.5 lb.' })
+    // over the isolation limit: hold, and the note does not call 20 lb the heaviest
+    expect(fit(curl, [25, 10], [20, 10], rack)).toEqual({ weight: 20, reps: 11, note: 'Your heaviest dumbbell (22.5 lb) is a big jump: staying at 20 lb, +1 rep.' })
+    expect(fit(curl, [25, 8], [20, 15], rack)).toEqual({ weight: 22.5, reps: 8, note: 'Top of the rep range: up to 22.5 lb, your heaviest dumbbell, back to 8 reps.' })
+    // a typed off-inventory weight that drops to the size below is "adjusted", never "staying"
+    expect(fit(curl, [30, 10], [21, 10], onlyDumbbells([10, 15, 20, 25]))).toEqual({ weight: 20, reps: 11, note: 'Your heaviest dumbbell (25 lb) is a big jump: adjusted to 20 lb, +1 rep.' })
+  })
+
+  it('T47 holds and adds a rep only when the last weight already is the heaviest owned size', () => {
+    const rack = onlyDumbbells([10, 15, 20, 22.5])
+    expect(fit(curl, [27.5, 10], [22.5, 10], rack)).toEqual({ weight: 22.5, reps: 11, note: '22.5 lb is your heaviest dumbbell: staying there, +1 rep.' })
+    expect(fit(curl, [27.5, 8], [22.5, 15], rack)).toEqual({ weight: 22.5, reps: 15, note: '22.5 lb is your heaviest dumbbell: staying there at 15 reps.' })
+  })
+
   it('T18 never stalls a barbell progressing +5 without 2.5s', () => {
     let from = 135
     const weights: number[] = []

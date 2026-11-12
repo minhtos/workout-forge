@@ -31,7 +31,7 @@ describe('what’s new banner', () => {
     window.localStorage.setItem(lastSeenVersionKey, '0.0.0')
     const { unmount } = render(<App />)
     expect(bannerHeading()).toBeTruthy()
-    expect(screen.getByText("New: Settings → Equipment — uncheck the plates and dumbbells your gym doesn't have, and suggested weights, plate loads and warm-ups fit what's left.")).toBeTruthy()
+    expect(screen.getByText('Fixed: dumbbell suggestions now name your actual heaviest dumbbell when a target goes past the top of your rack, and step up to it when the jump is small enough.')).toBeTruthy()
     expect(installHeading()).toBeNull()
     fireEvent.click(screen.getByRole('button', { name: "Dismiss what's new" }))
     expect(lastSeen()).toBe(appVersion)

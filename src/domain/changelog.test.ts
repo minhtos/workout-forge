@@ -22,8 +22,12 @@ describe('changelog', () => {
     for (const entry of changelog) expect(entry.notes.length).toBeGreaterThan(0)
   })
 
-  it('announces itself in the latest notes', () => {
-    expect(changelog[0].notes.join(' ')).toContain('Settings → Equipment')
+  it('keeps the 0.2.0 entry announcing Settings → Equipment', () => {
+    expect(changelog.find((entry) => entry.version === '0.2.0')!.notes.join(' ')).toContain('Settings → Equipment')
+  })
+
+  it('announces the heaviest-dumbbell fix in the latest notes', () => {
+    expect(changelog[0].notes.join(' ')).toContain('heaviest dumbbell')
   })
 
   it('keeps the 0.1.0 entry announcing What’s New and the changelog', () => {
